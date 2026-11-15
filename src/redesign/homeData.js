@@ -2,7 +2,8 @@
 // (af_redesign). Reads ONLY existing data keys, never writes, never adds keys.
 // Each derivation mirrors the existing screen that owns that data so the
 // numbers match what the user sees elsewhere:
-//   exhale Today/Exhaled  — ExhaleSection DEFAULT_BUCKET_NAMES (0 Exhaled, 1 Today)
+//   exhale Today/Exhaled  — ExhaleSection DEFAULT_BUCKET_NAMES (0 Exhaled, 1 Today);
+//                           Today also lists items whose dueDate is today
 //   Safe Harbor %         — SafeHarbor.jsx pct (tier 1, persistent item.checked)
 //   next Horizon event    — HorizonTab nextTrip (days > 0) / nextCeleb (annual)
 //   kid quote             — RipplesRoom quoteRipples (category funny or "quoted")
@@ -51,6 +52,19 @@ export function exhaleItems(buckets, index) {
   var items = buckets && Array.isArray(buckets.items) ? buckets.items : [];
   // done = completed (same field the Exhale and Today screens write).
   return items.filter(function (it) { return it && !it.archived && !it.done && it.bucketIndex === index; });
+}
+
+// Home's Today list: open items in the Today bucket, plus open items in any
+// bucket whose dueDate is today (local). Each carries `due: true` when it is
+// there because of its due date.
+export function exhaleForToday(buckets, now) {
+  var items = buckets && Array.isArray(buckets.items) ? buckets.items : [];
+  var today = localDateStr(now);
+  return items.filter(function (it) {
+    return it && !it.archived && !it.done && (it.bucketIndex === TODAY_BUCKET || it.dueDate === today);
+  }).map(function (it) {
+    return it.bucketIndex === TODAY_BUCKET ? it : Object.assign({}, it, { due: true });
+  });
 }
 
 // Repeat-aware (weekly/biweekly/monthly/yearly/dates), same rules as the Calendar.
@@ -150,7 +164,7 @@ export function buildHomeModel(input) {
   var mealsOn = input.mealsEnabled !== false;
   var dinner = mealsOn ? dinnerText(input.meals, dayName) : "";
   var events = todayEvents(input.calEvents, now);
-  var exhaleToday = exhaleItems(input.exhaleBuckets, TODAY_BUCKET);
+  var exhaleToday = exhaleForToday(input.exhaleBuckets, now);
   return {
     greeting: greetingFor(now.getHours()),
     firstName: firstNameFrom(input.displayName),

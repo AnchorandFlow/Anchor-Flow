@@ -105,6 +105,22 @@ describe("homeData", function () {
     expect(m.flow.mealsPlanned).toBe(2);
   });
 
+  it("today: Exhale items due today show up from any bucket (open only), marked due", function () {
+    var m = buildHomeModel({
+      now: NOW,
+      exhaleBuckets: { items: [
+        { id: "t", text: "In Today", bucketIndex: 1 },
+        { id: "d", text: "Due today", bucketIndex: 4, dueDate: "2026-11-13" },
+        { id: "both", text: "Today and due", bucketIndex: 1, dueDate: "2026-11-13" },
+        { id: "later", text: "Due later", bucketIndex: 2, dueDate: "2026-11-14" },
+        { id: "doneDue", text: "Done", bucketIndex: 0, dueDate: "2026-11-13", done: true },
+        { id: "arch", text: "Archived", bucketIndex: 3, dueDate: "2026-11-13", archived: true },
+      ] },
+    });
+    expect(m.today.exhale.map(function (e) { return [e.id, !!e.due]; })).toEqual([["t", false], ["d", true], ["both", false]]);
+    expect(m.flow.exhaleTodayCount).toBe(3);
+  });
+
   it("meals disabled hides dinner and the weekly count", function () {
     var m = buildHomeModel({ now: NOW, meals: { Friday: { dinner: "Tacos" } }, mealsEnabled: false });
     expect(m.today.dinner).toBe("");
@@ -270,6 +286,25 @@ describe("RedesignHome screen", function () {
     expect(Object.keys(saved).sort()).toEqual(["bucketNames", "items"]);
     expect(JSON.parse(localStorage.getItem("af_dirtyKeys"))).toContain("exhale_buckets");
     expect(input.value).toBe("");
+  });
+
+  it("Today: due-today Exhale items appear on their day; assigned items show the person's color dot", async function () {
+    var people = [{ id: "L", name: "Lindsey" }, { id: "T", name: "Twyla" }];
+    localStorage.setItem("af_exhale_buckets", JSON.stringify({ bucketNames: ["Exhaled", "Today", "Tomorrow", "This Weekend", "Someday"], items: [
+      { id: "a", text: "Call vet", bucketIndex: 1, assignee: "T" },
+      { id: "b", text: "Renew tags", bucketIndex: 4, dueDate: "2026-11-13", assignee: "everyone" },
+      { id: "c", text: "Not yet", bucketIndex: 4, dueDate: "2026-11-14" },
+      { id: "d", text: "No one", bucketIndex: 1 },
+    ] }));
+    await render(h(RedesignHome, base({ people: people })));
+    var a = q('[data-testid="home-exhale-a"]'), b = q('[data-testid="home-exhale-b"]'), d = q('[data-testid="home-exhale-d"]');
+    expect(q('[data-testid="home-exhale-c"]')).toBe(null);
+    expect(b.textContent).toContain("Exhale · Due today");
+    expect(a.textContent).toContain("Exhale · Today");
+    expect(a.querySelector('[data-testid="who-dot"]').style.background).toBe("rgb(58, 170, 145)"); // Twyla teal
+    expect(a.querySelector('[data-testid="who-dot"]').getAttribute("aria-label")).toBe("For Twyla");
+    expect(b.querySelector('[data-testid="who-dot"]').getAttribute("aria-label")).toBe("For Everyone");
+    expect(d.querySelector('[data-testid="who-dot"]')).toBe(null);
   });
 
   it("no Driftwood dot (feature not built, no data key)", async function () {

@@ -18845,7 +18845,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   renderRedesign={function(){ return <RedesignHome
                     displayName={myDisplayName(people,myPersonId,preferredName,authUser)}
                     flowMode={flowMode} calEvents={calEvents} meals={meals} shoppingItems={shoppingItems}
-                    showEmojis={showEmojis} mealsEnabled={mealsEnabled} compassEnabled={compassEnabled}
+                    showEmojis={showEmojis} mealsEnabled={mealsEnabled} compassEnabled={compassEnabled} people={people}
                     /* Same cached call the current Home makes (AnchorTab briefing strip):
                        one Compass request per day per mode, shared cache. */
                     loadCompassLine={function(){ var st=readHouseholdState(); st.flowMode=flowMode; st.myPersonId=myPersonId; st.compassCache=compassCache; return getDailyBriefing(st, setCompassCache).then(function(d){ return d && d.notice ? d.notice : null; }); }}
@@ -18896,7 +18896,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {t==="people"   && <SectionErrorBoundary label="People"><PeopleTab/></SectionErrorBoundary>}
                 {t==="horizon"  && <SectionErrorBoundary label="Horizon"><HorizonTab/></SectionErrorBoundary>}
                 {t==="brain"    && <SectionErrorBoundary label="Exhale"><HomeSwitch redesignOn={REDESIGN}
-                renderRedesign={function(){ return <RedesignExhale myPersonId={myPersonId}/>; }}
+                renderRedesign={function(){ return <RedesignExhale myPersonId={myPersonId} people={people}/>; }}
                 renderLegacy={function(){ return <ExhaleSection
                 initialItems={exhaleItems.length > 0 ? exhaleItems : brainItems}
                 initialLabels={exhaleLabels}

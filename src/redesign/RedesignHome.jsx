@@ -9,6 +9,7 @@ import { useState, useEffect } from "react";
 import AnchorLogo from "../components/AnchorLogo.jsx";
 import { color, gradient, radius, shadow, font, shouldShowEmoji, tone, fullBleed } from "../design/tokens.js";
 import { buildHomeModel, daysLabel, EXHALED_BUCKET } from "./homeData.js";
+import { whoOf } from "./flowData.js";
 
 var IVORY = gradient.sunset.text;
 var NAVY = color.anchorNavy;
@@ -71,6 +72,7 @@ function Item(props) {
         <span style={{ fontSize: font.checklistItem.size, fontWeight: 600, lineHeight: 1.35 }}>{props.title}</span>
         {props.sub && <span style={{ fontSize: 12, color: MUTED, lineHeight: 1.4 }}>{props.sub}</span>}
       </span>
+      {props.who && <span data-testid="who-dot" title={props.who.label} aria-label={"For " + props.who.label} style={{ width: 10, height: 10, borderRadius: "50%", background: props.who.color, flexShrink: 0 }} />}
       {props.meta != null && <span style={{ fontSize: 12, color: MUTED, flexShrink: 0, whiteSpace: "nowrap" }}>{props.meta}</span>}
       {props.dot && <span aria-label="Unread" style={{ width: 8, height: 8, borderRadius: "50%", background: color.gold, flexShrink: 0 }} />}
     </button>
@@ -151,7 +153,7 @@ export default function RedesignHome(props) {
     if (!txt) return;
     var current = rd("exhale_buckets", DEFAULT_BUCKETS);
     var items = current && Array.isArray(current.items) ? current.items : [];
-    var item = { id: uid(), text: txt, notes: "", bucketIndex: EXHALED_BUCKET, createdAt: Date.now(), color: BUCKET_COLORS[0] };
+    var item = { id: uid(), text: txt, notes: "", dueDate: "", assignee: "", bucketIndex: EXHALED_BUCKET, createdAt: Date.now(), color: BUCKET_COLORS[0] };
     var next = Object.assign({}, current, { items: [item].concat(items) });
     writeKey("exhale_buckets", next);
     setStores(readStores());
@@ -193,7 +195,8 @@ export default function RedesignHome(props) {
             return <Item key={"ev" + (ev.id || i)} showEmojis={se} icon={ev.emoji || "📅"} title={ev.title || "Event"} meta={ev.time || null} onClick={function () { goTab("calendar"); }} />;
           })}
           {t.exhale.map(function (it) {
-            return <Item key={"ex" + it.id} showEmojis={se} icon="💭" title={it.text || "Untitled"} sub="Exhale · Today" onClick={function () { goTab("brain"); }} />;
+            return <Item key={"ex" + it.id} testId={"home-exhale-" + it.id} showEmojis={se} icon="💭" title={it.text || "Untitled"} sub={it.due ? "Exhale · Due today" : "Exhale · Today"}
+              who={whoOf(it.assignee, props.people)} onClick={function () { goTab("brain"); }} />;
           })}
           {t.dinner && <Item showEmojis={se} icon="🍽️" title={t.dinner} sub="Dinner" onClick={function () { goTab("meals"); }} />}
           {!todayCount && <Empty color={MUTED}>Nothing scheduled today. A quiet day is a good day.</Empty>}

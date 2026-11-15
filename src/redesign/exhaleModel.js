@@ -3,8 +3,10 @@
 //   { bucketNames: [5 names], items: [{ id, text, notes, bucketIndex,
 //     createdAt, color, done?, archived?, ... }] }
 // Fields used: bucketIndex (bucket), done (completion — the same field the
-// current Today screen writes via writeExhaleBucketItemDone), text. Nothing
-// new is added to items or to the key. Unknown item fields are preserved.
+// current Today screen writes via writeExhaleBucketItemDone), text, plus three
+// optional fields: notes (string), dueDate ("YYYY-MM-DD" local, or ""), and
+// assignee (a person id, "everyone", or ""). Old items without them read as
+// "" (see fields()). Unknown item fields are preserved.
 //
 // Why not exhale_cards: those rows (and exhale_move_card / exhale_update_card)
 // back the retired column board (af_exhale_groups); bucket items have never
@@ -17,6 +19,45 @@ export var DEFAULT_BUCKET_NAMES = ["Exhaled", "Today", "Tomorrow", "This Weekend
 export var BUCKET_COLORS = ["#4A9E8E", "#6ABAAA", "#7AB3D4", "#8BAF8B", "#A99AC4"]; // = ExhaleSection
 export var EXHALED = 0, TODAY = 1, TOMORROW = 2;
 export var SWIPE_PX = 72; // horizontal drag needed to count as a swipe
+export var EVERYONE = "everyone";
+var YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+function str(v) { return typeof v === "string" ? v : ""; }
+
+// The optional fields with their defaults, so items saved before they existed
+// (or by the old Exhale screen) still work.
+export function fields(it) {
+  var due = str(it && it.dueDate);
+  return { notes: str(it && it.notes), dueDate: YMD.test(due) ? due : "", assignee: str(it && it.assignee) };
+}
+
+export function ymd(d) {
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function addDays(d, n) { var x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() + n); return x; }
+
+// Due presets. Saturday = the coming Saturday (today, if today is Saturday).
+export function duePresets(now) {
+  return [
+    { id: "today", label: "Today", value: ymd(now) },
+    { id: "tomorrow", label: "Tomorrow", value: ymd(addDays(now, 1)) },
+    { id: "saturday", label: "Saturday", value: ymd(addDays(now, (6 - now.getDay() + 7) % 7)) },
+    { id: "none", label: "None", value: "" },
+  ];
+}
+
+// Short tag text for a due date: Today / Tomorrow / weekday this week / "Nov 20".
+export function dueLabel(due, now) {
+  if (!YMD.test(str(due))) return "";
+  var p = due.split("-");
+  var d = new Date(+p[0], +p[1] - 1, +p[2]);
+  var diff = Math.round((d - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Tomorrow";
+  if (diff > 1 && diff < 7) return d.toLocaleDateString("en-US", { weekday: "short" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+export function isOverdue(due, now) { return YMD.test(str(due)) && due < ymd(now); }
 
 export function normalize(b) {
   var names = b && Array.isArray(b.bucketNames) && b.bucketNames.length ? b.bucketNames : DEFAULT_BUCKET_NAMES.slice();
@@ -85,13 +126,29 @@ export function editText(b, id, text) {
   return patchItem(b, id, { text: t });
 }
 
+// Notes / due date / assignee. Only these three keys are accepted; bad values
+// fall back to "".
+export function setFields(b, id, patch) {
+  if (!findItem(b, id)) return normalize(b);
+  var p = {};
+  if (patch && "notes" in patch) p.notes = str(patch.notes);
+  if (patch && "dueDate" in patch) p.dueDate = YMD.test(str(patch.dueDate)) ? patch.dueDate : "";
+  if (patch && "assignee" in patch) p.assignee = str(patch.assignee);
+  return patchItem(b, id, p);
+}
+
+export function deleteItem(b, id) {
+  var nb = normalize(b);
+  return Object.assign({}, nb, { items: nb.items.filter(function (it) { return !(it && it.id === id); }) });
+}
+
 // Same item shape as ExhaleSection.addBucketItem, prepended.
 export function addItem(b, text, bucketIndex, makeId, now) {
   var t = String(text || "").trim();
   var nb = normalize(b);
   if (!t) return nb;
   var idx = bucketIndex == null ? EXHALED : bucketIndex;
-  var item = { id: makeId(), text: t, notes: "", bucketIndex: idx, createdAt: now(), color: BUCKET_COLORS[idx % BUCKET_COLORS.length] };
+  var item = { id: makeId(), text: t, notes: "", dueDate: "", assignee: "", bucketIndex: idx, createdAt: now(), color: BUCKET_COLORS[idx % BUCKET_COLORS.length] };
   return Object.assign({}, nb, { items: [item].concat(nb.items) });
 }
 

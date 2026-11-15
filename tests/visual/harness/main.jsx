@@ -9,7 +9,7 @@
 //             the <h2> whose text is exactly "Cleaning"; "#some-id" = the element
 //             with data-testid="some-id")
 //             anchor=1 (seed the Anchor full-view data)  emojis=1 (household
-//             showEmojis on)  plus=1 (cached Plus entitlement)  scope=root
+//             showEmojis on)  exhale=1 (seed Exhale bucket items)  plus=1 (cached Plus entitlement)  scope=root
 //             (snapshot the whole app, not just the tab panel)  shot=1 (no
 //             capture, for screenshots)
 /* eslint-disable react-refresh/only-export-components -- harness entry, not a component module */
@@ -54,6 +54,16 @@ Object.keys(data).forEach(function (k) {
   if (data[k] === null) return;
   localStorage.setItem("af_" + k, JSON.stringify(data[k]));
 });
+if (params.get("exhale") === "1") localStorage.setItem("af_exhale_buckets", JSON.stringify({ bucketNames: ["Exhaled", "Today", "Tomorrow", "This Weekend", "Someday"], items: [
+  { id: "x1", text: "Look into piano lessons for Ava", notes: "", bucketIndex: 0, createdAt: FIXED_NOW, color: "#4A9E8E" },
+  { id: "x2", text: "Call the vet about Biscuit's rash", notes: "Ask if they have Saturday hours", dueDate: "2026-11-13", assignee: data.people && data.people[0] ? data.people[0].id : "", bucketIndex: 1, createdAt: FIXED_NOW, color: "#6ABAAA" },
+  { id: "x3", text: "Sign the field trip permission slip", notes: "", dueDate: "2026-11-12", assignee: "everyone", bucketIndex: 1, createdAt: FIXED_NOW, color: "#6ABAAA" },
+  { id: "x4", text: "Return library books", notes: "", bucketIndex: 1, createdAt: FIXED_NOW, color: "#6ABAAA", done: true },
+  { id: "x5", text: "Order the birthday cake", notes: "", dueDate: "2026-11-14", bucketIndex: 2, createdAt: FIXED_NOW, color: "#7AB3D4" },
+  { id: "x6", text: "Clean out the garage", notes: "", assignee: data.people && data.people[1] ? data.people[1].id : "", bucketIndex: 3, createdAt: FIXED_NOW, color: "#8BAF8B" },
+  { id: "x7", text: "Plan a spring trip to the coast", notes: "", bucketIndex: 4, createdAt: FIXED_NOW, color: "#A99AC4" },
+  { id: "x8", text: "Repaint the back fence", notes: "", bucketIndex: 4, createdAt: FIXED_NOW, color: "#A99AC4" },
+] }));
 if (params.get("plus") === "1") localStorage.setItem("af_entitlement", JSON.stringify({ entitled: true, plan: "plus", status: "active" }));
 // Raw (non-JSON) strings, the way the app itself stores these.
 localStorage.setItem("af_choreResetDate", "2026-11-13");

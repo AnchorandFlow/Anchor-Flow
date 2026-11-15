@@ -49,7 +49,9 @@ async function swipe(rowEl, dx, dy) {
     surface.dispatchEvent(new MouseEvent("pointerup", { bubbles: true, clientX: 100 + dx, clientY: 100 + (dy || 0) }));
   });
 }
-function bucketOpen(i) { return q('[data-testid="bucket-' + i + '"] > button').getAttribute("aria-expanded") === "true"; }
+async function fire(el, type) { await act(async function () { el.dispatchEvent(new Event(type, { bubbles: true, cancelable: true })); }); }
+var SAT = function () { return new Date(2026, 10, 14, 9); }; // Sat Nov 14 2026
+var PEOPLE = [{ id: "L", name: "Lindsey Border" }, { id: "T", name: "Twyla" }, { id: "k1", name: "Ava", role: "Kid" }];
 function rowsIn(i) { return qa('[data-testid="bucket-' + i + '"] [data-done]').map(function (r) { return r.getAttribute("data-testid").slice(5); }); }
 
 // ── Flag OFF ────────────────────────────────────────────────────────────────
@@ -112,8 +114,32 @@ describe("exhaleModel", function () {
   });
   it("add uses ExhaleSection's item shape, prepended to Exhaled", function () {
     var n = M.addItem(base, " Hi ", 0, function () { return "new1"; }, function () { return 123; });
-    expect(n.items[0]).toEqual({ id: "new1", text: "Hi", notes: "", bucketIndex: 0, createdAt: 123, color: "#4A9E8E" });
+    expect(n.items[0]).toEqual({ id: "new1", text: "Hi", notes: "", dueDate: "", assignee: "", bucketIndex: 0, createdAt: 123, color: "#4A9E8E" });
     expect(Object.keys(n).sort()).toEqual(["bucketNames", "items"]);
+  });
+  it("old items read the new fields as empty; bad values fall back to empty", function () {
+    expect(M.fields({ id: "old", text: "x" })).toEqual({ notes: "", dueDate: "", assignee: "" });
+    expect(M.fields({ notes: null, dueDate: "soon", assignee: 7 })).toEqual({ notes: "", dueDate: "", assignee: "" });
+    expect(M.fields({ notes: "n", dueDate: "2026-11-20", assignee: "L" })).toEqual({ notes: "n", dueDate: "2026-11-20", assignee: "L" });
+  });
+  it("setFields writes only notes/dueDate/assignee and keeps everything else", function () {
+    var n = M.setFields(base, "a", { notes: "call first", dueDate: "2026-11-20", assignee: "everyone", bucketIndex: 4, text: "hack" });
+    expect(n.items[0]).toEqual(Object.assign({}, base.items[0], { notes: "call first", dueDate: "2026-11-20", assignee: "everyone" }));
+    expect(M.setFields(base, "a", { dueDate: "tomorrow" }).items[0].dueDate).toBe("");
+    expect(M.setFields(base, "missing", { notes: "x" }).items).toEqual(base.items);
+  });
+  it("deleteItem removes only that item", function () {
+    expect(M.deleteItem(base, "c").items.map(function (i) { return i.id; })).toEqual(["a", "b", "z", "p"]);
+  });
+  it("due presets and labels (Saturday = the coming Saturday, today if Saturday)", function () {
+    var fri = new Date(2026, 10, 13, 9);
+    expect(M.duePresets(fri).map(function (p) { return p.value; })).toEqual(["2026-11-13", "2026-11-14", "2026-11-14", ""]);
+    expect(M.duePresets(SAT())[2].value).toBe("2026-11-14");
+    expect(M.duePresets(new Date(2026, 10, 15, 9))[2].value).toBe("2026-11-21");
+    expect([M.dueLabel("2026-11-13", fri), M.dueLabel("2026-11-14", fri), M.dueLabel("2026-11-16", fri), M.dueLabel("2026-12-25", fri), M.dueLabel("", fri)])
+      .toEqual(["Today", "Tomorrow", "Mon", "Dec 25", ""]);
+    expect(M.isOverdue("2026-11-12", fri)).toBe(true);
+    expect(M.isOverdue("2026-11-13", fri)).toBe(false);
   });
   it("commit reads the latest stored value (keeps another writer's change)", function () {
     seed([{ id: "a", text: "A", bucketIndex: 1 }]);
@@ -134,16 +160,31 @@ describe("RedesignExhale actions", function () {
     ]);
   });
 
-  it("five buckets with open counts; Today open by default; one open at a time", async function () {
+  it("all five buckets visible at once, each with its items and open count", async function () {
     await render(h(RedesignExhale, {}));
-    expect(qa('[data-testid^="bucket-"]').map(function (b) { return q("button span", b).textContent; })).toEqual(M.DEFAULT_BUCKET_NAMES);
+    expect(qa('section[data-testid^="bucket-"]').map(function (b) { return q("h2", b).textContent; })).toEqual(M.DEFAULT_BUCKET_NAMES);
     expect(qa('[data-testid="open-count"]').map(function (c) { return c.textContent; })).toEqual(["0", "2", "0", "0", "1"]);
-    expect([0, 1, 2, 3, 4].map(bucketOpen)).toEqual([false, true, false, false, false]);
-    await click(q('[data-testid="bucket-4"] > button'));
-    expect([0, 1, 2, 3, 4].map(bucketOpen)).toEqual([false, false, false, false, true]);
+    expect(rowsIn(1)).toEqual(["t1", "t2"]);
     expect(rowsIn(4)).toEqual(["s1"]);
-    await click(q('[data-testid="bucket-4"] > button'));
-    expect([0, 1, 2, 3, 4].map(bucketOpen)).toEqual([false, false, false, false, false]);
+    expect(q('[data-testid="bucket-1"] > button')).toBe(null); // no accordion headers
+  });
+
+  it("bucket tones: Exhaled sand, Today sage, Tomorrow blue, This Weekend teal, Someday mist (tint + colored top edge)", async function () {
+    await render(h(RedesignExhale, {}));
+    var tones = [tone.sand, tone.sage, tone.blue, tone.teal, tone.mist];
+    tones.forEach(function (t, i) {
+      var sec = q('[data-testid="bucket-' + i + '"]');
+      expect(sec.style.background).toBe(hexRgb(t.tint));
+      expect(sec.style.borderTop).toContain(hexRgb(t.full));
+    });
+  });
+
+  it("five columns on desktop, stacked on phone (layout CSS)", async function () {
+    await render(h(RedesignExhale, {}));
+    var css = q("style").textContent;
+    expect(css).toMatch(/\.rx-board\{display:flex;flex-direction:column/);
+    expect(css).toMatch(/@media \(min-width:900px\)\{.*\.rx-board\{display:grid;grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
+    expect(q('[data-testid="exhale-board"]').className).toBe("rx-board");
   });
 
   it("rows are 14px DM Sans", async function () {
@@ -151,6 +192,16 @@ describe("RedesignExhale actions", function () {
     var t = q('[data-testid="item-text"]');
     expect(t.style.fontSize).toBe("14px");
     expect(t.style.fontFamily).toMatch(/DM Sans/);
+  });
+
+  it("quick-add is the big bar at the top and adds new items with empty optional fields", async function () {
+    await render(h(RedesignExhale, {}));
+    var form = q('[data-testid="exhale-quickadd"]');
+    expect(form.compareDocumentPosition(q('[data-testid="exhale-board"]')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(q("input", form).style.fontSize).toBe("19px");
+    await typeInto(q("input", form), "Renew tags");
+    await submit(form);
+    expect(stored().items[0]).toMatchObject({ text: "Renew tags", bucketIndex: 0, notes: "", dueDate: "", assignee: "" });
   });
 
   it("quick-add drops the thought into Exhaled and syncs via the existing key", async function () {
@@ -180,19 +231,111 @@ describe("RedesignExhale actions", function () {
     expect(rowsIn(1)).toEqual(["t1", "t2"]);
   });
 
-  it("tap the text to edit; Enter saves", async function () {
-    await render(h(RedesignExhale, {}));
+  it("tap the text: expands in place with text, Notes, Due, Who, Bucket, Delete, Done; Enter saves the text; Close collapses", async function () {
+    await render(h(RedesignExhale, { people: PEOPLE, now: SAT }));
     await click(q('[data-testid="item-t1"] [data-testid="item-text"]'));
+    var row = q('[data-testid="item-t1"]');
+    expect(row.getAttribute("data-expanded")).toBe("true");
+    var d = q('[data-testid="item-details"]', row);
+    ["Notes", "Due", "Who", "Bucket"].forEach(function (l) { expect(d.textContent).toContain(l); });
+    expect(qa('[data-testid="due-chips"] button', d).map(function (b) { return b.textContent; })).toEqual(["Today", "Tomorrow", "Saturday", "None"]);
+    expect(q('input[type="date"]', d)).not.toBe(null);
+    expect(qa('[data-testid="who-chips"] button', d).map(function (b) { return b.textContent; })).toEqual(["Lindsey", "Twyla", "Ava", "Everyone"]);
+    expect(qa('[data-testid="bucket-chips"] button', d).map(function (b) { return b.textContent; })).toEqual(M.DEFAULT_BUCKET_NAMES);
+    expect(q('[data-testid="delete-btn"]', d).textContent).toBe("Delete");
+    expect(q('[data-testid="done-btn"]', d).textContent).toBe("Done");
     var input = q('[data-testid="edit-input"]');
     expect(input.value).toBe("Call the vet");
     await typeInto(input, "Call the vet at 9");
     await key(input, "Enter");
     await blur(input);
     expect(item("t1").text).toBe("Call the vet at 9");
-    expect(q('[data-testid="edit-input"]')).toBe(null);
+    await click(q('[data-testid="collapse-btn"]'));
+    expect(q('[data-testid="item-details"]')).toBe(null);
+    expect(q('[data-testid="item-t1"]').getAttribute("data-expanded")).toBe("false");
   });
 
-  it("tap away saves; Escape cancels; blank text is not saved", async function () {
+  it("only one item expanded at a time", async function () {
+    await render(h(RedesignExhale, {}));
+    await click(q('[data-testid="item-t1"] [data-testid="item-text"]'));
+    await click(q('[data-testid="item-s1"] [data-testid="item-text"]'));
+    expect(qa('[data-expanded="true"]').map(function (r) { return r.getAttribute("data-testid"); })).toEqual(["item-s1"]);
+  });
+
+  it("Notes save on blur and show a Notes tag when collapsed", async function () {
+    await render(h(RedesignExhale, {}));
+    await click(q('[data-testid="item-t1"] [data-testid="item-text"]'));
+    var ta = q('[data-testid="notes-input"]');
+    await act(async function () {
+      Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set.call(ta, "Ask about the rash");
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await blur(ta);
+    expect(item("t1").notes).toBe("Ask about the rash");
+    await click(q('[data-testid="collapse-btn"]'));
+    expect(q('[data-testid="item-t1"] [data-testid="tag-notes"]').textContent).toBe("Notes");
+  });
+
+  it("Due: Today / Tomorrow / Saturday / None presets and the date picker", async function () {
+    await render(h(RedesignExhale, { now: SAT }));
+    await click(q('[data-testid="item-t1"] [data-testid="item-text"]'));
+    await click(q('[data-testid="due-tomorrow"]'));
+    expect(item("t1").dueDate).toBe("2026-11-15");
+    expect(q('[data-testid="due-tomorrow"]').getAttribute("aria-pressed")).toBe("true");
+    await click(q('[data-testid="due-today"]'));
+    expect(item("t1").dueDate).toBe("2026-11-14");
+    await click(q('[data-testid="due-none"]'));
+    expect(item("t1").dueDate).toBe("");
+    var picker = q('[data-testid="due-date"]');
+    await typeInto(picker, "2026-12-25");
+    expect(item("t1").dueDate).toBe("2026-12-25");
+    await click(q('[data-testid="collapse-btn"]'));
+    expect(q('[data-testid="item-t1"] [data-testid="tag-due"]').textContent).toBe("Due Dec 25");
+  });
+
+  it("Who: each household member plus Everyone, in person colors; tap again clears", async function () {
+    await render(h(RedesignExhale, { people: PEOPLE, now: SAT }));
+    await click(q('[data-testid="item-t1"] [data-testid="item-text"]'));
+    expect(q('[data-testid="who-T"]').style.border).toContain(hexRgb("#3AAA91"));
+    expect(q('[data-testid="who-k1"]').style.border).toContain(hexRgb("#7A9E8E"));
+    await click(q('[data-testid="who-T"]'));
+    expect(item("t1").assignee).toBe("T");
+    expect(q('[data-testid="who-T"]').style.background).toBe(hexRgb("#3AAA91"));
+    await click(q('[data-testid="who-everyone"]'));
+    expect(item("t1").assignee).toBe("everyone");
+    await click(q('[data-testid="who-everyone"]'));
+    expect(item("t1").assignee).toBe("");
+    await click(q('[data-testid="who-T"]'));
+    await click(q('[data-testid="collapse-btn"]'));
+    var tag = q('[data-testid="item-t1"] [data-testid="tag-who"]');
+    expect(tag.textContent).toBe("Twyla");
+    expect(q("span", tag).style.background).toBe(hexRgb("#3AAA91"));
+  });
+
+  it("Bucket chips move the item; Done completes and collapses; Delete needs a second tap", async function () {
+    await render(h(RedesignExhale, {}));
+    await click(q('[data-testid="item-t1"] [data-testid="item-text"]'));
+    await click(q('[data-testid="chip-3"]'));
+    expect(item("t1").bucketIndex).toBe(3);
+    expect(rowsIn(3)).toEqual(["t1"]);
+    await click(q('[data-testid="done-btn"]'));
+    expect(item("t1").done).toBe(true);
+    expect(q('[data-testid="item-details"]')).toBe(null);
+    await click(q('[data-testid="item-t2"] [data-testid="item-text"]'));
+    await click(q('[data-testid="delete-btn"]'));
+    expect(item("t2")).toBeTruthy();
+    expect(q('[data-testid="delete-btn"]').textContent).toBe("Tap again to delete");
+    await click(q('[data-testid="delete-btn"]'));
+    expect(item("t2")).toBeUndefined();
+    expect(rowsIn(1)).toEqual([]);
+  });
+
+  it("old items with none of the new fields render with no tags", async function () {
+    await render(h(RedesignExhale, { people: PEOPLE, now: SAT }));
+    expect(q('[data-testid="item-tags"]')).toBe(null);
+  });
+
+  it("text: tap away saves; Escape cancels; blank text is not saved", async function () {
     await render(h(RedesignExhale, {}));
     await click(q('[data-testid="item-t1"] [data-testid="item-text"]'));
     await typeInto(q('[data-testid="edit-input"]'), "Saved on blur");
@@ -205,23 +348,55 @@ describe("RedesignExhale actions", function () {
     await blur(q('[data-testid="edit-input"]'));
     expect(item("t2").text).toBe("Sign permission slip");
 
-    await click(q('[data-testid="item-t2"] [data-testid="item-text"]'));
     await typeInto(q('[data-testid="edit-input"]'), "   ");
     await blur(q('[data-testid="edit-input"]'));
     expect(item("t2").text).toBe("Sign permission slip");
   });
 
-  it("move button shows bucket chips (not the current one); one tap moves", async function () {
+  it("phone move: tap the handle, then Drop here on another bucket", async function () {
     await render(h(RedesignExhale, {}));
-    expect(q('[data-testid="move-chips"]')).toBe(null);
+    expect(qa('[data-testid^="drop-"]')).toEqual([]);
     await click(q('[data-testid="item-t1"] [data-testid="move-btn"]'));
-    var chips = qa('[data-testid="move-chips"] button').map(function (b) { return b.textContent; });
-    expect(chips).toEqual(["Exhaled", "Tomorrow", "This Weekend", "Someday"]);
-    await click(q('[data-testid="chip-3"]'));
+    expect(q('[data-testid="move-banner"]').textContent).toContain("Call the vet");
+    expect(qa('[data-testid^="drop-"]').map(function (b) { return b.getAttribute("data-testid"); })).toEqual(["drop-0", "drop-2", "drop-3", "drop-4"]);
+    await click(q('[data-testid="drop-3"]'));
     expect(item("t1").bucketIndex).toBe(3);
     expect(rowsIn(1)).toEqual(["t2"]);
-    expect(q('[data-testid="move-chips"]')).toBe(null);
+    expect(rowsIn(3)).toEqual(["t1"]);
+    expect(qa('[data-testid^="drop-"]')).toEqual([]);
     expect(qa('[data-testid="open-count"]')[3].textContent).toBe("1");
+  });
+
+  it("phone move: tapping the handle again (or Cancel) stops the move", async function () {
+    await render(h(RedesignExhale, {}));
+    await click(q('[data-testid="item-t1"] [data-testid="move-btn"]'));
+    await click(q('[data-testid="item-t1"] [data-testid="move-btn"]'));
+    expect(qa('[data-testid^="drop-"]')).toEqual([]);
+    await click(q('[data-testid="item-t1"] [data-testid="move-btn"]'));
+    await click(qa('[data-testid="move-banner"] button')[0]);
+    expect(q('[data-testid="move-banner"]')).toBe(null);
+    expect(item("t1").bucketIndex).toBe(1);
+  });
+
+  it("desktop drag and drop between buckets", async function () {
+    await render(h(RedesignExhale, {}));
+    var row = q('[data-testid="item-t2"]');
+    expect(row.getAttribute("draggable")).toBe("true");
+    await fire(row, "dragstart");
+    var target = q('[data-testid="bucket-4"]');
+    await fire(target, "dragover");
+    expect(target.textContent).toContain("Drop here");
+    await fire(target, "drop");
+    expect(item("t2").bucketIndex).toBe(4);
+    expect(rowsIn(4)).toEqual(["t2", "s1"]);
+    expect(q('[data-testid="bucket-4"]').textContent).not.toContain("Drop here");
+  });
+
+  it("dropping on its own bucket does nothing", async function () {
+    await render(h(RedesignExhale, {}));
+    await fire(q('[data-testid="item-t2"]'), "dragstart");
+    await fire(q('[data-testid="bucket-1"]'), "drop");
+    expect(stored().items.map(function (i) { return [i.id, i.bucketIndex]; })).toEqual([["t1", 1], ["t2", 1], ["s1", 4]]);
   });
 
   it("swipe right completes", async function () {
@@ -256,8 +431,8 @@ describe("RedesignExhale actions", function () {
 
   it("calm empty state in an empty bucket", async function () {
     await render(h(RedesignExhale, {}));
-    await click(q('[data-testid="bucket-2"] > button'));
     expect(q('[data-testid="bucket-2"]').textContent).toContain("Clear. Nothing waiting in Tomorrow.");
+    expect(q('[data-testid="bucket-0"]').textContent).toContain("Nothing here yet. Exhale a thought above.");
   });
 });
 

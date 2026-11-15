@@ -101,7 +101,7 @@ const PLAUSIBLE = {
   exhale_categories:  [{ id:"cat1", label:"Errands", color:"#d98a6e" }],
   // exhale_buckets: Exhale Phase 1 bucket-card redesign — object with its
   // own array fields, same shape class as gifts/work_schedules/safe_harbor.
-  exhale_buckets:     { bucketNames:["Here","Today","Tomorrow","Someday"], items:[{ id:"eb1", text:"Call the vet", notes:"", bucketIndex:0, createdAt:1753900800000, color:"#C47A7A" }] },
+  exhale_buckets:     { bucketNames:["Here","Today","Tomorrow","Someday"], items:[{ id:"eb1", text:"Call the vet", notes:"Ask about the rash", dueDate:"2026-11-14", assignee:"p_lin", bucketIndex:0, createdAt:1753900800000, color:"#C47A7A" }, { id:"eb2", text:"Old item, no new fields", notes:"", bucketIndex:1, createdAt:1753900800000, color:"#6ABAAA" }] },
   // exhale_waves: Exhale Phase 2 — daily/weekly/seasonal/custom wave cards,
   // same object-with-array-fields shape class as exhale_buckets.
   exhale_waves:       { daily:[{ id:"ew1", name:"Morning basics", tasks:[{ id:"ewt1", text:"Check school folders", estimatedMinutes:null, done:false }] }], weekly:[{ id:"ew2", name:"Trash day", dayOfWeek:2, tasks:[] }], seasonal:[{ id:"ew3", name:"Gutter cleaning", month:10, tasks:[] }], custom:[] },
@@ -557,5 +557,24 @@ describe("A11 — moments (array shape, not an object map)", () => {
 
   it("moments is in SYNC_KEYS", () => {
     expect(SYNC_KEYS).toContain("moments");
+  });
+});
+
+describe("A12 — exhale_buckets keeps notes, dueDate and assignee", () => {
+  it("the fixture's new fields survive sanitize unchanged; old items stay as they were", () => {
+    const out = sanitizeHouseholdData({ exhale_buckets: PLAUSIBLE.exhale_buckets });
+    expect(out.exhale_buckets).toEqual(PLAUSIBLE.exhale_buckets);
+    expect(out.exhale_buckets.items[0]).toMatchObject({ notes:"Ask about the rash", dueDate:"2026-11-14", assignee:"p_lin" });
+    expect("dueDate" in out.exhale_buckets.items[1]).toBe(false);
+    expect("assignee" in out.exhale_buckets.items[1]).toBe(false);
+  });
+
+  it("bad values become empty strings; other fields untouched", () => {
+    const out = sanitizeHouseholdData({ exhale_buckets: { bucketNames:[], items:[
+      { id:"x", text:"X", notes:null, dueDate:"next tuesday", assignee:42, personId:"p1" },
+      { id:"y", text:"Y", dueDate:null },
+    ] } });
+    expect(out.exhale_buckets.items[0]).toEqual({ id:"x", text:"X", notes:"", dueDate:"", assignee:"", personId:"p1" });
+    expect(out.exhale_buckets.items[1]).toEqual({ id:"y", text:"Y", dueDate:"" });
   });
 });
