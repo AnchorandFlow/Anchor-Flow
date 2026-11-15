@@ -468,12 +468,12 @@ export function sanitizeHouseholdData(data) {
       out.work_schedules = safeSchedules;
     }
     // exhale_buckets: { bucketNames:[string,...], items:[{id,text,notes,
-    // bucketIndex,createdAt,color, dueDate?, assignee?}] } (Exhale Phase 1;
-    // dueDate "YYYY-MM-DD" and assignee person-id/"everyone" added by the
-    // redesigned Exhale). Validated per-field rather than trusted wholesale,
-    // same reasoning as work_schedules above. Every item field is kept;
-    // notes/dueDate/assignee, when present, are coerced to strings ("" if
-    // not a string, dueDate "" if not YYYY-MM-DD) — absent ones stay absent.
+    // bucketIndex,createdAt,color, personId?, dueDate?}] } (Exhale Phase 1;
+    // personId is a person id, "everyone" or null; dueDate "YYYY-MM-DD" added
+    // by the redesigned Exhale). Validated per-field rather than trusted
+    // wholesale, same reasoning as work_schedules above. Every item field is
+    // kept; notes/dueDate, when present, are coerced to strings ("" if not a
+    // string, dueDate "" if not YYYY-MM-DD) — absent ones stay absent.
     if (data["exhale_buckets"] !== undefined && data["exhale_buckets"] !== null &&
         typeof data["exhale_buckets"] === "object" && !Array.isArray(data["exhale_buckets"])) {
       var eb = data["exhale_buckets"];
@@ -483,7 +483,6 @@ export function sanitizeHouseholdData(data) {
           var fix = {};
           if ("notes" in it && typeof it.notes !== "string") fix.notes = "";
           if ("dueDate" in it && !(typeof it.dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(it.dueDate))) fix.dueDate = "";
-          if ("assignee" in it && typeof it.assignee !== "string") fix.assignee = "";
           return Object.keys(fix).length ? Object.assign({}, it, fix) : it;
         }) : [],
       };

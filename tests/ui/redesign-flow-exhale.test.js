@@ -114,17 +114,27 @@ describe("exhaleModel", function () {
   });
   it("add uses ExhaleSection's item shape, prepended to Exhaled", function () {
     var n = M.addItem(base, " Hi ", 0, function () { return "new1"; }, function () { return 123; });
-    expect(n.items[0]).toEqual({ id: "new1", text: "Hi", notes: "", dueDate: "", assignee: "", bucketIndex: 0, createdAt: 123, color: "#4A9E8E" });
+    expect(n.items[0]).toEqual({ id: "new1", text: "Hi", notes: "", dueDate: "", personId: null, bucketIndex: 0, createdAt: 123, color: "#4A9E8E" });
     expect(Object.keys(n).sort()).toEqual(["bucketNames", "items"]);
   });
   it("old items read the new fields as empty; bad values fall back to empty", function () {
-    expect(M.fields({ id: "old", text: "x" })).toEqual({ notes: "", dueDate: "", assignee: "" });
-    expect(M.fields({ notes: null, dueDate: "soon", assignee: 7 })).toEqual({ notes: "", dueDate: "", assignee: "" });
-    expect(M.fields({ notes: "n", dueDate: "2026-11-20", assignee: "L" })).toEqual({ notes: "n", dueDate: "2026-11-20", assignee: "L" });
+    expect(M.fields({ id: "old", text: "x" })).toEqual({ notes: "", dueDate: "", personId: "" });
+    expect(M.fields({ notes: null, dueDate: "soon", personId: 7 })).toEqual({ notes: "", dueDate: "", personId: "" });
+    expect(M.fields({ notes: "n", dueDate: "2026-11-20", personId: "L" })).toEqual({ notes: "n", dueDate: "2026-11-20", personId: "L" });
+    expect(M.fields({ personId: null })).toEqual({ notes: "", dueDate: "", personId: "" }); // old picker's "no one"
+    expect(M.fields({ assignee: "T" }).personId).toBe("T"); // earlier redesign build
+    expect(M.fields({ personId: "L", assignee: "T" }).personId).toBe("L");
   });
-  it("setFields writes only notes/dueDate/assignee and keeps everything else", function () {
-    var n = M.setFields(base, "a", { notes: "call first", dueDate: "2026-11-20", assignee: "everyone", bucketIndex: 4, text: "hack" });
-    expect(n.items[0]).toEqual(Object.assign({}, base.items[0], { notes: "call first", dueDate: "2026-11-20", assignee: "everyone" }));
+  it("setFields writes only notes/dueDate/personId and keeps everything else", function () {
+    var n = M.setFields(base, "a", { notes: "call first", dueDate: "2026-11-20", personId: "everyone", bucketIndex: 4, text: "hack" });
+    expect(n.items[0]).toEqual(Object.assign({}, base.items[0], { notes: "call first", dueDate: "2026-11-20", personId: "everyone" }));
+  });
+  it("setFields moves a legacy assignee into personId and clears to null", function () {
+    var b = { bucketNames: base.bucketNames, items: [{ id: "a", text: "x", bucketIndex: 1, assignee: "T" }] };
+    var n = M.setFields(b, "a", { personId: "L" });
+    expect(n.items[0].personId).toBe("L");
+    expect("assignee" in n.items[0]).toBe(false);
+    expect(M.setFields(n, "a", { personId: "" }).items[0].personId).toBe(null);
     expect(M.setFields(base, "a", { dueDate: "tomorrow" }).items[0].dueDate).toBe("");
     expect(M.setFields(base, "missing", { notes: "x" }).items).toEqual(base.items);
   });
@@ -201,7 +211,7 @@ describe("RedesignExhale actions", function () {
     expect(q("input", form).style.fontSize).toBe("19px");
     await typeInto(q("input", form), "Renew tags");
     await submit(form);
-    expect(stored().items[0]).toMatchObject({ text: "Renew tags", bucketIndex: 0, notes: "", dueDate: "", assignee: "" });
+    expect(stored().items[0]).toMatchObject({ text: "Renew tags", bucketIndex: 0, notes: "", dueDate: "", personId: null });
   });
 
   it("quick-add drops the thought into Exhaled and syncs via the existing key", async function () {
@@ -299,12 +309,12 @@ describe("RedesignExhale actions", function () {
     expect(q('[data-testid="who-T"]').style.border).toContain(hexRgb("#3AAA91"));
     expect(q('[data-testid="who-k1"]').style.border).toContain(hexRgb("#7A9E8E"));
     await click(q('[data-testid="who-T"]'));
-    expect(item("t1").assignee).toBe("T");
+    expect(item("t1").personId).toBe("T");
     expect(q('[data-testid="who-T"]').style.background).toBe(hexRgb("#3AAA91"));
     await click(q('[data-testid="who-everyone"]'));
-    expect(item("t1").assignee).toBe("everyone");
+    expect(item("t1").personId).toBe("everyone");
     await click(q('[data-testid="who-everyone"]'));
-    expect(item("t1").assignee).toBe("");
+    expect(item("t1").personId).toBe(null);
     await click(q('[data-testid="who-T"]'));
     await click(q('[data-testid="collapse-btn"]'));
     var tag = q('[data-testid="item-t1"] [data-testid="tag-who"]');

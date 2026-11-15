@@ -56,11 +56,11 @@ Object.keys(data).forEach(function (k) {
 });
 if (params.get("exhale") === "1") localStorage.setItem("af_exhale_buckets", JSON.stringify({ bucketNames: ["Exhaled", "Today", "Tomorrow", "This Weekend", "Someday"], items: [
   { id: "x1", text: "Look into piano lessons for Ava", notes: "", bucketIndex: 0, createdAt: FIXED_NOW, color: "#4A9E8E" },
-  { id: "x2", text: "Call the vet about Biscuit's rash", notes: "Ask if they have Saturday hours", dueDate: "2026-11-13", assignee: data.people && data.people[0] ? data.people[0].id : "", bucketIndex: 1, createdAt: FIXED_NOW, color: "#6ABAAA" },
-  { id: "x3", text: "Sign the field trip permission slip", notes: "", dueDate: "2026-11-12", assignee: "everyone", bucketIndex: 1, createdAt: FIXED_NOW, color: "#6ABAAA" },
+  { id: "x2", text: "Call the vet about Biscuit's rash", notes: "Ask if they have Saturday hours", dueDate: "2026-11-13", personId: data.people && data.people[0] ? data.people[0].id : "", bucketIndex: 1, createdAt: FIXED_NOW, color: "#6ABAAA" },
+  { id: "x3", text: "Sign the field trip permission slip", notes: "", dueDate: "2026-11-12", personId: "everyone", bucketIndex: 1, createdAt: FIXED_NOW, color: "#6ABAAA" },
   { id: "x4", text: "Return library books", notes: "", bucketIndex: 1, createdAt: FIXED_NOW, color: "#6ABAAA", done: true },
   { id: "x5", text: "Order the birthday cake", notes: "", dueDate: "2026-11-14", bucketIndex: 2, createdAt: FIXED_NOW, color: "#7AB3D4" },
-  { id: "x6", text: "Clean out the garage", notes: "", assignee: data.people && data.people[1] ? data.people[1].id : "", bucketIndex: 3, createdAt: FIXED_NOW, color: "#8BAF8B" },
+  { id: "x6", text: "Clean out the garage", notes: "", personId: data.people && data.people[1] ? data.people[1].id : "", bucketIndex: 3, createdAt: FIXED_NOW, color: "#8BAF8B" },
   { id: "x7", text: "Plan a spring trip to the coast", notes: "", bucketIndex: 4, createdAt: FIXED_NOW, color: "#A99AC4" },
   { id: "x8", text: "Repaint the back fence", notes: "", bucketIndex: 4, createdAt: FIXED_NOW, color: "#A99AC4" },
 ] }));

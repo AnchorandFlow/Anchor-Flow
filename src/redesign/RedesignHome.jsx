@@ -10,6 +10,7 @@ import AnchorLogo from "../components/AnchorLogo.jsx";
 import { color, gradient, radius, shadow, font, shouldShowEmoji, tone, fullBleed } from "../design/tokens.js";
 import { buildHomeModel, daysLabel, EXHALED_BUCKET } from "./homeData.js";
 import { whoOf } from "./flowData.js";
+import { personIdOf } from "./exhaleModel.js";
 
 var IVORY = gradient.sunset.text;
 var NAVY = color.anchorNavy;
@@ -153,7 +154,7 @@ export default function RedesignHome(props) {
     if (!txt) return;
     var current = rd("exhale_buckets", DEFAULT_BUCKETS);
     var items = current && Array.isArray(current.items) ? current.items : [];
-    var item = { id: uid(), text: txt, notes: "", dueDate: "", assignee: "", bucketIndex: EXHALED_BUCKET, createdAt: Date.now(), color: BUCKET_COLORS[0] };
+    var item = { id: uid(), text: txt, notes: "", dueDate: "", personId: null, bucketIndex: EXHALED_BUCKET, createdAt: Date.now(), color: BUCKET_COLORS[0] };
     var next = Object.assign({}, current, { items: [item].concat(items) });
     writeKey("exhale_buckets", next);
     setStores(readStores());
@@ -196,7 +197,7 @@ export default function RedesignHome(props) {
           })}
           {t.exhale.map(function (it) {
             return <Item key={"ex" + it.id} testId={"home-exhale-" + it.id} showEmojis={se} icon="💭" title={it.text || "Untitled"} sub={it.due ? "Exhale · Due today" : "Exhale · Today"}
-              who={whoOf(it.assignee, props.people)} onClick={function () { goTab("brain"); }} />;
+              who={whoOf(personIdOf(it), props.people)} onClick={function () { goTab("brain"); }} />;
           })}
           {t.dinner && <Item showEmojis={se} icon="🍽️" title={t.dinner} sub="Dinner" onClick={function () { goTab("meals"); }} />}
           {!todayCount && <Empty color={MUTED}>Nothing scheduled today. A quiet day is a good day.</Empty>}

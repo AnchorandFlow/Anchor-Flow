@@ -4,9 +4,16 @@
 //     createdAt, color, done?, archived?, ... }] }
 // Fields used: bucketIndex (bucket), done (completion — the same field the
 // current Today screen writes via writeExhaleBucketItemDone), text, plus three
-// optional fields: notes (string), dueDate ("YYYY-MM-DD" local, or ""), and
-// assignee (a person id, "everyone", or ""). Old items without them read as
-// "" (see fields()). Unknown item fields are preserved.
+// optional fields, all reusing names old items already have:
+//   notes    — string (old ExhaleSection notes field)
+//   personId — who it's for: a person id, "everyone", or null (the same field
+//              the old Exhale person picker writes; null = no one)
+//   dueDate  — "YYYY-MM-DD" local, or "" (same name the old column cards used;
+//              bucket items had no date field before)
+// Missing/bad values read as "" (see fields()). Unknown item fields are kept.
+// A few items saved by an earlier redesign build carry `assignee` instead of
+// personId; fields() reads it as a fallback and the next Who edit moves it to
+// personId and drops it.
 //
 // Why not exhale_cards: those rows (and exhale_move_card / exhale_update_card)
 // back the retired column board (af_exhale_groups); bucket items have never
@@ -24,11 +31,18 @@ var YMD = /^\d{4}-\d{2}-\d{2}$/;
 
 function str(v) { return typeof v === "string" ? v : ""; }
 
+// Who an item is for: personId, else the legacy redesign `assignee`, else "".
+export function personIdOf(it) {
+  if (!it) return "";
+  if (typeof it.personId === "string" && it.personId) return it.personId;
+  return str(it.assignee);
+}
+
 // The optional fields with their defaults, so items saved before they existed
 // (or by the old Exhale screen) still work.
 export function fields(it) {
   var due = str(it && it.dueDate);
-  return { notes: str(it && it.notes), dueDate: YMD.test(due) ? due : "", assignee: str(it && it.assignee) };
+  return { notes: str(it && it.notes), dueDate: YMD.test(due) ? due : "", personId: personIdOf(it) };
 }
 
 export function ymd(d) {
@@ -88,11 +102,16 @@ export function openCount(b, idx, myPersonId) {
   return bucketItems(b, idx, myPersonId).filter(function (it) { return !it.done; }).length;
 }
 
-function patchItem(b, id, patch) {
+function patchItem(b, id, patch, dropKeys) {
   var nb = normalize(b);
   var found = false;
   var items = nb.items.map(function (it) {
-    if (it && it.id === id) { found = true; return Object.assign({}, it, patch); }
+    if (it && it.id === id) {
+      found = true;
+      var next = Object.assign({}, it, patch);
+      (dropKeys || []).forEach(function (k) { delete next[k]; });
+      return next;
+    }
     return it;
   });
   return found ? Object.assign({}, nb, { items: items }) : nb;
@@ -126,15 +145,15 @@ export function editText(b, id, text) {
   return patchItem(b, id, { text: t });
 }
 
-// Notes / due date / assignee. Only these three keys are accepted; bad values
-// fall back to "".
+// Notes / due date / personId. Only these three keys are accepted; bad values
+// fall back to "" (personId to null, matching the old Exhale picker).
 export function setFields(b, id, patch) {
   if (!findItem(b, id)) return normalize(b);
-  var p = {};
+  var p = {}, drop = [];
   if (patch && "notes" in patch) p.notes = str(patch.notes);
   if (patch && "dueDate" in patch) p.dueDate = YMD.test(str(patch.dueDate)) ? patch.dueDate : "";
-  if (patch && "assignee" in patch) p.assignee = str(patch.assignee);
-  return patchItem(b, id, p);
+  if (patch && "personId" in patch) { p.personId = str(patch.personId) || null; drop.push("assignee"); }
+  return patchItem(b, id, p, drop);
 }
 
 export function deleteItem(b, id) {
@@ -148,7 +167,7 @@ export function addItem(b, text, bucketIndex, makeId, now) {
   var nb = normalize(b);
   if (!t) return nb;
   var idx = bucketIndex == null ? EXHALED : bucketIndex;
-  var item = { id: makeId(), text: t, notes: "", dueDate: "", assignee: "", bucketIndex: idx, createdAt: now(), color: BUCKET_COLORS[idx % BUCKET_COLORS.length] };
+  var item = { id: makeId(), text: t, notes: "", dueDate: "", personId: null, bucketIndex: idx, createdAt: now(), color: BUCKET_COLORS[idx % BUCKET_COLORS.length] };
   return Object.assign({}, nb, { items: [item].concat(nb.items) });
 }
 

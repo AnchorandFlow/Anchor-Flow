@@ -53,7 +53,7 @@ function Label(props) { return <div style={{ fontSize: 11, fontWeight: 700, lett
 function Tags(props) {
   var f = props.f;
   var due = dueLabel(f.dueDate, props.now);
-  var who = whoOf(f.assignee, props.people);
+  var who = whoOf(f.personId, props.people);
   if (!due && !who && !f.notes.trim()) return null;
   var tag = { display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", fontSize: 11, fontWeight: 600, borderRadius: 999, padding: "2px 8px", lineHeight: 1.4, background: "rgba(27,43,68,0.06)", color: NAVY };
   var late = isOverdue(f.dueDate, props.now);
@@ -79,7 +79,7 @@ function Details(props) {
   useEffect(function () { setNotes(fields(it).notes); }, [it.notes]); // eslint-disable-line
 
   function saveNotes() { if (notes !== f.notes) props.onFields(it.id, { notes: notes }); }
-  function pickWho(id) { props.onFields(it.id, { assignee: f.assignee === id ? "" : id }); }
+  function pickWho(id) { props.onFields(it.id, { personId: f.personId === id ? null : id }); }
 
   return (
     <div data-testid="item-details" style={{ display: "flex", flexDirection: "column", gap: 10, padding: "10px 12px 12px", borderTop: "1px solid rgba(27,43,68,0.08)" }}>
@@ -106,11 +106,11 @@ function Details(props) {
         <div data-testid="who-chips" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {people.map(function (p) {
             var c = personColor(p.id, props.people) || NAVY;
-            var on = f.assignee === p.id;
+            var on = f.personId === p.id;
             return <button key={p.id} type="button" data-testid={"who-" + p.id} aria-pressed={on} onClick={function () { pickWho(p.id); }} style={chipStyle(on, c)}><Dot color={on ? "#FFFFFF" : c} />{firstName(p)}</button>;
           })}
-          <button type="button" data-testid="who-everyone" aria-pressed={f.assignee === EVERYONE} onClick={function () { pickWho(EVERYONE); }} style={chipStyle(f.assignee === EVERYONE, NAVY)}>
-            <Dot color={f.assignee === EVERYONE ? "#FFFFFF" : NAVY} />Everyone
+          <button type="button" data-testid="who-everyone" aria-pressed={f.personId === EVERYONE} onClick={function () { pickWho(EVERYONE); }} style={chipStyle(f.personId === EVERYONE, NAVY)}>
+            <Dot color={f.personId === EVERYONE ? "#FFFFFF" : NAVY} />Everyone
           </button>
         </div>
       </div>

@@ -81,14 +81,14 @@ export function personColor(personId, people, isPersonMinor) {
   return PERSON_COLORS.defaultAdult;
 }
 
-// Who an Exhale item is assigned to, for tags and Home dots: a person id
+// Who an Exhale item is for (its personId), for tags and Home dots: a person id
 // (their person color), "everyone" (navy), or "" / unknown id (null).
-export function whoOf(assignee, people) {
-  if (!assignee) return null;
-  if (assignee === "everyone") return { label: "Everyone", color: NAVY_DOT };
-  var p = arr(people).filter(function (x) { return x && x.id === assignee; })[0];
+export function whoOf(personId, people) {
+  if (!personId) return null;
+  if (personId === "everyone") return { label: "Everyone", color: NAVY_DOT };
+  var p = arr(people).filter(function (x) { return x && x.id === personId; })[0];
   if (!p) return null;
-  return { label: String(p.name || "").trim().split(/\s+/)[0] || "Someone", color: personColor(assignee, people) || NAVY_DOT };
+  return { label: String(p.name || "").trim().split(/\s+/)[0] || "Someone", color: personColor(personId, people) || NAVY_DOT };
 }
 var NAVY_DOT = COLOR.anchorNavy;
 

@@ -291,8 +291,8 @@ describe("RedesignHome screen", function () {
   it("Today: due-today Exhale items appear on their day; assigned items show the person's color dot", async function () {
     var people = [{ id: "L", name: "Lindsey" }, { id: "T", name: "Twyla" }];
     localStorage.setItem("af_exhale_buckets", JSON.stringify({ bucketNames: ["Exhaled", "Today", "Tomorrow", "This Weekend", "Someday"], items: [
-      { id: "a", text: "Call vet", bucketIndex: 1, assignee: "T" },
-      { id: "b", text: "Renew tags", bucketIndex: 4, dueDate: "2026-11-13", assignee: "everyone" },
+      { id: "a", text: "Call vet", bucketIndex: 1, personId: "T" },
+      { id: "b", text: "Renew tags", bucketIndex: 4, dueDate: "2026-11-13", personId: "everyone" },
       { id: "c", text: "Not yet", bucketIndex: 4, dueDate: "2026-11-14" },
       { id: "d", text: "No one", bucketIndex: 1 },
     ] }));
