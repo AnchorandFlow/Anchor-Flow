@@ -4,7 +4,7 @@
 //   inputStyle       text input in the new look (16px so iOS doesn't zoom)
 //   rdLegacyKit      T/card/btnP/btnS/inp/lbl in the new look, for the few
 //                    legacy sub-section bodies reused as-is in the new screens
-import { color, gradient, radius, shadow, font, check, shouldShowEmoji, toneFor } from "../design/tokens.js";
+import { color, gradient, radius, shadow, font, check, shouldShowEmoji, toneFor, tone, accentTone } from "../design/tokens.js";
 
 export var NAVY = color.anchorNavy;
 export var MUTED = "#5B6472";
@@ -88,4 +88,65 @@ export function stripDecorativeEmoji(text) {
   var t = out.match(TRAIL);
   if (t && !keeps(t[1]) && t.index > 0) out = out.slice(0, t.index) + t[2];
   return out;
+}
+
+// ── Popups, sheets and chips in the new look ────────────────────────────────
+// Shared by ModalBox, the in-app confirm/prompt, the Calendar sheets and the
+// legacy forms af_redesign still renders. Flag-off code never calls these.
+export var RD_OVERLAY = { position: "fixed", inset: 0, background: "rgba(27,43,68,0.45)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", zIndex: 9000 };
+// Centered dialog card.
+export var RD_DIALOG = { background: "#FFFFFF", border: "none", borderRadius: radius.lg, boxShadow: shadow.raised, fontFamily: font.body, color: NAVY, boxSizing: "border-box", minWidth: 0 };
+// Bottom sheet (Calendar work schedules, year-view day detail).
+export var RD_SHEET = { background: "#FFFFFF", borderRadius: radius.lg + "px " + radius.lg + "px 0 0", padding: "18px 18px calc(22px + env(safe-area-inset-bottom, 0px))", maxWidth: 520, width: "100%", maxHeight: "85vh", overflowY: "auto", boxShadow: "0 -10px 32px rgba(27,43,68,0.16)", fontFamily: font.body, color: NAVY, boxSizing: "border-box" };
+export var RD_SHEET_TITLE = { fontFamily: font.heading, fontWeight: 700, fontSize: 22, lineHeight: 1.15, color: NAVY, minWidth: 0, overflowWrap: "anywhere" };
+export var RD_CLOSE = { background: "#F3EFE7", border: "none", borderRadius: 999, width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: NAVY, fontSize: 18, lineHeight: 1, flexShrink: 0, fontFamily: font.body };
+export var RD_SECTION_LABEL = { fontSize: 11, fontWeight: 700, color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, fontFamily: font.body };
+
+// A choice chip in a tone ({tint, full, ink}): selected = full with white
+// text, otherwise the tint with ink text.
+export function rdChip(on, tn, x) {
+  return Object.assign({ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "6px 13px", borderRadius: 999, border: "none", background: on ? tn.full : tn.tint, color: on ? "#FFFFFF" : tn.ink, fontFamily: font.body, fontSize: 12.5, fontWeight: on ? 700 : 600, cursor: "pointer", lineHeight: 1.2, maxWidth: "100%" }, x || {});
+}
+// The same chip in a person's own color (hex): selected = the color, else a pale wash.
+export function rdPersonChip(on, hex, x) {
+  var c = hex || NAVY;
+  return Object.assign({ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 13px", borderRadius: 999, border: "1px solid " + (on ? c : c + "55"), background: on ? c : c + "1F", color: on ? "#FFFFFF" : NAVY, fontFamily: font.body, fontSize: 12.5, fontWeight: on ? 700 : 600, cursor: "pointer", lineHeight: 1.2 }, x || {});
+}
+// Segmented control: a white track holding pill options.
+export var RD_SEG_TRACK = { display: "flex", gap: 4, background: "#FFFFFF", borderRadius: 999, padding: 4, boxShadow: shadow.card, minWidth: 0 };
+export function rdSeg(on, tn) {
+  return { flex: 1, minWidth: 0, background: on ? tn.full : "transparent", color: on ? "#FFFFFF" : NAVY, border: "none", borderRadius: 999, padding: "7px 10px", cursor: "pointer", fontFamily: font.body, fontSize: 13, fontWeight: on ? 700 : 600, whiteSpace: "nowrap" };
+}
+// Text-only action in a tone (Edit, Remove, + Add shift).
+export function rdLink(hex) { return { background: "none", border: "none", padding: 0, cursor: "pointer", color: hex || NAVY, fontFamily: font.body, fontSize: 12.5, fontWeight: 700 }; }
+export var RD_DANGER = "#A0533A"; // terracotta (accentTone.terracotta.full), not pink
+
+// Calendar year categories in the approved palette (no purple or pink).
+export var RD_YEAR_CAT_TONES = {
+  birthdays: accentTone.gold, trips: tone.teal, school: tone.sage, work: tone.mist, appointments: tone.blue,
+  holidays: accentTone.seafoam, celebrations: accentTone.mustard, custody: tone.sand, deadlines: accentTone.terracotta,
+  other: { tint: "#E8E4DC", full: "#5B6472", ink: "#3B4250" },
+};
+export function rdYearCatTone(id) { return RD_YEAR_CAT_TONES[id] || RD_YEAR_CAT_TONES.other; }
+
+// HomeFlow's inp/lbl/btnP/btnS for af_redesign (every form and popup that
+// still uses them). btnP keeps the caller's meaning: the theme's blue, sage,
+// sand and rose map to the matching tone, anything else stays as given.
+export function rdFormKit(T) {
+  var k = rdLegacyKit();
+  var map = {};
+  // the new-look palette's own (RD_T) colors too, for forms that read it
+  [RD_T, T].forEach(function (pal) {
+    if (!pal) return;
+    map[pal.blue] = tone.blue.full; map[pal.blueDark] = tone.blue.full;
+    map[pal.sage] = tone.sage.full; map[pal.sageDark] = tone.sage.full;
+    map[pal.sand] = tone.sand.full; map[pal.sandDark] = tone.sand.full;
+    map[pal.rose] = RD_DANGER; map[pal.lavender] = tone.mist.full;
+  });
+  return {
+    inp: function (x) { return k.inp(Object.assign({ borderRadius: 12 }, x || {})); },
+    lbl: k.lbl,
+    btnP: function (bg, x) { return k.btnP(bg ? (map[bg] || bg) : NAVY, x); },
+    btnS: k.btnS,
+  };
 }

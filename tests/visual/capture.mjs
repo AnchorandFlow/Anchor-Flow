@@ -119,8 +119,8 @@ export async function screenshot(baseUrl, tab, file, opts) {
 // Redesign (flag on) walk: every pill / sub-section of each screen.
 export var REDESIGN_STEPS = {
   shop: [["Grocery", null], ["Edit aisles", "Edit aisles"], ["Costco", "Costco"], ["In-store", "In-store mode"]],
-  meals: [["This Week", null], ["Edit modal", "Edit"], ["Edit closed", "Cancel"], ["Next Week", "Next Week"], ["Month", "Month"], ["Prep", "Prep"], ["SOS", "SOS"], ["Meal Bank", "Meal Bank"], ["Recipes", "Recipes"]],
-  calendar: [["Month", null], ["Selected day", "13"], ["Week", "Week"], ["Day", "Day"], ["Work schedules", "Work schedules"], ["Year", "Year"]],
+  meals: [["This Week", null], ["Edit modal", "Edit"], ["Edit closed", "Cancel"], ["Next Week", "Next Week"], ["Month", "Month"], ["Prep", "Prep"], ["SOS", "SOS"], ["Meal Bank", "Meal Bank"], ["Add meal", "+ Add Meal"], ["Add meal closed", "Cancel"], ["Recipes", "Recipes"]],
+  calendar: [["Month", null], ["Selected day", "13"], ["Week", "Week"], ["Day", "Day"], ["Work schedules", "Work schedules"], ["Work schedules closed", "Cancel"], ["Year", "Year"], ["Year day", "15"], ["Year day closed", "×"]],
   waves: [["Daily", null], ["Edit wave", "Edit"], ["Weekly", "Weekly"], ["Seasonal", "Seasonal"], ["Custom", "Custom"], ["New wave", "New custom wave"]],
   // Tide Pool keeps its original screen (no testids): first kid, then Ollie.
   tidepool: [["Shells", null], ["Ollie", "Ollie"]],

@@ -151,7 +151,13 @@ async function run() {
   var errors = [];
   for (var i = 0; i < steps.length; i++) {
     var label = steps[i][0], click = steps[i][1];
-    if (click) {
+    if (click && click.indexOf("!event:") === 0) {
+      // "!event:<name>:<json detail>" dispatches a window event (e.g. the
+      // in-app confirm, which no harness screen opens by itself)
+      var ev = /^!event:([a-z-]+):(.*)$/.exec(click);
+      window.dispatchEvent(new CustomEvent(ev[1], { detail: JSON.parse(ev[2] || "{}") }));
+      await wait(500);
+    } else if (click) {
       var el = findClickable(click);
       if (!el) { errors.push("not found: " + click); continue; }
       el.click();

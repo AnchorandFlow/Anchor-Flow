@@ -269,3 +269,77 @@ describe("approved color mix (af_redesign)", function () {
     expect(1.05 / (lum2(k.full) + 0.05)).toBeGreaterThanOrEqual(4.5);
   });
 });
+
+// ── Final cleanup: popups, Calendar sheets, Meals chips, Lighthouse inner ──
+import { rdChip, rdPersonChip, rdSeg, rdFormKit, rdYearCatTone, RD_YEAR_CAT_TONES, RD_DANGER, RD_T } from "../../src/redesign/fullViewKit.js";
+import { mealTagTone, MEALS_TONE } from "../../src/redesign/mealsColors.js";
+import { lhInnerStyle, LH_ROW_FILL } from "../../src/redesign/lighthouseColors.js";
+
+describe("final cleanup colors (af_redesign)", function () {
+  function lum2(hex) { var c = [1, 3, 5].map(function (i) { var v = parseInt(hex.substr(i, 2), 16) / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+  function purplePink(hex) { var n = parseInt(hex.slice(1), 16), r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255; var mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, h = 0; if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; if (h < 0) h += 360; var l = (mx + mn) / 2, s = d ? d / (1 - Math.abs(2 * l - 1)) : 0; return s > 0.12 && h >= 260 && h <= 345; }
+  function aa(t) { return 1.05 / (lum2(t.full) + 0.05) >= 4.5 && (lum2(t.tint) + 0.05) / (lum2(t.ink) + 0.05) >= 4.5; }
+
+  it("year categories: every one has an AA tone, none purple or pink (Celebrations and Holidays were)", function () {
+    ["birthdays", "trips", "school", "work", "appointments", "holidays", "celebrations", "custody", "deadlines", "other"].forEach(function (id) {
+      var t = rdYearCatTone(id);
+      expect(aa(t)).toBe(true);
+      [t.tint, t.full, t.ink].forEach(function (x) { expect(purplePink(x)).toBe(false); });
+    });
+    expect(rdYearCatTone("nope")).toBe(RD_YEAR_CAT_TONES.other);
+    expect(purplePink(RD_DANGER)).toBe(false);
+  });
+
+  it("meal tags: varied colors from the approved tones, stable, no purple or pink", function () {
+    var ids = ["under-15", "one-pan", "easy-cleanup", "dairy-free", "kid-friendly", "no-cook", "freezer-friendly", "survival-mode", "pantry-meal", "protein-packed", "vegetarian", "no-thaw", "crockpot", "paper-plates", "brand-new-tag"];
+    var fulls = new Set(ids.map(function (id) { var t = mealTagTone(id); expect(aa(t)).toBe(true); expect(purplePink(t.full)).toBe(false); return t.full; }));
+    expect(fulls.size).toBeGreaterThanOrEqual(6);
+    expect(mealTagTone("brand-new-tag")).toBe(mealTagTone("brand-new-tag"));
+    expect(MEALS_TONE).toBe(tone.sand);
+  });
+
+  it("chips, segments and person chips: selected = full with white text, else tint with ink", function () {
+    expect(rdChip(true, tone.teal)).toMatchObject({ background: tone.teal.full, color: "#FFFFFF", borderRadius: 999 });
+    expect(rdChip(false, tone.teal)).toMatchObject({ background: tone.teal.tint, color: tone.teal.ink });
+    expect(rdSeg(true, tone.blue).background).toBe(tone.blue.full);
+    expect(rdSeg(false, tone.blue).background).toBe("transparent");
+    expect(rdPersonChip(true, "#3AAA91").background).toBe("#3AAA91");
+    expect(rdPersonChip(false, "#3AAA91").background).toBe("#3AAA911F");
+  });
+
+  it("form kit: pill buttons; theme and new-look colors map to their AA tone", function () {
+    var calm = { blue: "#5E8FA0", blueDark: "#4a7a94", sage: "#7a9e8e", sageDark: "#4d7a6a", sand: "#c4a882", sandDark: "#9a7a52", rose: "#b87265", lavender: "#8878b8" };
+    var k = rdFormKit(calm);
+    expect(k.btnP(calm.blue).background).toBe(tone.blue.full);
+    expect(k.btnP(RD_T.blue).background).toBe(tone.blue.full);
+    expect(k.btnP(calm.lavender).background).toBe(tone.mist.full);
+    expect(k.btnP(calm.rose).background).toBe(RD_DANGER);
+    expect(k.btnP("#123456").background).toBe("#123456");
+    expect(k.btnP().background).toBe(color.anchorNavy);
+    expect(k.btnP(calm.sage).borderRadius).toBe(999);
+    expect(k.btnS().borderRadius).toBe(999);
+    expect(k.inp().background).toBe("#FFFFFF");
+  });
+
+  it("Lighthouse inner styles: flag off is the same object; flag on drops beige hairlines and small radii", function () {
+    var row = { background: "#FBF9F4", border: "1px solid #F0EBDF", borderRadius: "0.7rem", padding: "0.6rem" };
+    expect(lhInnerStyle(false, row)).toBe(row);
+    var r = lhInnerStyle(true, row);
+    expect(r).toMatchObject({ background: LH_ROW_FILL, border: "none", borderRadius: 14, padding: "0.6rem" });
+    expect(row.border).toBe("1px solid #F0EBDF"); // input not mutated
+    var card = lhInnerStyle(true, { background: "#fff", border: "1px solid #E7E1D4", borderRadius: "0.9rem" });
+    expect(card.border).toBe("none");
+    expect(card.borderRadius).toBe(16);
+    expect(card.boxShadow).toBeTruthy();
+    var btn = lhInnerStyle(true, { border: "1.5px solid #D8D2C4", background: "transparent", borderRadius: "0.6rem", cursor: "pointer", color: "#7a7568" });
+    expect(btn).toMatchObject({ borderRadius: 999, background: "#FFFFFF", color: "#5B6472" });
+    var sel = lhInnerStyle(true, { border: "1.5px solid #4D7A6A", background: "#4D7A6A22", borderRadius: "0.6rem", cursor: "pointer" });
+    expect(sel.borderRadius).toBe(999); // same pill shape as its unselected siblings
+    var circle = lhInnerStyle(true, { border: "1.5px solid #D8D2C4", borderRadius: "50%", cursor: "pointer", background: "none" });
+    expect(circle.borderRadius).toBe("50%");
+    expect(circle.border).not.toBe("none");
+    var subj = { background: "#D3E6EE", color: "#24496A", borderRadius: "2rem" };
+    expect(lhInnerStyle(true, subj).background).toBe("#D3E6EE"); // subject colors untouched
+    expect(lhInnerStyle(true, null)).toBe(null);
+  });
+});

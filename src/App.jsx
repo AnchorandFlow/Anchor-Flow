@@ -27,6 +27,7 @@ import { BUILD_STAMP } from "./buildStamp.js"
 import { TIDEPOOL_V2, newEventId, getStoredHouseholdId, planTabChoreToggle, planSectionChoreToggle, planBonus, planClaim } from "./tidepool/ledger.js"
 import { useTidePoolBalances, recordTidePoolEvent } from "./tidepool/useTidePool.js"
 import { getRedesignState, writeRedesignFlag, REDESIGN } from "./design/redesignFlag.js"
+import { startExhaleUpgrades } from "./lib/exhaleUpgrade.js"
 import HomeSwitch from "./redesign/HomeSwitch.jsx"
 import RedesignHome from "./redesign/RedesignHome.jsx"
 import RedesignFlow from "./redesign/RedesignFlow.jsx"
@@ -38,9 +39,11 @@ import WavesFull from "./redesign/WavesFull.jsx"
 import CalendarFull from "./redesign/CalendarFull.jsx"
 import MealsFull, { PrepTask } from "./redesign/MealsFull.jsx"
 import LighthouseFull from "./redesign/LighthouseFull.jsx"
-import { LH_AREA_TONE, LH_DASH_TONE, lhAreaTone, lhChipStyle, lhRowStyle, lhTextStyle, lhSectionCard, lhSectionHead, lhDashCard } from "./redesign/lighthouseColors.js"
+import { LH_AREA_TONE, LH_DASH_TONE, lhAreaTone, lhChipStyle, lhRowStyle, lhTextStyle, lhSectionCard, lhSectionHead, lhDashCard, lhInnerStyle } from "./redesign/lighthouseColors.js"
 import { personColor as rdPersonColor } from "./redesign/flowData.js"
-import { rdLegacyKit, RD_YEAR_CAT_COLORS, RD_T, goAnchor } from "./redesign/fullViewKit.js"
+import { MEALS_TONE, mealTagTone } from "./redesign/mealsColors.js"
+import { tone as RD_TONE_BASE, accentTone as RD_ACCENT, calendarTones as RD_CAL_TONES } from "./design/tokens.js"
+import { rdLegacyKit, RD_T, goAnchor, rdFormKit, RD_OVERLAY, RD_DIALOG, RD_SHEET, RD_SHEET_TITLE, RD_CLOSE, RD_SECTION_LABEL, rdChip, rdPersonChip, RD_SEG_TRACK, rdSeg, rdLink, RD_DANGER, rdYearCatTone } from "./redesign/fullViewKit.js"
 import { HomeFull, PeopleFull, HorizonFull } from "./redesign/AnchorHubsFull.jsx"
 import { AnchorScreen, AnchorCard, AnchorBody } from "./redesign/AnchorFullView.jsx"
 import { EmojiScope } from "./redesign/FullView.jsx"
@@ -50,6 +53,7 @@ import { sensitiveRecords } from "./redesign/anchorData.js"
 // is never called with true anywhere in the codebase, so it has no reachable trigger.
 // The module's own default export is itself named OnboardingWizard.
 import FirstVoyageWizard from "./onboarding/Onboarding.jsx"
+import { wantsOnboardingPreview, clearPreviewParam } from "./onboarding/preview.js"
 import { BILLING_V1 } from "./billing/entitlement.js"
 import useSubscription from "./billing/useSubscription.js"
 import PlusModal from "./billing/PlusModal.jsx"
@@ -493,6 +497,13 @@ try {
     }));
   }
 } catch {}
+
+// ── af_redesign: Exhale's one-time data upgrades at app start ──────────────
+// The redesigned Exhale screen doesn't mount the old ExhaleSection, whose
+// mount effects were the only place the columns->buckets migration and the
+// 4->5 bucket upgrade ran. Run them here (same keys and flags; ExhaleSection
+// keeps its own copy for flag off). See src/lib/exhaleUpgrade.js.
+if (REDESIGN) startExhaleUpgrades();
 
 // ── Startup self-heal: stale sync-tracking keys with missing/placeholder
 // people ──────────────────────────────────────────────────────────────────
@@ -1582,6 +1593,12 @@ const CAL_COLOR_OPTIONS = [
   {color:"#b87265",label:"Rose"},{color:"#8878b8",label:"Lavender"},{color:"#e8a838",label:"Gold"},
   {color:"#7ab8a8",label:"Teal"},{color:"#c878a8",label:"Pink"},
 ];
+// af_redesign: Lavender and Pink are left out of the event colour picker
+// (purple/pink are Sunset-only in the new look). Events already saved in
+// them still show, mapped by eventTone (src/redesign/fullViewData.js).
+const RD_NO_CAL_COLORS = ["#8878b8","#c878a8"];
+// Every approved tone by name (tokens.tone + tokens.accentTone), for af_redesign.
+var RD_TONE = Object.assign({}, RD_TONE_BASE, RD_ACCENT);
 // School category sub-types — a dedicated field/color map, deliberately NOT
 // drawn from CAL_COLOR_OPTIONS/calColorLabels (the household's renameable
 // generic color palette). Reusing one of those hexes for "School Day" would
@@ -2993,10 +3010,13 @@ function HomeFlow({ recoveryToken }) {
   const safeThemeName = THEMES[themeName] ? themeName : "coastal";
   const T = THEMES[safeThemeName];
 
-  const inp  = (x={}) => ({width:"100%",background:T.inputBg,border:`1.5px solid ${T.border}`,borderRadius:"0.7rem",padding:"0.62rem 0.82rem",color:T.textDark,fontSize:"0.87rem",outline:"none",boxSizing:"border-box",fontFamily:"inherit",...x});
-  const lbl  = {display:"block",color:T.textMid,fontSize:"0.71rem",marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.09em",fontWeight:700};
-  const btnP = (bg,x={}) => ({background:bg||T.blue,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:700,fontSize:"0.84rem",fontFamily:"inherit",letterSpacing:"0.01em",...x});
-  const btnS = (x={}) => ({background:T.white,color:T.textMid,border:`1.5px solid ${T.border}`,borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontSize:"0.84rem",fontFamily:"inherit",fontWeight:600,...x});
+  // af_redesign: every form and popup still built from these four gets the
+  // new look (white 12px-radius fields, pill buttons). Flag off: unchanged.
+  const RD_FORM = REDESIGN ? rdFormKit(T) : null;
+  const inp  = RD_FORM ? RD_FORM.inp : (x={}) => ({width:"100%",background:T.inputBg,border:`1.5px solid ${T.border}`,borderRadius:"0.7rem",padding:"0.62rem 0.82rem",color:T.textDark,fontSize:"0.87rem",outline:"none",boxSizing:"border-box",fontFamily:"inherit",...x});
+  const lbl  = RD_FORM ? RD_FORM.lbl : {display:"block",color:T.textMid,fontSize:"0.71rem",marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.09em",fontWeight:700};
+  const btnP = RD_FORM ? RD_FORM.btnP : (bg,x={}) => ({background:bg||T.blue,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:700,fontSize:"0.84rem",fontFamily:"inherit",letterSpacing:"0.01em",...x});
+  const btnS = RD_FORM ? RD_FORM.btnS : (x={}) => ({background:T.white,color:T.textMid,border:`1.5px solid ${T.border}`,borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontSize:"0.84rem",fontFamily:"inherit",fontWeight:600,...x});
   const card = (x={}) => ({background:T.surface,border:`1px solid ${T.borderSoft}`,borderRadius:"1.1rem",padding:"1.25rem",marginBottom:"0.85rem",boxShadow:`0 2px 10px ${T.cardShadow}`,...x});
   // The style helpers above as one object, for legacy bodies that af_redesign
   // re-renders with its own helpers (see src/redesign/fullViewKit.js).
@@ -5517,6 +5537,11 @@ function createLocalBackup() {
   // OB-0 commit 5 — Settings re-run ("Set up my harbor again"). Separate visibility
   // state from showFirstVoyage: this instance is opened manually, never auto-launched.
   const [showFirstVoyageRerun,setShowFirstVoyageRerun] = useState(false);
+  // ?preview=onboarding — beta households only (af_redesign eligible): the
+  // redesigned onboarding, read-only. Finishing or skipping just closes it;
+  // nothing is written (see src/onboarding/preview.js).
+  const [obPreview,setObPreview] = useState(function(){ try { return wantsOnboardingPreview(window.location.search, getRedesignState().eligible); } catch { return false; } });
+  function closeObPreview(){ setObPreview(false); clearPreviewParam(); }
   function handleFirstVoyageRerunComplete(payload) {
     handleOnboardingComplete(payload, true); // mergeMode — union people, never delete
     setShowFirstVoyageRerun(false);
@@ -6260,6 +6285,19 @@ Respond ONLY with valid JSON array, no markdown:
       document.body.style.overflow = "hidden";
       return () => { document.body.style.overflow = prev; };
     }, []);
+    // af_redesign: white rounded card, Cormorant title in navy, round close
+    // button, navy-tinted overlay. Same structure and behavior as below.
+    if (REDESIGN) return (
+      <div data-modal-open="true" data-rd-modal="true" style={Object.assign({}, RD_OVERLAY, {zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"})}>
+        <div style={Object.assign({}, RD_DIALOG, {padding:"20px 18px 18px",width:"100%",maxWidth:wide?600:460,margin:"auto",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"})}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:16}}>
+            <h3 style={Object.assign({}, RD_SHEET_TITLE, {margin:0})}>{title}</h3>
+            <button onClick={onClose} aria-label="Close" style={RD_CLOSE}><Icon name="close" size={15} color="#1B2B44"/></button>
+          </div>
+          {children}
+        </div>
+      </div>
+    );
     return (
       <div data-modal-open="true" style={{position:"fixed",inset:0,background:T.modalOverlay,backdropFilter:"blur(8px)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
         <div style={{background:T.surface,border:`1.5px solid ${T.border}`,borderRadius:"1.4rem",padding:"1.8rem",width:"100%",maxWidth:wide?600:460,boxShadow:`0 32px 100px ${T.cardShadow}`,margin:"auto",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
@@ -8339,18 +8377,18 @@ Respond ONLY in valid JSON:
     // HomeFlow's own (HFK) when the flag is off, so that output is unchanged.
     var HFK={T:T,card:card,btnP:btnP,btnS:btnS,inp:inp,lbl:lbl,yearCats:CAL_YEAR_CATEGORIES,yearCatColor:calYearCatColor};
     function calMarkerPicker(K){ var T=K.T; return (markerPickerDate&&(
-              <div onClick={function(){setMarkerPickerDate(null);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",zIndex:9000,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
-                <div onClick={function(e){e.stopPropagation();}} style={{background:T.surface,borderRadius:"1rem",padding:"1.1rem 1.2rem",maxWidth:340,width:"100%",boxShadow:"0 8px 32px rgba(0,0,0,0.18)"}}>
+              <div onClick={function(){setMarkerPickerDate(null);}} style={K.rd?Object.assign({},RD_OVERLAY,{display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}):{position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",zIndex:9000,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
+                <div onClick={function(e){e.stopPropagation();}} style={K.rd?Object.assign({},RD_DIALOG,{padding:"18px",maxWidth:360,width:"100%"}):{background:T.surface,borderRadius:"1rem",padding:"1.1rem 1.2rem",maxWidth:340,width:"100%",boxShadow:"0 8px 32px rgba(0,0,0,0.18)"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
-                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>{new Date(markerPickerDate+"T00:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</span>
-                    <button onClick={function(){setMarkerPickerDate(null);}} style={{background:"none",border:"none",fontSize:"1.1rem",cursor:"pointer",color:T.textSoft}}>×</button>
+                    <span style={K.rd?RD_SHEET_TITLE:{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>{new Date(markerPickerDate+"T00:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</span>
+                    <button onClick={function(){setMarkerPickerDate(null);}} aria-label="Close" style={K.rd?RD_CLOSE:{background:"none",border:"none",fontSize:"1.1rem",cursor:"pointer",color:T.textSoft}}>×</button>
                   </div>
                   <div style={{fontSize:"0.66rem",color:T.textSoft,marginBottom:"0.6rem",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700}}>Tap to add or remove</div>
                   <div style={{display:"flex",flexDirection:"column",gap:"0.4rem"}}>
                     {calMarkerTypes.map(function(mt,ti){
                       var active=(calMarkers[markerPickerDate]||[]).indexOf(mt.emoji)!==-1;
                       return (
-                        <div key={ti} onClick={function(){toggleCalMarker(markerPickerDate,mt.emoji);}} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.7rem",borderRadius:"0.6rem",cursor:"pointer",background:active?T.bluePale:T.bgAlt,border:"1px solid "+(active?T.blue:T.borderSoft)}}>
+                        <div key={ti} onClick={function(){toggleCalMarker(markerPickerDate,mt.emoji);}} style={K.rd?{display:"flex",alignItems:"center",gap:"0.6rem",padding:"10px 12px",borderRadius:12,cursor:"pointer",background:active?RD_TONE.gold.tint:"#F7F4EE",border:"none",boxShadow:active?"inset 0 0 0 1.5px "+RD_TONE.gold.full:"none"}:{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.7rem",borderRadius:"0.6rem",cursor:"pointer",background:active?T.bluePale:T.bgAlt,border:"1px solid "+(active?T.blue:T.borderSoft)}}>
                           <span style={{fontSize:"1.1rem"}}>{mt.emoji}</span>
                           <span style={{flex:1,fontSize:"0.82rem",color:T.textDark,fontWeight:active?700:500}}>{mt.label}</span>
                           {active&&<span style={{fontSize:"0.72rem",color:T.blue,fontWeight:700}}>✓</span>}
@@ -8397,7 +8435,7 @@ Respond ONLY in valid JSON:
               var _stripCol=_wde?(_WD_COL[_wde.type]||"#4a3e36"):T.textFaint;
               return (
                 <div style={{marginBottom:"0.75rem"}}>
-                  <div onClick={_openForm} style={{background:_stripBg,borderLeft:"3px solid "+_stripBorder,borderRadius:"0 0.35rem 0.35rem 0",padding:"0.32rem 0.7rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.45rem",minHeight:"1.8rem"}}>
+                  <div onClick={_openForm} style={{background:_stripBg,borderLeft:"3px solid "+_stripBorder,borderRadius:K.rd?"0 12px 12px 0":"0 0.35rem 0.35rem 0",padding:"0.32rem 0.7rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.45rem",minHeight:"1.8rem"}}>
                     {_wde?(
                       <span style={{fontSize:"0.68rem",fontWeight:700,color:_stripCol,flex:1,display:"flex",alignItems:"center",gap:"0.3rem",flexWrap:"wrap"}}>
                         <span style={{fontSize:"0.8rem"}}>{_WD_ICONS[_wde.type]||"💼"}</span>
@@ -8412,13 +8450,13 @@ Respond ONLY in valid JSON:
                   </div>
                   {_wde&&_wde.note?<div style={{fontSize:"0.67rem",color:T.textSoft,fontStyle:"italic",paddingLeft:"0.75rem",marginTop:"0.15rem"}}>{_wde.note}</div>:null}
                   {workDayForm.open&&(
-                    <div style={{background:T.bgAlt,border:"1px solid "+T.border,borderRadius:"0.65rem",padding:"0.85rem 0.9rem",marginTop:"0.4rem"}}>
+                    <div style={K.rd?{background:"#F7F4EE",border:"none",borderRadius:14,padding:"12px 14px",marginTop:"0.4rem"}:{background:T.bgAlt,border:"1px solid "+T.border,borderRadius:"0.65rem",padding:"0.85rem 0.9rem",marginTop:"0.4rem"}}>
                       <div style={{display:"flex",gap:"0.3rem",marginBottom:"0.7rem"}}>
                         {[["wfh","🏠","WFH"],["office","🏢","Office"],["travel","✈️","Travel"],["off","☀️","PTO"]].map(function(it){
                           var _t=it[0],_i=it[1],_l=it[2];
                           var _a=workDayForm.type===_t;
                           return (
-                            <button key={_t} onClick={function(){setWorkDayForm(function(p){return Object.assign({},p,{type:_t});});}} style={{flex:1,padding:"0.35rem 0.15rem",borderRadius:"0.45rem",border:"1.5px solid "+(_a?_WD_BORDER[_t]:T.border),background:_a?_WD_BG[_t]:"transparent",color:_a?_WD_COL[_t]:T.textMid,fontSize:"0.65rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit",display:"flex",flexDirection:"column",alignItems:"center",gap:"0.12rem"}}>
+                            <button key={_t} onClick={function(){setWorkDayForm(function(p){return Object.assign({},p,{type:_t});});}} style={{flex:1,padding:"0.35rem 0.15rem",borderRadius:K.rd?12:"0.45rem",border:"1.5px solid "+(_a?_WD_BORDER[_t]:T.border),background:_a?_WD_BG[_t]:"transparent",color:_a?_WD_COL[_t]:T.textMid,fontSize:"0.65rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit",display:"flex",flexDirection:"column",alignItems:"center",gap:"0.12rem"}}>
                               <span style={{fontSize:"0.9rem"}}>{_i}</span>{_l}
                             </button>
                           );
@@ -8453,44 +8491,44 @@ Respond ONLY in valid JSON:
               );
             })()); }
     function calWorkScheduleModal(K){ var T=K.T, btnP=K.btnP, btnS=K.btnS, inp=K.inp; return (wsModalOpen&&wsForm&&(
-              <div onClick={function(){setWsModalOpen(false);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:9000,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-                <div onClick={function(e){e.stopPropagation();}} style={{background:T.surface,borderRadius:"1.1rem 1.1rem 0 0",padding:"1.1rem 1.2rem 1.4rem",maxWidth:480,width:"100%",maxHeight:"85vh",overflowY:"auto",boxShadow:"0 -8px 32px rgba(0,0,0,0.2)"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
-                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>💼 Work Schedule</span>
-                    <button onClick={function(){setWsModalOpen(false);}} style={{background:"none",border:"none",fontSize:"1.1rem",cursor:"pointer",color:T.textSoft}}>×</button>
+              <div onClick={function(){setWsModalOpen(false);}} style={K.rd?Object.assign({},RD_OVERLAY,{display:"flex",alignItems:"flex-end",justifyContent:"center"}):{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:9000,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+                <div onClick={function(e){e.stopPropagation();}} style={K.rd?RD_SHEET:{background:T.surface,borderRadius:"1.1rem 1.1rem 0 0",padding:"1.1rem 1.2rem 1.4rem",maxWidth:480,width:"100%",maxHeight:"85vh",overflowY:"auto",boxShadow:"0 -8px 32px rgba(0,0,0,0.2)"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:K.rd?12:undefined,marginBottom:"0.85rem"}}>
+                    <span style={K.rd?RD_SHEET_TITLE:{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>💼 Work Schedule</span>
+                    <button onClick={function(){setWsModalOpen(false);}} aria-label="Close" style={K.rd?RD_CLOSE:{background:"none",border:"none",fontSize:"1.1rem",cursor:"pointer",color:T.textSoft}}>×</button>
                   </div>
                   {people.filter(function(p){return workSchedules[p.id];}).length>0&&(
                     <div style={{marginBottom:"0.9rem"}}>
-                      <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"0.4rem"}}>Current schedules</div>
+                      <div style={K.rd?RD_SECTION_LABEL:{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"0.4rem"}}>Current schedules</div>
                       {people.filter(function(p){return workSchedules[p.id];}).map(function(p){
                         var s=wsNormalizeSchedule(workSchedules[p.id]);
                         var typeLabel=s.scheduleType==="set"?"Set":s.scheduleType==="varied"?"Varied":"On-call";
                         var daysList=s.scheduleType==="on-call"?(s.onCallDays||[]):Object.keys(s.scheduleType==="varied"?s.dates:s.days);
                         return (
                           <div key={p.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.4rem 0",borderBottom:"1px solid "+T.borderSoft}}>
-                            <span style={{width:10,height:10,borderRadius:"50%",background:p.color||T.blue,flexShrink:0}}/>
+                            <span style={{width:10,height:10,borderRadius:"50%",background:(K.rd&&rdPersonColor(p.id,people,personIsMinor))||p.color||T.blue,flexShrink:0}}/>
                             <div style={{flex:1,minWidth:0}}>
                               <div style={{fontSize:"0.8rem",fontWeight:700,color:T.textDark}}>{p.name} <span style={{fontWeight:500,color:T.textSoft}}>· {typeLabel}</span></div>
                               <div style={{fontSize:"0.68rem",color:T.textFaint}}>{daysList.length>0?daysList.map(function(d){return d.slice(0,3);}).join(", "):"No days set"}</div>
                             </div>
-                            <button onClick={function(){wsOpenEdit(p.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.7rem",color:T.blue,fontWeight:700,fontFamily:"inherit"}}>Edit</button>
-                            <button onClick={function(){wsDeletePerson(p.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.7rem",color:T.rose,fontFamily:"inherit"}}>Remove</button>
+                            <button onClick={function(){wsOpenEdit(p.id);}} style={K.rd?rdLink(RD_TONE.blue.full):{background:"none",border:"none",cursor:"pointer",fontSize:"0.7rem",color:T.blue,fontWeight:700,fontFamily:"inherit"}}>Edit</button>
+                            <button onClick={function(){wsDeletePerson(p.id);}} style={K.rd?rdLink(RD_DANGER):{background:"none",border:"none",cursor:"pointer",fontSize:"0.7rem",color:T.rose,fontFamily:"inherit"}}>Remove</button>
                           </div>
                         );
                       })}
                     </div>
                   )}
-                  <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"0.4rem"}}>Work for:</div>
+                  <div style={K.rd?RD_SECTION_LABEL:{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"0.4rem"}}>Work for:</div>
                   <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",marginBottom:"0.7rem"}}>
                     {people.map(function(p){
                       var on=wsForPeople.indexOf(p.id)!==-1;
-                      return <button key={p.id} onClick={function(){wsToggleForPerson(p.id);}} style={{padding:"0.22rem 0.65rem",borderRadius:"50px",border:"1.5px solid "+(on?(p.color||T.blue):T.border),background:on?(p.color||T.blue):"transparent",color:on?"#fff":T.textMid,fontSize:"0.72rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{p.name}</button>;
+                      return <button key={p.id} onClick={function(){wsToggleForPerson(p.id);}} style={K.rd?rdPersonChip(on,rdPersonColor(p.id,people,personIsMinor)||p.color):{padding:"0.22rem 0.65rem",borderRadius:"50px",border:"1.5px solid "+(on?(p.color||T.blue):T.border),background:on?(p.color||T.blue):"transparent",color:on?"#fff":T.textMid,fontSize:"0.72rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{p.name}</button>;
                     })}
                   </div>
-                  <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.8rem"}}>
+                  <div style={K.rd?Object.assign({},RD_SEG_TRACK,{marginBottom:"0.8rem"}):{display:"flex",gap:"0.35rem",marginBottom:"0.8rem"}}>
                     {[["set","Set"],["varied","Varied"],["on-call","On-call"]].map(function(t){
                       var active=wsForm.scheduleType===t[0];
-                      return <button key={t[0]} onClick={function(){wsSetType(t[0]);}} style={{flex:1,padding:"0.4rem 0.3rem",borderRadius:"0.5rem",border:"1.5px solid "+(active?T.blue:T.border),background:active?T.blue:"transparent",color:active?"#fff":T.textMid,fontSize:"0.75rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{t[1]}</button>;
+                      return <button key={t[0]} onClick={function(){wsSetType(t[0]);}} style={K.rd?rdSeg(active,RD_TONE.blue):{flex:1,padding:"0.4rem 0.3rem",borderRadius:"0.5rem",border:"1.5px solid "+(active?T.blue:T.border),background:active?T.blue:"transparent",color:active?"#fff":T.textMid,fontSize:"0.75rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{t[1]}</button>;
                     })}
                   </div>
                   {wsForm.scheduleType==="set"&&(
@@ -8498,7 +8536,7 @@ Respond ONLY in valid JSON:
                       <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginBottom:"0.5rem"}}>
                         {DAY_NAMES.map(function(day){
                           var on=!!wsForm.days[day];
-                          return <button key={day} onClick={function(){wsToggleSetDay(day);}} style={{background:on?T.blue:T.white,color:on?"#fff":T.textMid,border:"1.5px solid "+(on?T.blue:T.border),borderRadius:"2rem",padding:"0.2rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit"}}>{day.slice(0,2)}</button>;
+                          return <button key={day} onClick={function(){wsToggleSetDay(day);}} style={K.rd?rdChip(on,RD_TONE.teal,{padding:"6px 10px",minWidth:38}):{background:on?T.blue:T.white,color:on?"#fff":T.textMid,border:"1.5px solid "+(on?T.blue:T.border),borderRadius:"2rem",padding:"0.2rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit"}}>{day.slice(0,2)}</button>;
                         })}
                       </div>
                       {DAY_NAMES.filter(function(day){return wsForm.days[day];}).map(function(day){
@@ -8521,7 +8559,7 @@ Respond ONLY in valid JSON:
                                 </div>
                               );
                             })}
-                            {(wsForm.days[day]||[]).length<2&&<button onClick={function(){wsAddShift("days",day);}} style={{background:"none",border:"none",cursor:"pointer",color:T.blue,fontSize:"0.68rem",fontWeight:700,padding:0,fontFamily:"inherit"}}>+ Add shift</button>}
+                            {(wsForm.days[day]||[]).length<2&&<button onClick={function(){wsAddShift("days",day);}} style={K.rd?rdLink(RD_TONE.teal.full):{background:"none",border:"none",cursor:"pointer",color:T.blue,fontSize:"0.68rem",fontWeight:700,padding:0,fontFamily:"inherit"}}>+ Add shift</button>}
                           </div>
                         );
                       })}
@@ -8531,7 +8569,7 @@ Respond ONLY in valid JSON:
                     <div style={{marginBottom:"0.8rem"}}>
                       <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.5rem"}}>
                         <input type="date" value={wsNewVariedDate} onChange={function(e){setWsNewVariedDate(e.target.value);}} style={{...inp({fontSize:"0.72rem",padding:"0.2rem 0.4rem",flex:1})}}/>
-                        <button onClick={wsAddVariedDate} style={{background:T.white,color:T.textMid,border:"1.5px solid "+T.border,borderRadius:"0.5rem",padding:"0.2rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:600,fontFamily:"inherit"}}>+ Add date</button>
+                        <button onClick={wsAddVariedDate} style={K.rd?K.btnS({fontSize:12.5,padding:"6px 12px",flexShrink:0}):{background:T.white,color:T.textMid,border:"1.5px solid "+T.border,borderRadius:"0.5rem",padding:"0.2rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:600,fontFamily:"inherit"}}>+ Add date</button>
                       </div>
                       {Object.keys(wsForm.dates).length===0&&<div style={{fontSize:"0.68rem",color:T.textFaint,fontStyle:"italic",marginBottom:"0.4rem"}}>No dates added yet.</div>}
                       {Object.keys(wsForm.dates).sort().map(function(d){
@@ -8557,7 +8595,7 @@ Respond ONLY in valid JSON:
                                 </div>
                               );
                             })}
-                            {(wsForm.dates[d]||[]).length<2&&<button onClick={function(){wsAddShift("dates",d);}} style={{background:"none",border:"none",cursor:"pointer",color:T.blue,fontSize:"0.68rem",fontWeight:700,padding:0,fontFamily:"inherit"}}>+ Add shift</button>}
+                            {(wsForm.dates[d]||[]).length<2&&<button onClick={function(){wsAddShift("dates",d);}} style={K.rd?rdLink(RD_TONE.teal.full):{background:"none",border:"none",cursor:"pointer",color:T.blue,fontSize:"0.68rem",fontWeight:700,padding:0,fontFamily:"inherit"}}>+ Add shift</button>}
                           </div>
                         );
                       })}
@@ -8567,7 +8605,7 @@ Respond ONLY in valid JSON:
                     <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginBottom:"0.8rem"}}>
                       {DAY_NAMES.map(function(day){
                         var on=(wsForm.onCallDays||[]).indexOf(day)!==-1;
-                        return <button key={day} onClick={function(){wsToggleOnCallDay(day);}} style={{background:on?T.blue:T.white,color:on?"#fff":T.textMid,border:"1.5px solid "+(on?T.blue:T.border),borderRadius:"2rem",padding:"0.2rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit"}}>{day.slice(0,2)}</button>;
+                        return <button key={day} onClick={function(){wsToggleOnCallDay(day);}} style={K.rd?rdChip(on,RD_TONE.teal,{padding:"6px 10px",minWidth:38}):{background:on?T.blue:T.white,color:on?"#fff":T.textMid,border:"1.5px solid "+(on?T.blue:T.border),borderRadius:"2rem",padding:"0.2rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit"}}>{day.slice(0,2)}</button>;
                       })}
                     </div>
                   )}
@@ -8580,7 +8618,7 @@ Respond ONLY in valid JSON:
               </div>
             )); }
     function calReminderForm(K){ var T=K.T, btnP=K.btnP, inp=K.inp; return (showCalNotif&&(
-              <div style={{background:T.bgAlt,border:`1px solid ${T.sand}50`,borderRadius:"0.8rem",padding:"0.85rem",marginTop:"0.5rem"}}>
+              <div style={K.rd?{background:RD_TONE.sand.tint,border:"none",borderRadius:14,padding:"12px 14px",marginTop:"0.5rem"}:{background:T.bgAlt,border:`1px solid ${T.sand}50`,borderRadius:"0.8rem",padding:"0.85rem",marginTop:"0.5rem"}}>
                 <p style={{fontSize:"0.75rem",fontWeight:700,color:T.sandDark,marginBottom:"0.6rem"}}>🔔 Set reminder</p>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.45rem",marginBottom:"0.45rem"}}>
                   <input type="date" value={cnd} onChange={e=>setCnd(e.target.value)} style={inp({padding:"0.35rem 0.5rem",fontSize:"0.79rem"})}/>
@@ -8594,17 +8632,17 @@ Respond ONLY in valid JSON:
           var yr=calViewDate.getFullYear();
           var allItems=buildYearItems(yr);
           var filteredItems=filterYearItems(allItems);
-          var cellSize=calYearMode==="list"?30:16;
+          var cellSize=calYearMode==="list"?30:(K.rd?22:16); // af_redesign: room for the dots under each date
           function isTodayYMD(y,m,d){ return d===TODAY.getDate()&&m===TODAY.getMonth()&&y===TODAY.getFullYear(); }
           function MiniMonth(m){
             var dim=getDaysInMonth(yr,m), fd=getFirstDayOfMonth(yr,m);
             var monthName=new Date(yr,m,1).toLocaleDateString("en-US",{month:"long"});
             return (
-              <div key={m} style={{background:T.surface,border:`1px solid ${T.borderSoft}`,borderRadius:"0.7rem",overflow:"hidden",marginBottom:calYearMode==="list"?"1rem":0}}>
-                <div style={{position:calYearMode==="list"?"sticky":"static",top:0,zIndex:2,background:T.bgAlt,borderBottom:`1px solid ${T.borderSoft}`,padding:"0.4rem 0.55rem",textAlign:"center"}}>
-                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:calYearMode==="list"?"1rem":"0.8rem",color:T.textDark}}>{monthName}{calYearMode==="list"?` ${yr}`:""}</span>
+              <div key={m} style={K.rd?{background:"#FFFFFF",border:"none",borderRadius:16,boxShadow:"0 1px 2px rgba(27,43,68,0.04), 0 4px 14px rgba(27,43,68,0.06)",overflow:"hidden",marginBottom:calYearMode==="list"?"1rem":0,minWidth:0}:{background:T.surface,border:`1px solid ${T.borderSoft}`,borderRadius:"0.7rem",overflow:"hidden",marginBottom:calYearMode==="list"?"1rem":0}}>
+                <div style={K.rd?{position:calYearMode==="list"?"sticky":"static",top:0,zIndex:2,background:RD_CAL_TONES[m%RD_CAL_TONES.length].tint,padding:"0.45rem 0.55rem",textAlign:"center"}:{position:calYearMode==="list"?"sticky":"static",top:0,zIndex:2,background:T.bgAlt,borderBottom:`1px solid ${T.borderSoft}`,padding:"0.4rem 0.55rem",textAlign:"center"}}>
+                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:calYearMode==="list"?(K.rd?"1.1rem":"1rem"):(K.rd?"0.85rem":"0.8rem"),color:K.rd?RD_CAL_TONES[m%RD_CAL_TONES.length].ink:T.textDark}}>{monthName}{calYearMode==="list"?` ${yr}`:""}</span>
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",padding:"0.2rem"}}>
+                <div style={{display:"grid",gridTemplateColumns:K.rd?"repeat(7,minmax(0,1fr))":"repeat(7,1fr)",padding:"0.2rem"}}>
                   {WEEKDAYS_SUN.map(function(dn){return (<div key={dn} style={{textAlign:"center",fontSize:cellSize<24?"0.5rem":"0.6rem",fontWeight:700,color:T.textFaint,padding:"1px 0"}}>{dn[0]}</div>);})}
                   {Array.from({length:fd}).map(function(_,i){return <div key={"e"+i} style={{height:cellSize}}/>;})}
                   {Array.from({length:dim}).map(function(_,i){
@@ -8617,7 +8655,7 @@ Respond ONLY in valid JSON:
                     return (
                       <div key={day} onClick={function(){setCalYearDay(dateISO);}}
                         style={{height:cellSize,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",cursor:"pointer",position:"relative",background:spanItem?calYearCatColor(spanItem.cat)+"2A":"transparent",borderRadius:"3px"}}>
-                        <div style={{width:cellSize<24?14:18,height:cellSize<24?14:18,borderRadius:"50%",background:todayFlag?T.blue:"transparent",color:todayFlag?"#fff":T.textDark,fontSize:cellSize<24?"0.52rem":"0.62rem",fontWeight:todayFlag?800:500,display:"flex",alignItems:"center",justifyContent:"center"}}>{day}</div>
+                        <div style={{width:K.rd?"100%":(cellSize<24?14:18),maxWidth:K.rd?(cellSize<24?15:18):undefined,height:cellSize<24?14:18,borderRadius:K.rd?999:"50%",background:todayFlag?(K.rd?"#1B2B44":T.blue):"transparent",color:todayFlag?"#fff":T.textDark,fontSize:cellSize<24?"0.52rem":"0.62rem",fontWeight:todayFlag?800:500,display:"flex",alignItems:"center",justifyContent:"center"}}>{day}</div>
                         {dots.length>0&&(
                           <div style={{display:"flex",gap:"2px",marginTop:"1px"}}>
                             {/* Fix 1: was 4x4 with no border — nearly invisible at cellSize
@@ -8637,43 +8675,43 @@ Respond ONLY in valid JSON:
           var dayDetailItems=calYearDay?allItems.filter(function(it){ if(it.span) return calYearDay>=it.start&&calYearDay<=it.end; return it.date===calYearDay; }):[];
           return (
             <div>
-              <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.7rem",background:T.bgAlt,borderRadius:"0.8rem",padding:"0.3rem",border:`1px solid ${T.border}`}}>
+              <div style={K.rd?Object.assign({},RD_SEG_TRACK,{marginBottom:"0.7rem"}):{display:"flex",gap:"0.4rem",marginBottom:"0.7rem",background:T.bgAlt,borderRadius:"0.8rem",padding:"0.3rem",border:`1px solid ${T.border}`}}>
                 {[["grid","Grid"],["list","List"]].map(function(it){
                   var mv=it[0],ml=it[1];
-                  return (<button key={mv} onClick={function(){setCalYearMode(mv);}} style={{flex:1,background:calYearMode===mv?T.blue:"transparent",color:calYearMode===mv?"#fff":T.textMid,border:"none",borderRadius:"0.55rem",padding:"0.38rem 0.5rem",cursor:"pointer",fontSize:"0.76rem",fontWeight:700,fontFamily:"inherit"}}>{ml}</button>);
+                  return (<button key={mv} onClick={function(){setCalYearMode(mv);}} style={K.rd?rdSeg(calYearMode===mv,RD_TONE.gold):{flex:1,background:calYearMode===mv?T.blue:"transparent",color:calYearMode===mv?"#fff":T.textMid,border:"none",borderRadius:"0.55rem",padding:"0.38rem 0.5rem",cursor:"pointer",fontSize:"0.76rem",fontWeight:700,fontFamily:"inherit"}}>{ml}</button>);
                 })}
               </div>
               <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",marginBottom:"0.5rem",justifyContent:"center"}}>
-                <button onClick={function(){setCalYearCats([]);}} aria-label="Show all categories" aria-pressed={calYearCats.length===0} style={{padding:"0.2rem 0.7rem",borderRadius:"50px",border:"1.5px solid "+(calYearCats.length===0?"rgba(30,58,95,0.4)":"rgba(30,58,95,0.12)"),background:calYearCats.length===0?"rgba(30,58,95,0.08)":"transparent",color:calYearCats.length===0?"#1e3a5f":"#7a8a9a",fontSize:"0.68rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>All</button>
+                <button onClick={function(){setCalYearCats([]);}} aria-label="Show all categories" aria-pressed={calYearCats.length===0} style={K.rd?rdChip(calYearCats.length===0,RD_TONE.navy,{fontSize:12,padding:"5px 12px"}):{padding:"0.2rem 0.7rem",borderRadius:"50px",border:"1.5px solid "+(calYearCats.length===0?"rgba(30,58,95,0.4)":"rgba(30,58,95,0.12)"),background:calYearCats.length===0?"rgba(30,58,95,0.08)":"transparent",color:calYearCats.length===0?"#1e3a5f":"#7a8a9a",fontSize:"0.68rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>All</button>
                 {CAL_YEAR_CATEGORIES.map(function(cat){
                   var active=calYearCats.indexOf(cat.id)!==-1;
                   return (
                     <button key={cat.id} onClick={function(){setCalYearCats(function(p){return active?p.filter(function(x){return x!==cat.id;}):[...p,cat.id];});}}
                       aria-label={cat.label+" filter"} aria-pressed={active}
-                      style={{display:"flex",alignItems:"center",gap:"0.25rem",padding:"0.2rem 0.6rem",borderRadius:"50px",border:"1.5px solid "+(active?cat.color:cat.color+"40"),background:active?cat.color+"22":"transparent",color:active?cat.color:T.textFaint,fontSize:"0.66rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
-                      <span style={{width:7,height:7,borderRadius:"50%",background:cat.color,display:"inline-block"}}/>{cat.label}
+                      style={K.rd?rdChip(active,rdYearCatTone(cat.id),{fontSize:12,padding:"5px 11px"}):{display:"flex",alignItems:"center",gap:"0.25rem",padding:"0.2rem 0.6rem",borderRadius:"50px",border:"1.5px solid "+(active?cat.color:cat.color+"40"),background:active?cat.color+"22":"transparent",color:active?cat.color:T.textFaint,fontSize:"0.66rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                      <span style={{width:7,height:7,borderRadius:"50%",background:K.rd&&active?"#FFFFFF":cat.color,display:"inline-block"}}/>{cat.label}
                     </button>
                   );
                 })}
               </div>
               {people.length>0&&(
                 <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",marginBottom:"0.85rem",justifyContent:"center"}}>
-                  <button onClick={function(){setCalYearPerson("all");}} style={{padding:"0.18rem 0.65rem",borderRadius:"50px",border:"1.5px solid "+(calYearPerson==="all"?"rgba(30,58,95,0.4)":"rgba(30,58,95,0.12)"),background:calYearPerson==="all"?"rgba(30,58,95,0.08)":"transparent",color:calYearPerson==="all"?"#1e3a5f":"#7a8a9a",fontSize:"0.66rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>All Family</button>
+                  <button onClick={function(){setCalYearPerson("all");}} style={K.rd?rdChip(calYearPerson==="all",RD_TONE.navy,{fontSize:12,padding:"5px 12px"}):{padding:"0.18rem 0.65rem",borderRadius:"50px",border:"1.5px solid "+(calYearPerson==="all"?"rgba(30,58,95,0.4)":"rgba(30,58,95,0.12)"),background:calYearPerson==="all"?"rgba(30,58,95,0.08)":"transparent",color:calYearPerson==="all"?"#1e3a5f":"#7a8a9a",fontSize:"0.66rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>All Family</button>
                   {people.map(function(p){
                     var active=calYearPerson===p.id;
-                    return (<button key={p.id} onClick={function(){setCalYearPerson(p.id);}} style={{padding:"0.18rem 0.65rem",borderRadius:"50px",border:"1.5px solid "+(active?"rgba(30,58,95,0.4)":"rgba(30,58,95,0.12)"),background:active?"rgba(30,58,95,0.08)":"transparent",color:active?"#1e3a5f":"#7a8a9a",fontSize:"0.66rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{p.name}</button>);
+                    return (<button key={p.id} onClick={function(){setCalYearPerson(p.id);}} style={K.rd?rdPersonChip(active,rdPersonColor(p.id,people,personIsMinor)||p.color,{fontSize:12,padding:"5px 12px"}):{padding:"0.18rem 0.65rem",borderRadius:"50px",border:"1.5px solid "+(active?"rgba(30,58,95,0.4)":"rgba(30,58,95,0.12)"),background:active?"rgba(30,58,95,0.08)":"transparent",color:active?"#1e3a5f":"#7a8a9a",fontSize:"0.66rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{p.name}</button>);
                   })}
                 </div>
               )}
-              <div style={calYearMode==="grid"?{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"0.5rem"}:{display:"flex",flexDirection:"column"}}>
+              <div style={calYearMode==="grid"?{display:"grid",gridTemplateColumns:K.rd?"repeat(3,minmax(0,1fr))":"repeat(3,1fr)",gap:K.rd?"0.4rem":"0.5rem"}:{display:"flex",flexDirection:"column"}}>
                 {Array.from({length:12}).map(function(_,m){return MiniMonth(m);})}
               </div>
               {calYearDay&&(
-                <div onClick={function(){setCalYearDay(null);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:9000,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-                  <div onClick={function(e){e.stopPropagation();}} style={{background:T.surface,borderRadius:"1.1rem 1.1rem 0 0",padding:"1.1rem 1.2rem 1.4rem",maxWidth:480,width:"100%",maxHeight:"70vh",overflowY:"auto",boxShadow:"0 -8px 32px rgba(0,0,0,0.2)"}}>
+                <div onClick={function(){setCalYearDay(null);}} style={K.rd?Object.assign({},RD_OVERLAY,{display:"flex",alignItems:"flex-end",justifyContent:"center"}):{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:9000,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+                  <div onClick={function(e){e.stopPropagation();}} style={K.rd?Object.assign({},RD_SHEET,{maxHeight:"70vh"}):{background:T.surface,borderRadius:"1.1rem 1.1rem 0 0",padding:"1.1rem 1.2rem 1.4rem",maxWidth:480,width:"100%",maxHeight:"70vh",overflowY:"auto",boxShadow:"0 -8px 32px rgba(0,0,0,0.2)"}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
-                      <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>{new Date(calYearDay+"T00:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</span>
-                      <button onClick={function(){setCalYearDay(null);}} style={{background:"none",border:"none",fontSize:"1.1rem",cursor:"pointer",color:T.textSoft}}>×</button>
+                      <span style={K.rd?RD_SHEET_TITLE:{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>{new Date(calYearDay+"T00:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</span>
+                      <button onClick={function(){setCalYearDay(null);}} aria-label="Close" style={K.rd?RD_CLOSE:{background:"none",border:"none",fontSize:"1.1rem",cursor:"pointer",color:T.textSoft}}>×</button>
                     </div>
                     {dayDetailItems.length===0
                       ?<p style={{color:T.textFaint,fontSize:"0.83rem",fontWeight:600,textAlign:"center",padding:"1rem 0"}}>No events — enjoy the open space 🌿</p>
@@ -8701,8 +8739,9 @@ Respond ONLY in valid JSON:
     // rendered with the new-look helpers. Flag off never reaches this.
     if (REDESIGN) {
       var RDK = rdLegacyKit();
-      // Year categories without purple/pink (those hues are Sunset-only).
-      RDK.yearCats = CAL_YEAR_CATEGORIES.map(function(c){ return RD_YEAR_CAT_COLORS[c.id] ? Object.assign({}, c, { color: RD_YEAR_CAT_COLORS[c.id] }) : c; });
+      RDK.rd = true; // the legacy bodies below switch to the new-look sheets and chips
+      // Year categories in the approved palette (no purple/pink: Sunset-only).
+      RDK.yearCats = CAL_YEAR_CATEGORIES.map(function(c){ return Object.assign({}, c, { color: rdYearCatTone(c.id).full }); });
       RDK.yearCatColor = function(catId){ var c=RDK.yearCats.find(function(x){return x.id===catId;}); return c?c.color:"#5A5A5A"; };
       return (
         <CalendarFull
@@ -9841,9 +9880,9 @@ Respond ONLY in valid JSON:
     }
     return (
       <div style={{position:"relative"}}>
-        <button onClick={function(){setOpen(function(p){return !p;});setSearch("");}} style={{...btnS({fontSize:"0.72rem",padding:"0.28rem 0.6rem",display:"flex",alignItems:"center",gap:"0.3rem",background:open?"#b3d1ea":"#cfe3f5",borderColor:"#cfe3f5",color:"#1a3a52"})}}>{selected?selected.name.split(" ").slice(0,2).join(" ")+"…":"Meal Bank"}</button>
+        <button onClick={function(){setOpen(function(p){return !p;});setSearch("");}} style={REDESIGN?rdChip(open,MEALS_TONE,{fontSize:12,padding:"5px 12px"}):{...btnS({fontSize:"0.72rem",padding:"0.28rem 0.6rem",display:"flex",alignItems:"center",gap:"0.3rem",background:open?"#b3d1ea":"#cfe3f5",borderColor:"#cfe3f5",color:"#1a3a52"})}}>{selected?selected.name.split(" ").slice(0,2).join(" ")+"…":"Meal Bank"}</button>
         {open&&(
-          <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,zIndex:50,background:T.white,border:"1.5px solid "+T.border,borderRadius:"0.85rem",boxShadow:"0 4px 20px rgba(0,0,0,0.12)",width:"220px",overflow:"hidden"}}>
+          <div style={REDESIGN?{position:"absolute",top:"calc(100% + 6px)",left:0,zIndex:50,background:"#FFFFFF",border:"none",borderRadius:16,boxShadow:"0 2px 4px rgba(27,43,68,0.05), 0 10px 28px rgba(27,43,68,0.12)",width:"220px",maxWidth:"calc(100vw - 2rem)",overflow:"hidden"}:{position:"absolute",top:"calc(100% + 4px)",left:0,zIndex:50,background:T.white,border:"1.5px solid "+T.border,borderRadius:"0.85rem",boxShadow:"0 4px 20px rgba(0,0,0,0.12)",width:"220px",overflow:"hidden"}}>
             <div style={{padding:"0.5rem 0.6rem",borderBottom:"1px solid "+T.borderSoft}}>
               <input value={search} onChange={function(e){setSearch(e.target.value);}} placeholder="Search meals…" style={{...inp({fontSize:"0.8rem",padding:"0.3rem 0.55rem"})}} autoFocus/>
             </div>
@@ -10184,12 +10223,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function mealsWeekTypePicker(){ return (showWeekTypePicker&&<WeekTypePicker weekTypeKey={weekTypeKey} applyWeekType={applyWeekType} setShowWeekTypePicker={setShowWeekTypePicker} flowMode={flowMode} dietaryFilters={dietaryFilters} setNextWeekMeals={setNextWeekMeals} setMeals={setMeals} setMealSubTab={setMealSubTab} mealBankCustom={mealBankCustom} targetWeek={mealSubTab==="week"?"this":"next"} wtAiMeals={wtAiMeals} setWtAiMeals={setWtAiMeals} wtSelected={wtSelected} setWtSelected={setWtSelected}/>); }
     function mealsNextWeek(K){ var T=K.T, card=K.card, btnP=K.btnP, btnS=K.btnS, inp=K.inp; return (mealSubTab==="nextweek"&&(
           <div>
-            <div style={{...card({background:`linear-gradient(135deg,${T.bluePale},${T.lavPale})`,border:`2px solid ${T.blue}55`,padding:"1rem 1.1rem",marginBottom:"0.85rem"})}}>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:T.textDark,marginBottom:"0.35rem"}}>🗓️ Plan Next Week</div>
+            <div style={K.rd?card({background:MEALS_TONE.tint,border:"none",boxShadow:"none",padding:"16px 18px",marginBottom:"0.85rem"}):{...card({background:`linear-gradient(135deg,${T.bluePale},${T.lavPale})`,border:`2px solid ${T.blue}55`,padding:"1rem 1.1rem",marginBottom:"0.85rem"})}}>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:K.rd?"1.35rem":"1.2rem",fontWeight:700,color:K.rd?MEALS_TONE.ink:T.textDark,marginBottom:"0.35rem"}}>🗓️ Plan Next Week</div>
               <p style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.75rem",lineHeight:1.55}}>Fill in your meals ahead of time. Hit "Apply" when ready to load them into This Week.</p>
               <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginBottom:"0.7rem"}}>
                 {[{v:1,label:"Dinner Only"},{v:2,label:"Lunch + Dinner"},{v:3,label:"All 3 Meals"}].map(o=>(
-                  <button key={o.v} onClick={()=>setNextWeekMealCount(o.v)} style={{background:nextWeekMealCount===o.v?T.blue:T.white,color:nextWeekMealCount===o.v?"#fff":T.textMid,border:`2px solid ${nextWeekMealCount===o.v?T.blue:T.border}`,borderRadius:"2rem",padding:"0.28rem 0.82rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{o.label}</button>
+                  <button key={o.v} onClick={()=>setNextWeekMealCount(o.v)} style={K.rd?rdChip(nextWeekMealCount===o.v,MEALS_TONE,{background:nextWeekMealCount===o.v?MEALS_TONE.full:"#FFFFFF"}):{background:nextWeekMealCount===o.v?T.blue:T.white,color:nextWeekMealCount===o.v?"#fff":T.textMid,border:`2px solid ${nextWeekMealCount===o.v?T.blue:T.border}`,borderRadius:"2rem",padding:"0.28rem 0.82rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{o.label}</button>
                 ))}
               </div>
                 </div>
@@ -10206,7 +10245,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               var isSwapTarget=swapDay&&swapDay!==day;
               return (
                 <div key={day} onClick={isSwapTarget?function(){setNextWeekMeals(function(p){var n=Object.assign({},p);var tmp=n[swapDay]||{};n[swapDay]=n[day]||{};n[day]=tmp;return n;});setSwapDay(null);}:undefined}
-                  style={{...card({borderLeft:"4px solid "+(isSwapSource?T.sand:T.blue)+"50",background:isSwapSource?`linear-gradient(to right,${T.sandPale},${T.surface})`:isSwapTarget?"linear-gradient(to right,"+T.sand+"18,"+T.surface+")":T.surface,cursor:isSwapTarget?"pointer":"default",outline:isSwapTarget?"2px dashed "+T.sand+"80":"none",outlineOffset:"-2px"})}}>
+                  style={{...card({borderLeft:K.rd&&!isSwapSource?"none":"4px solid "+(isSwapSource?T.sand:T.blue)+"50",background:isSwapSource?`linear-gradient(to right,${T.sandPale},${T.surface})`:isSwapTarget?"linear-gradient(to right,"+T.sand+"18,"+T.surface+")":T.surface,cursor:isSwapTarget?"pointer":"default",outline:isSwapTarget?"2px dashed "+T.sand+"80":"none",outlineOffset:"-2px"})}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.65rem"}}>
                     <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flexWrap:"wrap"}}>
                       <span style={{fontWeight:700,color:isSwapSource?T.sandDark:T.textDark,fontSize:"0.93rem"}}>{day}</span>
@@ -10219,7 +10258,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat("+nwMealsToShow.length+",1fr)",gap:"0.45rem",marginBottom:"0.55rem"}}>
                     {nwMealsToShow.map(function(meal){return(
-                      <div key={meal} style={{background:T.white,borderRadius:"0.65rem",padding:"0.58rem 0.7rem",border:"1.5px solid "+T.borderSoft}}>
+                      <div key={meal} style={K.rd?{background:"#FBF8F2",borderRadius:14,padding:"10px 12px",border:"none",minWidth:0}:{background:T.white,borderRadius:"0.65rem",padding:"0.58rem 0.7rem",border:"1.5px solid "+T.borderSoft}}>
                         <div style={{fontSize:"0.6rem",color:T.textMid,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:800,marginBottom:"0.22rem"}}>{meal}</div>
                         <input key={day+meal} defaultValue={m[meal]||""} onBlur={function(e){var v=e.target.value;setNextWeekMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=v;return nd;});}} placeholder="—" style={{...inp({padding:"0.28rem 0.45rem",fontSize:"0.8rem",border:"none",background:"transparent",width:"100%"})}}/>
                         <div style={{marginTop:"0.35rem"}}>
@@ -10239,7 +10278,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               });
               setNextWeekMeals({});
               setMealSubTab("week");
-            }} style={{...btnP(T.blue,{width:"100%",padding:"0.85rem",fontSize:"0.9rem",marginTop:"0.5rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.5rem"})}}>
+            }} style={{...btnP(K.rd?MEALS_TONE.full:T.blue,{width:"100%",padding:"0.85rem",fontSize:"0.9rem",marginTop:"0.5rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.5rem"})}}>
               ✓ Apply as This Week's Meals
             </button>
           </div>
@@ -10253,15 +10292,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           var monthMeals=getMonthMeals();
           return(
             <div>
-              <div style={{...card({background:"linear-gradient(135deg,"+T.lavPale||T.bluePale+","+T.surface+")",border:"2px solid "+T.blue+"40",padding:"1rem 1.1rem",marginBottom:"0.85rem"})}}>
-                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:T.textDark,marginBottom:"0.2rem"}}>📅 Monthly Meal Plan</div>
+              <div style={K.rd?card({background:MEALS_TONE.tint,border:"none",boxShadow:"none",padding:"16px 18px",marginBottom:"0.85rem"}):{...card({background:"linear-gradient(135deg,"+T.lavPale||T.bluePale+","+T.surface+")",border:"2px solid "+T.blue+"40",padding:"1rem 1.1rem",marginBottom:"0.85rem"})}}>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:K.rd?"1.35rem":"1.2rem",fontWeight:700,color:K.rd?MEALS_TONE.ink:T.textDark,marginBottom:"0.2rem"}}>📅 Monthly Meal Plan</div>
                 <p style={{color:T.textSoft,fontSize:"0.8rem",lineHeight:1.5,margin:0}}>Plan dinners across four weeks. Hit Load Week to pull any week into your current plan.</p>
               </div>
               {WEEK_LABELS.map(function(wLabel,wi){
                 return(
                   <div key={wi} style={{marginBottom:"1rem"}}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.45rem"}}>
-                      <span style={{fontSize:"0.75rem",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.07em",color:T.textMid}}>{wLabel}</span>
+                      <span style={K.rd?{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:RD_CAL_TONES[wi%RD_CAL_TONES.length].ink}:{fontSize:"0.75rem",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.07em",color:T.textMid}}>{wLabel}</span>
                       <button onClick={function(){
                         setMeals(function(prev){
                           var next={...prev};
@@ -10272,9 +10311,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                           return next;
                         });
                         setMealSubTab("week");
-                      }} style={btnP(T.sage,{fontSize:"0.7rem",padding:"0.25rem 0.7rem"})}>Load Week</button>
+                      }} style={K.rd?rdChip(true,RD_CAL_TONES[wi%RD_CAL_TONES.length],{fontSize:12}):btnP(T.sage,{fontSize:"0.7rem",padding:"0.25rem 0.7rem"})}>Load Week</button>
                     </div>
-                    <div style={card({padding:"0.5rem 0.75rem"})}>
+                    <div style={card(K.rd?{padding:"0.5rem 0.9rem",boxShadow:"inset 4px 0 0 "+RD_CAL_TONES[wi%RD_CAL_TONES.length].full+", 0 1px 2px rgba(27,43,68,0.04), 0 4px 14px rgba(27,43,68,0.06)"}:{padding:"0.5rem 0.75rem"})}>
                       {MEAL_DAYS.map(function(day){
                         var k="w"+(wi+1)+"_"+day;
                         return(
@@ -10404,12 +10443,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.55rem"}}>
                   <p style={{color:T.textMid,fontSize:"0.82rem",fontWeight:500,lineHeight:1.55,margin:0}}>Filter and find meals. Tap to see details.</p>
-                  <button onClick={function(){setShowAddToBank(true);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP(T.sage,{fontSize:"0.72rem",padding:"0.28rem 0.72rem"})}>+ Add Meal</button>
+                  <button onClick={function(){setShowAddToBank(true);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP(K.rd?MEALS_TONE.full:T.sage,K.rd?{fontSize:"0.72rem",padding:"0.4rem 0.85rem",whiteSpace:"nowrap",flexShrink:0}:{fontSize:"0.72rem",padding:"0.28rem 0.72rem"})}>+ Add Meal</button>
                 </div>
                 <input value={bankSearch} onChange={e=>setBankSearch(e.target.value)} placeholder="Search meals…" style={{...inp({marginBottom:"0.6rem"})}}/>
                 <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.85rem"}}>
                   {MEAL_TAG_FILTERS.map(function(tf){return(
-                    <button key={tf.id} onClick={function(){setBankFilters(function(p){return p.includes(tf.id)?p.filter(function(x){return x!==tf.id;}):[...p,tf.id];});}} style={{background:bankFilters.includes(tf.id)?T.sage:T.white,color:bankFilters.includes(tf.id)?"#fff":T.textMid,border:`1.5px solid ${bankFilters.includes(tf.id)?T.sage:T.border}`,borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>
+                    <button key={tf.id} onClick={function(){setBankFilters(function(p){return p.includes(tf.id)?p.filter(function(x){return x!==tf.id;}):[...p,tf.id];});}} style={K.rd?rdChip(bankFilters.includes(tf.id),mealTagTone(tf.id),{fontSize:12,padding:"5px 11px"}):{background:bankFilters.includes(tf.id)?T.sage:T.white,color:bankFilters.includes(tf.id)?"#fff":T.textMid,border:`1.5px solid ${bankFilters.includes(tf.id)?T.sage:T.border}`,borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>
                       {tf.emoji} {tf.label}
                     </button>
                   );})}
@@ -10417,7 +10456,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
                 <p style={{color:T.textSoft,fontSize:"0.75rem",fontWeight:500,marginBottom:"0.65rem"}}>{filteredBank.length} meal{filteredBank.length!==1?"s":""} found</p>
                 {filteredBank.map(function(m){return(
-                  <div key={m.id} onClick={function(){setSelectedBankMeal(selectedBankMeal===m.id?null:m.id);}} style={{...card({cursor:"pointer",borderLeft:`4px solid ${selectedBankMeal===m.id?T.sage:(m.isCustom?T.sand:T.borderSoft)}`,background:selectedBankMeal===m.id?`linear-gradient(to right,${T.sagePale},${T.surface})`:T.surface,transition:"all 0.15s"})}}>
+                  <div key={m.id} onClick={function(){setSelectedBankMeal(selectedBankMeal===m.id?null:m.id);}} style={{...card({cursor:"pointer",borderLeft:K.rd?"none":`4px solid ${selectedBankMeal===m.id?T.sage:(m.isCustom?T.sand:T.borderSoft)}`,background:selectedBankMeal===m.id?`linear-gradient(to right,${T.sagePale},${T.surface})`:T.surface,transition:"all 0.15s"})}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"0.5rem"}}>
                       <div style={{flex:1}}>
                         <div style={{display:"flex",alignItems:"center",gap:"0.45rem"}}>
@@ -10431,7 +10470,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                         )}
                         {m.notes&&!selectedBankMeal&&<div style={{fontSize:"0.74rem",color:T.textSoft,marginTop:"0.2rem",fontStyle:"italic"}}>{m.notes}</div>}
                         <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",marginTop:"0.4rem"}}>
-                          {(m.tags||[]).slice(0,4).map(function(tag){const tf=MEAL_TAG_FILTERS.find(function(t){return t.id===tag;});return tf?<span key={tag} style={{fontSize:"0.62rem",color:T.sage,background:T.sagePale,borderRadius:"2rem",padding:"1px 7px",fontWeight:600,border:`1px solid ${T.sage}30`}}>{tf.emoji} {tf.label}</span>:null;})}
+                          {(m.tags||[]).slice(0,4).map(function(tag){const tf=MEAL_TAG_FILTERS.find(function(t){return t.id===tag;});return tf?<span key={tag} style={K.rd?{fontSize:"0.66rem",color:mealTagTone(tag).ink,background:mealTagTone(tag).tint,borderRadius:999,padding:"2px 9px",fontWeight:600}:{fontSize:"0.62rem",color:T.sage,background:T.sagePale,borderRadius:"2rem",padding:"1px 7px",fontWeight:600,border:`1px solid ${T.sage}30`}}>{tf.emoji} {tf.label}</span>:null;})}
                         </div>
                       </div>
                       <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:"0.3rem"}}>
@@ -10472,7 +10511,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 );})}
                 {filteredBank.length===0&&<div style={{...card({textAlign:"center",padding:"1.5rem"})}}>
                   <p style={{color:T.textMid,fontWeight:600,fontSize:"0.85rem"}}>No meals match those filters. Try removing one or add a new meal.</p>
-                  <button onClick={function(){setShowAddToBank(true);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP(T.sage,{marginTop:"0.65rem",fontSize:"0.78rem"})}>+ Add Meal</button>
+                  <button onClick={function(){setShowAddToBank(true);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP(K.rd?MEALS_TONE.full:T.sage,{marginTop:"0.65rem",fontSize:"0.78rem"})}>+ Add Meal</button>
                 </div>}
 
                 {/* ── Add to Meal Bank modal ── */}
@@ -10491,7 +10530,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       <label style={lbl}>Tags</label>
                       <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginTop:"0.3rem"}}>
                         {MEAL_TAG_FILTERS.map(function(tf){var on=(newBankMeal.tags||[]).includes(tf.id);return(
-                          <button key={tf.id} onClick={function(){setNewBankMeal(function(p){return{...p,tags:on?p.tags.filter(function(x){return x!==tf.id;}):[...(p.tags||[]),tf.id]};});}} style={{background:on?T.sage:T.white,color:on?"#fff":T.textMid,border:`1.5px solid ${on?T.sage:T.border}`,borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>
+                          <button key={tf.id} onClick={function(){setNewBankMeal(function(p){return{...p,tags:on?p.tags.filter(function(x){return x!==tf.id;}):[...(p.tags||[]),tf.id]};});}} style={K.rd?rdChip(on,mealTagTone(tf.id),{fontSize:12,padding:"5px 11px"}):{background:on?T.sage:T.white,color:on?"#fff":T.textMid,border:`1.5px solid ${on?T.sage:T.border}`,borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>
                             {tf.emoji} {tf.label}
                           </button>
                         );})}
@@ -10499,7 +10538,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     </div>
                     <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
                       <button onClick={function(){setShowAddToBank(false);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnS()}>Cancel</button>
-                      <button disabled={!newBankMeal.name.trim()||newBankMealDupe} onClick={function(){var name=newBankMeal.name.trim();if(!name||newBankMealDupe)return;setMealBankCustom(function(p){return[...p,{...newBankMeal,name:name,id:uid(),isCustom:true}];});setShowAddToBank(false);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP(T.sage,{opacity:newBankMeal.name.trim()&&!newBankMealDupe?1:0.5})}>Save to Bank</button>
+                      <button disabled={!newBankMeal.name.trim()||newBankMealDupe} onClick={function(){var name=newBankMeal.name.trim();if(!name||newBankMealDupe)return;setMealBankCustom(function(p){return[...p,{...newBankMeal,name:name,id:uid(),isCustom:true}];});setShowAddToBank(false);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP(K.rd?MEALS_TONE.full:T.sage,{opacity:newBankMeal.name.trim()&&!newBankMealDupe?1:0.5})}>Save to Bank</button>
                     </div>
                   </ModalBox>
                 )}
@@ -10718,6 +10757,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // above rendered with the new-look helpers. Flag off never reaches this.
     if (REDESIGN) {
       var RDK = rdLegacyKit();
+      RDK.rd = true; // the legacy bodies below switch to the new-look chips and cards
       RDK.prepTask = function(t, done, toggle){ return <PrepTask key={t.id} task={t} done={done} onToggle={toggle} showEmojis={showEmojis}/>; };
       var rdTab = mealsTopTab==="recipes" ? "recipes" : mealSubTab;
       var rdBody = rdTab==="recipes" ? <RecipeBookTab kit={RDK}/>
@@ -14782,6 +14822,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function lhChip(name, base, textOnly) { return lhChipStyle(REDESIGN, name, base, textOnly); }
     function lhRow(name, base, extra) { return lhRowStyle(REDESIGN, name, base, extra); }
     function lhText(name, base) { return lhTextStyle(REDESIGN, name, base); }
+    // af_redesign: inner cards, rows, buttons and text in the new look
+    // (lhInnerStyle); flag off returns the same style object.
+    function lhIn(st) { return lhInnerStyle(REDESIGN, st); }
     function lhKidColor() { return REDESIGN ? (rdPersonColor(activeChild, people, personIsMinor) || null) : null; }
     var todayIso = (function(){ var d = new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); })();
 
@@ -14806,7 +14849,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // Chevron used by both DashCard and SectionShell — same rotate-180° pattern
     // already established elsewhere in the app (Flow page / Today tab cards).
     function Chevron(open) {
-      return <span style={{ color:"#9a9488", fontSize:"0.7rem", display:"inline-block", transform:open?"rotate(180deg)":"none", transition:"transform .15s", flexShrink:0 }}>▾</span>;
+      return <span style={lhIn({ color:"#9a9488", fontSize:"0.7rem", display:"inline-block", transform:open?"rotate(180deg)":"none", transition:"transform .15s", flexShrink:0 })}>▾</span>;
     }
     // Big section-card shell used by Plan/Records/Growth/Library. tabName+sectionName
     // form the sessionStorage key; defaultOpen seeds first-visit state.
@@ -14816,12 +14859,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       return (
         <div data-lh-area={REDESIGN ? String(opts.tabName||"").split("-")[0] : undefined} style={REDESIGN ? lhSectionCard(lhAreaTone(opts.tabName), lhKidColor()) : { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", marginBottom:"0.85rem", overflow:"hidden" }}>
           <div onClick={toggle} style={Object.assign({ display:"flex", alignItems:"center", gap:"0.5rem", padding:"1rem", cursor:"pointer" }, REDESIGN ? Object.assign(lhSectionHead(lhAreaTone(opts.tabName)), { marginBottom: open ? "0.75rem" : 0 }) : null)}>
-            <span style={{ fontSize:"1.05rem" }}>{opts.emoji}</span>
-            <span style={{ fontFamily:"Cormorant Garamond, serif", fontSize:"1.05rem", color:REDESIGN ? lhAreaTone(opts.tabName).ink : LC.navy, flex:1, fontWeight:REDESIGN ? 700 : undefined }}>{opts.title}</span>
+            <span style={lhIn({ fontSize:"1.05rem" })}>{opts.emoji}</span>
+            <span style={lhIn({ fontFamily:"Cormorant Garamond, serif", fontSize:"1.05rem", color:REDESIGN ? lhAreaTone(opts.tabName).ink : LC.navy, flex:1, fontWeight:REDESIGN ? 700 : undefined })}>{opts.title}</span>
             {opts.right}
             {Chevron(open)}
           </div>
-          {open && <div style={{ padding:"0 1rem 1rem" }}>{opts.children}</div>}
+          {open && <div style={lhIn({ padding:"0 1rem 1rem" })}>{opts.children}</div>}
         </div>
       );
     }
@@ -14831,14 +14874,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var open = pair[0], toggle = pair[1];
       return (
         <div data-lh-dash={REDESIGN ? opts.sectionKey : undefined} style={REDESIGN ? Object.assign(lhDashCard(LH_DASH_TONE[opts.sectionKey] || LH_AREA_TONE.overview, lhKidColor()), { padding:"1rem 1rem 1rem 1.2rem", display:"flex", flexDirection:"column", gap: open?"0.55rem":0 }) : { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", display:"flex", flexDirection:"column", gap: open?"0.55rem":0 }}>
-          <div onClick={toggle} style={{ display:"flex", alignItems:"center", gap:"0.4rem", cursor:"pointer" }}>
-            <span style={{ fontSize:"1.05rem" }}>{opts.emoji}</span>
-            <span style={{ fontWeight:700, color:REDESIGN ? (LH_DASH_TONE[opts.sectionKey] || LH_AREA_TONE.overview).ink : LC.navy, fontSize:"0.85rem", flex:1 }}>{opts.title}</span>
+          <div onClick={toggle} style={lhIn({ display:"flex", alignItems:"center", gap:"0.4rem", cursor:"pointer" })}>
+            <span style={lhIn({ fontSize:"1.05rem" })}>{opts.emoji}</span>
+            <span style={lhIn({ fontWeight:700, color:REDESIGN ? (LH_DASH_TONE[opts.sectionKey] || LH_AREA_TONE.overview).ink : LC.navy, fontSize:"0.85rem", flex:1 })}>{opts.title}</span>
             {Chevron(open)}
           </div>
-          {open && <div style={{ fontSize:"0.83rem", color:opts.muted?"#9a9488":"#4a4a44", lineHeight:1.5 }}>{opts.body}</div>}
+          {open && <div style={lhIn({ fontSize:"0.83rem", color:opts.muted?"#9a9488":"#4a4a44", lineHeight:1.5 })}>{opts.body}</div>}
           {open && opts.actionLabel && (
-            <button onClick={opts.onAction} style={{ alignSelf:"flex-start", background:"transparent", border:"none", color:LC.seaglass, fontWeight:700, fontSize:"0.78rem", cursor:"pointer", fontFamily:"inherit", padding:0 }}>
+            <button onClick={opts.onAction} style={lhIn({ alignSelf:"flex-start", background:"transparent", border:"none", color:LC.seaglass, fontWeight:700, fontSize:"0.78rem", cursor:"pointer", fontFamily:"inherit", padding:0 })}>
               {opts.actionLabel} →
             </button>
           )}
@@ -15008,21 +15051,21 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
       if (!childMode) {
         return (
-          <div style={{ background:LC.cream, borderRadius:"1rem", padding:"1.75rem 1.25rem" }}>
-            <div style={{ fontFamily:"Cormorant Garamond, serif", fontSize:"1.3rem", color:LC.navy, marginBottom:"0.4rem", textAlign:"center" }}>
+          <div style={lhIn({ background:LC.cream, borderRadius:"1rem", padding:"1.75rem 1.25rem" })}>
+            <div style={lhIn({ fontFamily:"Cormorant Garamond, serif", fontSize:"1.3rem", color:LC.navy, marginBottom:"0.4rem", textAlign:"center" })}>
               How does {childPerson.name} learn?
             </div>
-            <div style={{ color:"#7a7568", fontSize:"0.82rem", textAlign:"center", marginBottom:"1.5rem" }}>
+            <div style={lhIn({ color:"#7a7568", fontSize:"0.82rem", textAlign:"center", marginBottom:"1.5rem" })}>
               You can change this anytime.
             </div>
-            <div style={{ display:"flex", gap:"0.75rem" }}>
-              <button onClick={function(){ setMode("homeschool"); }} style={{ flex:1, background:"#fff", border:"2px solid "+LC.seaglass, borderRadius:"1rem", padding:"1.25rem 0.75rem", cursor:"pointer", textAlign:"center", fontFamily:"inherit" }}>
-                <div style={{ fontSize:"2rem", marginBottom:"0.4rem" }}>🏡</div>
-                <div style={{ fontWeight:700, color:LC.navy, fontSize:"0.9rem" }}>Homeschool</div>
+            <div style={lhIn({ display:"flex", gap:"0.75rem" })}>
+              <button onClick={function(){ setMode("homeschool"); }} style={lhIn({ flex:1, background:"#fff", border:"2px solid "+LC.seaglass, borderRadius:"1rem", padding:"1.25rem 0.75rem", cursor:"pointer", textAlign:"center", fontFamily:"inherit" })}>
+                <div style={lhIn({ fontSize:"2rem", marginBottom:"0.4rem" })}>🏡</div>
+                <div style={lhIn({ fontWeight:700, color:LC.navy, fontSize:"0.9rem" })}>Homeschool</div>
               </button>
-              <button onClick={function(){ setMode("school"); }} style={{ flex:1, background:"#fff", border:"2px solid "+LC.seaglass, borderRadius:"1rem", padding:"1.25rem 0.75rem", cursor:"pointer", textAlign:"center", fontFamily:"inherit" }}>
-                <div style={{ fontSize:"2rem", marginBottom:"0.4rem" }}>🏫</div>
-                <div style={{ fontWeight:700, color:LC.navy, fontSize:"0.9rem" }}>School</div>
+              <button onClick={function(){ setMode("school"); }} style={lhIn({ flex:1, background:"#fff", border:"2px solid "+LC.seaglass, borderRadius:"1rem", padding:"1.25rem 0.75rem", cursor:"pointer", textAlign:"center", fontFamily:"inherit" })}>
+                <div style={lhIn({ fontSize:"2rem", marginBottom:"0.4rem" })}>🏫</div>
+                <div style={lhIn({ fontWeight:700, color:LC.navy, fontSize:"0.9rem" })}>School</div>
               </button>
             </div>
           </div>
@@ -15191,14 +15234,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       }
 
       return (
-        <div style={{ background:LC.cream, borderRadius:"1rem", padding:"1rem" }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"1rem", flexWrap:"wrap", gap:"0.5rem" }}>
-            <div style={{ fontFamily:"Cormorant Garamond, serif", fontSize:"1.2rem", color:LC.navy }}>{childPerson.name}'s Lighthouse</div>
-            <button onClick={function(){ setMode(childMode==="homeschool"?"school":"homeschool"); }} style={{ background:"transparent", border:"1.5px solid "+LC.seaglass, color:LC.seaglass, borderRadius:"99px", padding:"0.35rem 0.85rem", fontSize:"0.76rem", fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+        <div style={lhIn({ background:LC.cream, borderRadius:"1rem", padding:"1rem" })}>
+          <div style={lhIn({ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"1rem", flexWrap:"wrap", gap:"0.5rem" })}>
+            <div style={lhIn({ fontFamily:"Cormorant Garamond, serif", fontSize:"1.2rem", color:LC.navy })}>{childPerson.name}'s Lighthouse</div>
+            <button onClick={function(){ setMode(childMode==="homeschool"?"school":"homeschool"); }} style={lhIn({ background:"transparent", border:"1.5px solid "+LC.seaglass, color:LC.seaglass, borderRadius:"99px", padding:"0.35rem 0.85rem", fontSize:"0.76rem", fontWeight:700, cursor:"pointer", fontFamily:"inherit" })}>
               Switch to {childMode==="homeschool"?"School":"Homeschool"}
             </button>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(230px,1fr))", gap:"0.85rem" }}>
+          <div style={lhIn({ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(230px,1fr))", gap:"0.85rem" })}>
             {cards}
           </div>
         </div>
@@ -15284,16 +15327,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       function openEdit(id, item) { lhFormRef.current = Object.assign({}, item); setLhEditId(id); setLhAddMode(null); }
       function closeForm() { lhFormRef.current = {}; setLhAddMode(null); setLhEditId(null); }
       function fieldRow(label, children) {
-        return (<div style={{ marginBottom:"0.7rem" }}><div style={{ fontSize:"0.73rem", fontWeight:600, color:"#7a7568", marginBottom:"0.2rem", textTransform:"uppercase", letterSpacing:"0.04em" }}>{label}</div>{children}</div>);
+        return (<div style={lhIn({ marginBottom:"0.7rem" })}><div style={lhIn({ fontSize:"0.73rem", fontWeight:600, color:"#7a7568", marginBottom:"0.2rem", textTransform:"uppercase", letterSpacing:"0.04em" })}>{label}</div>{children}</div>);
       }
       function formCard(children) {
-        return (<div style={{ background:"#fff", border:"1.5px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", marginBottom:"0.85rem" }}>{children}</div>);
+        return (<div style={lhIn({ background:"#fff", border:"1.5px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", marginBottom:"0.85rem" })}>{children}</div>);
       }
       function formBtns(onSave) {
-        return (<div style={{ display:"flex", gap:"0.5rem", marginTop:"0.6rem" }}><button type="button" onClick={onSave} style={btnP(LC.seaglass,{ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Save</button><button type="button" onClick={closeForm} style={btnS({ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Cancel</button></div>);
+        return (<div style={lhIn({ display:"flex", gap:"0.5rem", marginTop:"0.6rem" })}><button type="button" onClick={onSave} style={btnP(LC.seaglass,{ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Save</button><button type="button" onClick={closeForm} style={btnS({ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Cancel</button></div>);
       }
       function pillToggle(label, active, onClick) {
-        return (<button type="button" key={label} onClick={onClick} style={{ padding:"0.22rem 0.65rem", borderRadius:"99px", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:400, cursor:"pointer", fontFamily:"inherit" }}>{label}</button>);
+        return (<button type="button" key={label} onClick={onClick} style={lhIn({ padding:"0.22rem 0.65rem", borderRadius:"99px", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:400, cursor:"pointer", fontFamily:"inherit" })}>{label}</button>);
       }
 
       var hsAll = lhGet(lighthouse, "homeschool", {});
@@ -15396,15 +15439,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   {formBtns(saveHw)}
                 </div>
               )}
-              {dueTodayOrOverdue.length === 0 && <div style={{ color:"#9a9488", textAlign:"center", padding:"1.5rem 0", fontSize:"0.85rem" }}>Nothing due today.</div>}
+              {dueTodayOrOverdue.length === 0 && <div style={lhIn({ color:"#9a9488", textAlign:"center", padding:"1.5rem 0", fontSize:"0.85rem" })}>Nothing due today.</div>}
               {dueTodayOrOverdue.map(function(hw) {
                 var overdue = hw.due && hw.due < todayIso;
                 return (
                   <div key={hw.id} style={lhRow(hw.subj, { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.65rem 0.85rem", marginBottom:"0.5rem", display:"flex", alignItems:"center", gap:"0.5rem" })}>
-                    <input type="checkbox" checked={hw.status==="Done"} onChange={function(){ applySchool({ homework: homework.map(function(h){ return h.id===hw.id ? Object.assign({},h,{status:h.status==="Done"?"Not started":"Done"}) : h; }) }); }} style={{ cursor:"pointer", flexShrink:0 }}/>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{hw.task}</div>
-                      <div style={{ fontSize:"0.74rem", color:"#8a8578" }}>{hw.subj}{hw.due ? " · due "+fmtMonthDay(hw.due) : ""}{overdue ? " · overdue" : ""}</div>
+                    <input type="checkbox" checked={hw.status==="Done"} onChange={function(){ applySchool({ homework: homework.map(function(h){ return h.id===hw.id ? Object.assign({},h,{status:h.status==="Done"?"Not started":"Done"}) : h; }) }); }} style={lhIn({ cursor:"pointer", flexShrink:0 })}/>
+                    <div style={lhIn({ flex:1 })}>
+                      <div style={lhIn({ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" })}>{hw.task}</div>
+                      <div style={lhIn({ fontSize:"0.74rem", color:"#8a8578" })}>{hw.subj}{hw.due ? " · due "+fmtMonthDay(hw.due) : ""}{overdue ? " · overdue" : ""}</div>
                     </div>
                   </div>
                 );
@@ -15432,16 +15475,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         return (
           <div>
             <SectionShell tabName="plan-today" sectionName="attendance" emoji="📋" title="Attendance Today" defaultOpen={true}>
-              <div style={{ display:"flex", gap:"0.4rem" }}>
+              <div style={lhIn({ display:"flex", gap:"0.4rem" })}>
                 {[["present","Present"],["half","Half day"],["absent","Absent"]].map(function(o){
                   var active = att===o[0];
-                  return <button type="button" key={o[0]} onClick={function(){ toggleAtt(o[0]); }} style={{ flex:1, padding:"0.4rem 0.3rem", borderRadius:"0.6rem", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:500, cursor:"pointer", fontFamily:"inherit" }}>{o[1]}</button>;
+                  return <button type="button" key={o[0]} onClick={function(){ toggleAtt(o[0]); }} style={lhIn({ flex:1, padding:"0.4rem 0.3rem", borderRadius:"0.6rem", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:500, cursor:"pointer", fontFamily:"inherit" })}>{o[1]}</button>;
                 })}
               </div>
             </SectionShell>
 
-            <div style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"0.85rem 1rem", marginBottom:"0.85rem" }}>
-              <div style={{ fontSize:"0.73rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:"0.5rem" }}>🎯 This month's focus</div>
+            <div style={lhIn({ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"0.85rem 1rem", marginBottom:"0.85rem" })}>
+              <div style={lhIn({ fontSize:"0.73rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:"0.5rem" })}>🎯 This month's focus</div>
               <textarea
                 defaultValue={monthlyFocus}
                 onBlur={function(e){ applyHs({ monthly: e.target.value }); }}
@@ -15451,7 +15494,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
 
             <SectionShell tabName="plan-today" sectionName="subjects" emoji="🗓️" title="Today's Subjects" defaultOpen={true}>
-              <div style={{ display:"flex", gap:"0.5rem", marginBottom:"0.85rem" }}>
+              <div style={lhIn({ display:"flex", gap:"0.5rem", marginBottom:"0.85rem" })}>
                 {lhAddMode !== "today-entry" && <button type="button" onClick={function(){ openAdd("today-entry", { subject: subjectNameList[0]||"" }); }} style={btnP(LC.seaglass,{ fontSize:"0.82rem" })}>+ Add subject</button>}
                 <button type="button" onClick={copyFromYesterday} style={btnS({ fontSize:"0.82rem" })}>Copy from yesterday</button>
               </div>
@@ -15467,20 +15510,20 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
               )}
 
-              {entries.length === 0 && lhAddMode !== "today-entry" && <div style={{ color:"#9a9488", textAlign:"center", padding:"1.5rem 0", fontSize:"0.85rem" }}>Nothing planned for today yet.</div>}
+              {entries.length === 0 && lhAddMode !== "today-entry" && <div style={lhIn({ color:"#9a9488", textAlign:"center", padding:"1.5rem 0", fontSize:"0.85rem" })}>Nothing planned for today yet.</div>}
               {entries.map(function(e) {
                 return (
                   <div key={e.id} style={lhRow(e.subject, { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.65rem 0.85rem", marginBottom:"0.5rem" })}>
-                    <div style={{ display:"flex", alignItems:"flex-start", gap:"0.5rem" }}>
-                      <input type="checkbox" checked={!!e.done} onChange={function(){ saveEntriesFor(todayIso, entries.map(function(x){ return x.id===e.id ? Object.assign({},x,{done:!x.done}) : x; })); }} style={{ cursor:"pointer", flexShrink:0, marginTop:"2px" }}/>
-                      <div style={{ flex:1 }}>
-                        <div style={{ display:"flex", alignItems:"center", gap:"0.4rem", flexWrap:"wrap" }}>
+                    <div style={lhIn({ display:"flex", alignItems:"flex-start", gap:"0.5rem" })}>
+                      <input type="checkbox" checked={!!e.done} onChange={function(){ saveEntriesFor(todayIso, entries.map(function(x){ return x.id===e.id ? Object.assign({},x,{done:!x.done}) : x; })); }} style={lhIn({ cursor:"pointer", flexShrink:0, marginTop:"2px" })}/>
+                      <div style={lhIn({ flex:1 })}>
+                        <div style={lhIn({ display:"flex", alignItems:"center", gap:"0.4rem", flexWrap:"wrap" })}>
                           <span style={lhChip(e.subject, { background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" })}>{e.subject}</span>
-                          {e.title && <span style={{ fontSize:"0.84rem", fontWeight:600, color:e.done?"#9a9488":"#3a3a34", textDecoration:e.done?"line-through":"none" }}>{e.title}</span>}
+                          {e.title && <span style={lhIn({ fontSize:"0.84rem", fontWeight:600, color:e.done?"#9a9488":"#3a3a34", textDecoration:e.done?"line-through":"none" })}>{e.title}</span>}
                         </div>
-                        {e.notes && <div style={{ fontSize:"0.76rem", color:"#8a8578", marginTop:"0.2rem" }}>{e.notes}</div>}
+                        {e.notes && <div style={lhIn({ fontSize:"0.76rem", color:"#8a8578", marginTop:"0.2rem" })}>{e.notes}</div>}
                       </div>
-                      <button type="button" onClick={function(){ saveEntriesFor(todayIso, entries.filter(function(x){ return x.id!==e.id; })); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem" }}>✕</button>
+                      <button type="button" onClick={function(){ saveEntriesFor(todayIso, entries.filter(function(x){ return x.id!==e.id; })); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem" })}>✕</button>
                     </div>
                   </div>
                 );
@@ -15548,20 +15591,20 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         }
         return (
           <SectionShell tabName="plan-week" sectionName={day} emoji="🗓️" title={day} defaultOpen={false}
-            right={subjects.length>0 ? <span style={{ fontSize:"0.68rem", color:"#8a8578", flexShrink:0 }}>{subjects.filter(function(s){return s.done;}).length}/{subjects.length}</span> : null}>
-            <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:"0.5rem" }}>
-              <button type="button" onClick={function(){ openAdd("week-subj-"+day, { name: subjectNameList[0]||"" }); }} style={{ background:"none", border:"none", cursor:"pointer", color:LC.seaglass, fontSize:"0.75rem", fontWeight:700 }}>+ Subject</button>
+            right={subjects.length>0 ? <span style={lhIn({ fontSize:"0.68rem", color:"#8a8578", flexShrink:0 })}>{subjects.filter(function(s){return s.done;}).length}/{subjects.length}</span> : null}>
+            <div style={lhIn({ display:"flex", justifyContent:"flex-end", marginBottom:"0.5rem" })}>
+              <button type="button" onClick={function(){ openAdd("week-subj-"+day, { name: subjectNameList[0]||"" }); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", color:LC.seaglass, fontSize:"0.75rem", fontWeight:700 })}>+ Subject</button>
             </div>
-            {subjects.length === 0 && !isAdding && <div style={{ color:"#9a9488", fontSize:"0.8rem", fontStyle:"italic" }}>No subjects planned</div>}
+            {subjects.length === 0 && !isAdding && <div style={lhIn({ color:"#9a9488", fontSize:"0.8rem", fontStyle:"italic" })}>No subjects planned</div>}
             {subjects.map(function(s, idx) {
               return (
                 <div key={s.id||idx} style={lhRow(s.name, { padding:"0.4rem 0", borderBottom:"1px solid #F0EBDF" }, { padding:"0.45rem 0.65rem", borderRadius:"0.7rem", marginBottom:"0.35rem" })}>
-                  <div style={{ display:"flex", alignItems:"center", gap:"0.4rem" }}>
-                    <input type="checkbox" checked={!!s.done} onChange={function(){ var next=subjects.map(function(x,i){ return i===idx ? Object.assign({},x,{done:!x.done}) : x; }); saveDayPlan(day,{subjects:next}); }} style={{ cursor:"pointer", flexShrink:0 }}/>
+                  <div style={lhIn({ display:"flex", alignItems:"center", gap:"0.4rem" })}>
+                    <input type="checkbox" checked={!!s.done} onChange={function(){ var next=subjects.map(function(x,i){ return i===idx ? Object.assign({},x,{done:!x.done}) : x; }); saveDayPlan(day,{subjects:next}); }} style={lhIn({ cursor:"pointer", flexShrink:0 })}/>
                     <span style={lhChip(s.name, { fontSize:"0.68rem", fontWeight:800, color:LC.seaglass, flexShrink:0 }, true)}>{s.name}</span>
-                    <input defaultValue={s.title||""} onBlur={function(e){ var next=subjects.map(function(x,i){ return i===idx ? Object.assign({},x,{title:e.target.value}) : x; }); saveDayPlan(day,{subjects:next}); }} placeholder="Lesson title" style={{ flex:1, minWidth:0, fontSize:"0.82rem", color:s.done?"#9a9488":"#3a3a34", textDecoration:s.done?"line-through":"none", border:"none", background:"transparent", outline:"none", fontFamily:"inherit" }}/>
-                    <button type="button" onClick={function(){ addSubjectToCalendar(s); }} title="Add to Calendar" style={{ background:"none", border:"none", cursor:"pointer", color: addedSubjIds[s.id] ? LC.seaglass : "#8a8578", fontSize:"0.74rem", flexShrink:0 }}>{addedSubjIds[s.id] ? "✓" : "📅"}</button>
-                    <button type="button" onClick={function(){ saveDayPlan(day,{ subjects: subjects.filter(function(_,i){ return i!==idx; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.72rem", flexShrink:0 }}>✕</button>
+                    <input defaultValue={s.title||""} onBlur={function(e){ var next=subjects.map(function(x,i){ return i===idx ? Object.assign({},x,{title:e.target.value}) : x; }); saveDayPlan(day,{subjects:next}); }} placeholder="Lesson title" style={lhIn({ flex:1, minWidth:0, fontSize:"0.82rem", color:s.done?"#9a9488":"#3a3a34", textDecoration:s.done?"line-through":"none", border:"none", background:"transparent", outline:"none", fontFamily:"inherit" })}/>
+                    <button type="button" onClick={function(){ addSubjectToCalendar(s); }} title="Add to Calendar" style={lhIn({ background:"none", border:"none", cursor:"pointer", color: addedSubjIds[s.id] ? LC.seaglass : "#8a8578", fontSize:"0.74rem", flexShrink:0 })}>{addedSubjIds[s.id] ? "✓" : "📅"}</button>
+                    <button type="button" onClick={function(){ saveDayPlan(day,{ subjects: subjects.filter(function(_,i){ return i!==idx; }) }); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.72rem", flexShrink:0 })}>✕</button>
                   </div>
                   {/* Fix 1: per-subject notes — replaces the old day-level dayNotes
                       textarea that used to float below all subjects. */}
@@ -15650,10 +15693,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   </div>
                 )}
                 {events.map(function(ev){ return (
-                  <div key={ev.id} style={{ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.5rem 0.8rem", marginBottom:"0.4rem", display:"flex", alignItems:"center", gap:"0.5rem" }}>
-                    <div style={{ flex:1, fontSize:"0.85rem", color:"#3a3a34" }}>{ev.title}</div>
-                    {ev.date && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{fmtMonthDay(ev.date)}</span>}
-                    <button type="button" onClick={function(){ weekMutate({ events: events.filter(function(e){ return e.id!==ev.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.73rem" }}>✕</button>
+                  <div key={ev.id} style={lhIn({ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.5rem 0.8rem", marginBottom:"0.4rem", display:"flex", alignItems:"center", gap:"0.5rem" })}>
+                    <div style={lhIn({ flex:1, fontSize:"0.85rem", color:"#3a3a34" })}>{ev.title}</div>
+                    {ev.date && <span style={lhIn({ fontSize:"0.7rem", color:"#8a8578" })}>{fmtMonthDay(ev.date)}</span>}
+                    <button type="button" onClick={function(){ weekMutate({ events: events.filter(function(e){ return e.id!==ev.id; }) }); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.73rem" })}>✕</button>
                   </div>
                 ); })}
               </SectionShell>
@@ -15668,11 +15711,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   </div>
                 )}
                 {forms.map(function(fm){ return (
-                  <div key={fm.id} style={{ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.5rem 0.8rem", marginBottom:"0.4rem", display:"flex", alignItems:"center", gap:"0.5rem" }}>
-                    <input type="checkbox" checked={!!fm.done} onChange={function(){ weekMutate({ forms: forms.map(function(f){ return f.id===fm.id ? Object.assign({},f,{done:!f.done}) : f; }) }); }} style={{ cursor:"pointer" }}/>
-                    <div style={{ flex:1, fontSize:"0.85rem", color:fm.done?"#9a9488":"#3a3a34", textDecoration:fm.done?"line-through":"none" }}>{fm.title}</div>
-                    {fm.due && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{fmtMonthDay(fm.due)}</span>}
-                    <button type="button" onClick={function(){ weekMutate({ forms: forms.filter(function(f){ return f.id!==fm.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.73rem" }}>✕</button>
+                  <div key={fm.id} style={lhIn({ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.5rem 0.8rem", marginBottom:"0.4rem", display:"flex", alignItems:"center", gap:"0.5rem" })}>
+                    <input type="checkbox" checked={!!fm.done} onChange={function(){ weekMutate({ forms: forms.map(function(f){ return f.id===fm.id ? Object.assign({},f,{done:!f.done}) : f; }) }); }} style={lhIn({ cursor:"pointer" })}/>
+                    <div style={lhIn({ flex:1, fontSize:"0.85rem", color:fm.done?"#9a9488":"#3a3a34", textDecoration:fm.done?"line-through":"none" })}>{fm.title}</div>
+                    {fm.due && <span style={lhIn({ fontSize:"0.7rem", color:"#8a8578" })}>{fmtMonthDay(fm.due)}</span>}
+                    <button type="button" onClick={function(){ weekMutate({ forms: forms.filter(function(f){ return f.id!==fm.id; }) }); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.73rem" })}>✕</button>
                   </div>
                 ); })}
               </SectionShell>
@@ -15686,9 +15729,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   </div>
                 )}
                 {pack.map(function(pk){ return (
-                  <div key={pk.id} onClick={function(){ weekMutate({ pack: pack.map(function(p){ return p.id===pk.id ? Object.assign({},p,{checked:!p.checked}) : p; }) }); }} style={{ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.5rem 0.8rem", marginBottom:"0.4rem", display:"flex", alignItems:"center", gap:"0.5rem", cursor:"pointer" }}>
-                    <span style={{ color:pk.checked?LC.seaglass:"#D8D2C4" }}>{pk.checked?"●":"○"}</span>
-                    <div style={{ flex:1, fontSize:"0.85rem", color:pk.checked?"#9a9488":"#3a3a34", textDecoration:pk.checked?"line-through":"none" }}>{pk.label}</div>
+                  <div key={pk.id} onClick={function(){ weekMutate({ pack: pack.map(function(p){ return p.id===pk.id ? Object.assign({},p,{checked:!p.checked}) : p; }) }); }} style={lhIn({ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.5rem 0.8rem", marginBottom:"0.4rem", display:"flex", alignItems:"center", gap:"0.5rem", cursor:"pointer" })}>
+                    <span style={lhIn({ color:pk.checked?LC.seaglass:"#D8D2C4" })}>{pk.checked?"●":"○"}</span>
+                    <div style={lhIn({ flex:1, fontSize:"0.85rem", color:pk.checked?"#9a9488":"#3a3a34", textDecoration:pk.checked?"line-through":"none" })}>{pk.label}</div>
                   </div>
                 ); })}
               </SectionShell>
@@ -15698,16 +15741,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         return (
           <div>
-            <div style={{ display:"flex", gap:"0.5rem", marginBottom:"0.85rem" }}>
+            <div style={lhIn({ display:"flex", gap:"0.5rem", marginBottom:"0.85rem" })}>
               <button type="button" onClick={function(){ setShowCopyPicker(true); }} style={btnS({ fontSize:"0.79rem" })}>📋 Copy Day</button>
               <button type="button" onClick={clearWeek} style={btnS({ fontSize:"0.79rem", color:LH_ROSE })}>🗑 Clear Week</button>
             </div>
             {PLAN_SCHOOL_DAYS.map(function(day) { return <WeekDayCard key={day} day={day}/>; })}
             {showCopyPicker && (
-              <div style={{ position:"fixed", inset:0, background:"rgba(36,58,90,0.35)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" }}>
-                <div style={{ background:"#fff", borderRadius:"1rem", padding:"1.25rem", width:"min(320px,100%)" }}>
-                  <div style={{ fontWeight:700, color:LC.navy, marginBottom:"0.75rem" }}>Copy day to all others</div>
-                  {PLAN_SCHOOL_DAYS.map(function(d){ return <button type="button" key={d} onClick={function(){ copyDay(d); setShowCopyPicker(false); }} style={{ display:"block", width:"100%", textAlign:"left", background:"none", border:"none", borderBottom:"1px solid #F0EBDF", padding:"0.5rem 0", cursor:"pointer", fontSize:"0.85rem", color:"#3a3a34", fontFamily:"inherit" }}>{d}</button>; })}
+              <div style={lhIn({ position:"fixed", inset:0, background:"rgba(36,58,90,0.35)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" })}>
+                <div style={lhIn({ background:"#fff", borderRadius:"1rem", padding:"1.25rem", width:"min(320px,100%)" })}>
+                  <div style={lhIn({ fontWeight:700, color:LC.navy, marginBottom:"0.75rem" })}>Copy day to all others</div>
+                  {PLAN_SCHOOL_DAYS.map(function(d){ return <button type="button" key={d} onClick={function(){ copyDay(d); setShowCopyPicker(false); }} style={lhIn({ display:"block", width:"100%", textAlign:"left", background:"none", border:"none", borderBottom:"1px solid #F0EBDF", padding:"0.5rem 0", cursor:"pointer", fontSize:"0.85rem", color:"#3a3a34", fontFamily:"inherit" })}>{d}</button>; })}
                   <button type="button" onClick={function(){ setShowCopyPicker(false); }} style={btnS({ marginTop:"0.75rem", width:"100%" })}>Cancel</button>
                 </div>
               </div>
@@ -15751,14 +15794,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             setMaterial(""); setCustomSubj(""); setAddingCur(false);
           }
           return (
-            <div style={{ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.8rem", marginBottom:"0.5rem" }}>
+            <div style={lhIn({ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.8rem", marginBottom:"0.5rem" })}>
               <select value={subj} onChange={function(e){ setSubj(e.target.value); }} style={inp({ fontSize:"0.8rem", marginBottom:"0.4rem" })}>
                 {subjectNameList.map(function(s){ return <option key={s} value={s}>{s}</option>; })}
                 <option value="__other__">Other…</option>
               </select>
               {subj === "__other__" && <input value={customSubj} onChange={function(e){ setCustomSubj(e.target.value); }} placeholder="Subject name" style={inp({ fontSize:"0.82rem", marginBottom:"0.4rem" })} autoFocus/>}
               <input value={material} onChange={function(e){ setMaterial(e.target.value); }} placeholder="Lesson / material for this week" style={inp({ fontSize:"0.82rem", marginBottom:"0.5rem" })}/>
-              <div style={{ display:"flex", gap:"0.4rem" }}>
+              <div style={lhIn({ display:"flex", gap:"0.4rem" })}>
                 <button type="button" onClick={save} style={btnP(LC.seaglass,{ fontSize:"0.78rem" })}>Add</button>
                 <button type="button" onClick={function(){ setAddingCur(false); }} style={btnS({ fontSize:"0.78rem" })}>Cancel</button>
               </div>
@@ -15769,28 +15812,28 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           var weekEntries = Array.isArray(monthCurriculum[curWeek]) ? monthCurriculum[curWeek] : [];
           return (
             <SectionShell tabName="plan-month" sectionName="curriculum" emoji="📘" title="Curriculum Planning" defaultOpen={true}>
-              <div style={{ display:"flex", gap:"0.4rem", marginBottom:"0.75rem", flexWrap:"wrap" }}>
+              <div style={lhIn({ display:"flex", gap:"0.4rem", marginBottom:"0.75rem", flexWrap:"wrap" })}>
                 {CURRICULUM_WEEKS.map(function(w) {
                   var active = curWeek === w;
                   var count = Array.isArray(monthCurriculum[w]) ? monthCurriculum[w].length : 0;
                   return (
-                    <button type="button" key={w} onClick={function(){ setCurWeek(w); setAddingCur(false); }} style={{ padding:"0.28rem 0.75rem", borderRadius:"50px", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:500, cursor:"pointer", fontFamily:"inherit" }}>{w}{count>0?" ("+count+")":""}</button>
+                    <button type="button" key={w} onClick={function(){ setCurWeek(w); setAddingCur(false); }} style={lhIn({ padding:"0.28rem 0.75rem", borderRadius:"50px", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:500, cursor:"pointer", fontFamily:"inherit" })}>{w}{count>0?" ("+count+")":""}</button>
                   );
                 })}
               </div>
-              {weekEntries.length === 0 && <div style={{ color:"#9a9488", fontSize:"0.82rem", fontStyle:"italic", padding:"0.3rem 0" }}>No curriculum planned for {curWeek} yet.</div>}
+              {weekEntries.length === 0 && <div style={lhIn({ color:"#9a9488", fontSize:"0.82rem", fontStyle:"italic", padding:"0.3rem 0" })}>No curriculum planned for {curWeek} yet.</div>}
               {weekEntries.map(function(entry) {
                 return (
                   <div key={entry.id} style={lhRow(entry.subject, { display:"flex", alignItems:"flex-start", gap:"0.5rem", background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.55rem 0.8rem", marginBottom:"0.4rem" })}>
-                    <div style={{ flex:1 }}>
+                    <div style={lhIn({ flex:1 })}>
                       <div style={lhText(entry.subject, { fontSize:"0.82rem", fontWeight:700, color:"#3a3a34" })}>{entry.subject}</div>
-                      {entry.material && <div style={{ fontSize:"0.76rem", color:"#8a8578", marginTop:"0.15rem" }}>{entry.material}</div>}
+                      {entry.material && <div style={lhIn({ fontSize:"0.76rem", color:"#8a8578", marginTop:"0.15rem" })}>{entry.material}</div>}
                     </div>
-                    <button type="button" onClick={function(){ saveCurriculumWeek(curWeek, weekEntries.filter(function(x){ return x.id!==entry.id; })); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem" }}>✕</button>
+                    <button type="button" onClick={function(){ saveCurriculumWeek(curWeek, weekEntries.filter(function(x){ return x.id!==entry.id; })); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem" })}>✕</button>
                   </div>
                 );
               })}
-              {addingCur ? <CurriculumAddRow/> : <button type="button" onClick={function(){ setAddingCur(true); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.78rem", fontFamily:"inherit" }}>+ Add curriculum entry</button>}
+              {addingCur ? <CurriculumAddRow/> : <button type="button" onClick={function(){ setAddingCur(true); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.78rem", fontFamily:"inherit" })}>+ Add curriculum entry</button>}
             </SectionShell>
           );
         }
@@ -15802,9 +15845,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             applyHs({ monthlyGoals: monthlyGoals.concat([{ id:uid(), text:text.trim(), done:false }]) });
             setText(""); setAdding(false);
           }
-          if (!adding) return <button type="button" onClick={function(){ setAdding(true); }} style={{ marginTop:"0.3rem", background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.78rem", fontFamily:"inherit" }}>+ Add goal</button>;
+          if (!adding) return <button type="button" onClick={function(){ setAdding(true); }} style={lhIn({ marginTop:"0.3rem", background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.78rem", fontFamily:"inherit" })}>+ Add goal</button>;
           return (
-            <div style={{ display:"flex", gap:"0.4rem", marginTop:"0.5rem" }}>
+            <div style={lhIn({ display:"flex", gap:"0.4rem", marginTop:"0.5rem" })}>
               <input value={text} onChange={function(e){ setText(e.target.value); }} onKeyDown={function(e){ if(e.key==="Enter"){ save(); } if(e.key==="Escape"){ setText(""); setAdding(false); } }} placeholder="e.g. Finish multiplication tables" style={inp({ flex:1, fontSize:"0.82rem" })} autoFocus/>
               <button type="button" onClick={save} style={btnP(LC.seaglass,{ fontSize:"0.78rem" })}>Add</button>
               <button type="button" onClick={function(){ setText(""); setAdding(false); }} style={btnS({ fontSize:"0.78rem" })}>Cancel</button>
@@ -15819,28 +15862,28 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 var subjects = plan.subjects || [];
                 var isExpanded = !!expandedWeekDays[day];
                 return (
-                  <div key={day} style={{ marginBottom:"0.5rem", borderBottom:"1px solid #F0EBDF", paddingBottom:"0.4rem" }}>
-                    <div onClick={function(){ setExpandedWeekDays(function(p){ return Object.assign({},p,{[day]:!p[day]}); }); }} style={{ display:"flex", alignItems:"center", gap:"0.5rem", cursor:"pointer" }}>
-                      <span style={{ flex:1, fontSize:"0.82rem", fontWeight:700, color:"#3a3a34" }}>{day}</span>
-                      <span style={{ fontSize:"0.7rem", color:"#9a9488" }}>{subjects.length} subject{subjects.length===1?"":"s"}</span>
-                      {subjects.length>0 && <span style={{ fontSize:"0.7rem", color:"#9a9488", transform:isExpanded?"rotate(180deg)":"none", transition:"transform 0.2s" }}>▾</span>}
+                  <div key={day} style={lhIn({ marginBottom:"0.5rem", borderBottom:"1px solid #F0EBDF", paddingBottom:"0.4rem" })}>
+                    <div onClick={function(){ setExpandedWeekDays(function(p){ return Object.assign({},p,{[day]:!p[day]}); }); }} style={lhIn({ display:"flex", alignItems:"center", gap:"0.5rem", cursor:"pointer" })}>
+                      <span style={lhIn({ flex:1, fontSize:"0.82rem", fontWeight:700, color:"#3a3a34" })}>{day}</span>
+                      <span style={lhIn({ fontSize:"0.7rem", color:"#9a9488" })}>{subjects.length} subject{subjects.length===1?"":"s"}</span>
+                      {subjects.length>0 && <span style={lhIn({ fontSize:"0.7rem", color:"#9a9488", transform:isExpanded?"rotate(180deg)":"none", transition:"transform 0.2s" })}>▾</span>}
                     </div>
                     {subjects.length===0
-                      ? <div style={{ color:"#9a9488", fontSize:"0.78rem", fontStyle:"italic", marginTop:"0.25rem" }}>No subjects planned</div>
-                      : <div style={{ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.35rem" }}>
+                      ? <div style={lhIn({ color:"#9a9488", fontSize:"0.78rem", fontStyle:"italic", marginTop:"0.25rem" })}>No subjects planned</div>
+                      : <div style={lhIn({ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.35rem" })}>
                           {subjects.map(function(s) {
                             return <span key={s.id} style={lhChip(s.name, { background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.68rem", fontWeight:700, borderRadius:"2rem", padding:"2px 9px" })}>{s.name}</span>;
                           })}
                         </div>
                     }
                     {isExpanded && subjects.length>0 && (
-                      <div style={{ marginTop:"0.4rem" }}>
+                      <div style={lhIn({ marginTop:"0.4rem" })}>
                         {subjects.map(function(s) {
                           return (
-                            <div key={s.id} style={{ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.6rem", padding:"0.5rem 0.7rem", marginBottom:"0.35rem" }}>
-                              <div style={{ fontSize:"0.78rem", fontWeight:700, color:"#3a3a34" }}>{s.name}</div>
-                              {s.title && <div style={{ fontSize:"0.74rem", color:"#8a8578", marginTop:"0.15rem" }}>{s.title}</div>}
-                              {s.notes && <div style={{ fontSize:"0.72rem", color:"#8a8578", marginTop:"0.15rem", fontStyle:"italic" }}>{s.notes}</div>}
+                            <div key={s.id} style={lhIn({ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.6rem", padding:"0.5rem 0.7rem", marginBottom:"0.35rem" })}>
+                              <div style={lhIn({ fontSize:"0.78rem", fontWeight:700, color:"#3a3a34" })}>{s.name}</div>
+                              {s.title && <div style={lhIn({ fontSize:"0.74rem", color:"#8a8578", marginTop:"0.15rem" })}>{s.title}</div>}
+                              {s.notes && <div style={lhIn({ fontSize:"0.72rem", color:"#8a8578", marginTop:"0.15rem", fontStyle:"italic" })}>{s.notes}</div>}
                             </div>
                           );
                         })}
@@ -15849,7 +15892,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   </div>
                 );
               })}
-              <button type="button" onClick={function(){ setPlanSubTab("week"); }} style={{ background:"none", border:"none", cursor:"pointer", color:LC.seaglass, fontWeight:700, fontSize:"0.78rem", padding:0, marginTop:"0.2rem" }}>Edit in Week →</button>
+              <button type="button" onClick={function(){ setPlanSubTab("week"); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", color:LC.seaglass, fontWeight:700, fontSize:"0.78rem", padding:0, marginTop:"0.2rem" })}>Edit in Week →</button>
             </SectionShell>
 
             <CurriculumSection/>
@@ -15864,13 +15907,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </SectionShell>
 
             <SectionShell tabName="plan-month" sectionName="goals" emoji="🌟" title="Monthly Goals" defaultOpen={true}>
-              {monthlyGoals.length === 0 && <div style={{ color:"#9a9488", fontSize:"0.85rem", padding:"0.3rem 0" }}>No monthly goals yet.</div>}
+              {monthlyGoals.length === 0 && <div style={lhIn({ color:"#9a9488", fontSize:"0.85rem", padding:"0.3rem 0" })}>No monthly goals yet.</div>}
               {monthlyGoals.map(function(g) {
                 return (
-                  <div key={g.id} style={{ display:"flex", alignItems:"center", gap:"0.5rem", background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.55rem 0.8rem", marginBottom:"0.4rem" }}>
-                    <input type="checkbox" checked={!!g.done} onChange={function(){ applyHs({ monthlyGoals: monthlyGoals.map(function(x){ return x.id===g.id ? Object.assign({},x,{done:!x.done}) : x; }) }); }} style={{ cursor:"pointer", flexShrink:0 }}/>
-                    <span style={{ flex:1, fontSize:"0.85rem", color:g.done?"#9a9488":"#3a3a34", textDecoration:g.done?"line-through":"none" }}>{g.text}</span>
-                    <button type="button" onClick={function(){ applyHs({ monthlyGoals: monthlyGoals.filter(function(x){ return x.id!==g.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem" }}>✕</button>
+                  <div key={g.id} style={lhIn({ display:"flex", alignItems:"center", gap:"0.5rem", background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.55rem 0.8rem", marginBottom:"0.4rem" })}>
+                    <input type="checkbox" checked={!!g.done} onChange={function(){ applyHs({ monthlyGoals: monthlyGoals.map(function(x){ return x.id===g.id ? Object.assign({},x,{done:!x.done}) : x; }) }); }} style={lhIn({ cursor:"pointer", flexShrink:0 })}/>
+                    <span style={lhIn({ flex:1, fontSize:"0.85rem", color:g.done?"#9a9488":"#3a3a34", textDecoration:g.done?"line-through":"none" })}>{g.text}</span>
+                    <button type="button" onClick={function(){ applyHs({ monthlyGoals: monthlyGoals.filter(function(x){ return x.id!==g.id; }) }); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem" })}>✕</button>
                   </div>
                 );
               })}
@@ -15914,15 +15957,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         return (
           <SectionShell tabName="plan-year" sectionName="calendar" emoji="📅" title="Year Calendar" defaultOpen={false}>
-            <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", marginBottom:"0.75rem" }}>
-              <button type="button" onClick={function(){ shiftMonth(-1); }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"1.1rem", color:"#7a7568" }}>‹</button>
-              <span style={{ flex:1, textAlign:"center", fontWeight:700, color:LC.navy }}>{monthLabel}</span>
-              <button type="button" onClick={function(){ shiftMonth(1); }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"1.1rem", color:"#7a7568" }}>›</button>
+            <div style={lhIn({ display:"flex", alignItems:"center", gap:"0.5rem", marginBottom:"0.75rem" })}>
+              <button type="button" onClick={function(){ shiftMonth(-1); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", fontSize:"1.1rem", color:"#7a7568" })}>‹</button>
+              <span style={lhIn({ flex:1, textAlign:"center", fontWeight:700, color:LC.navy })}>{monthLabel}</span>
+              <button type="button" onClick={function(){ shiftMonth(1); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", fontSize:"1.1rem", color:"#7a7568" })}>›</button>
             </div>
             <button type="button" onClick={function(){ setShowBulk(true); }} style={btnS({ fontSize:"0.78rem", marginBottom:"0.75rem" })}>+ Add day type (bulk)</button>
 
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:"3px", marginBottom:"0.75rem" }}>
-              {["Su","Mo","Tu","We","Th","Fr","Sa"].map(function(d){ return <div key={d} style={{ textAlign:"center", fontSize:"0.62rem", color:"#9a9488", fontWeight:700 }}>{d}</div>; })}
+            <div style={lhIn({ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:"3px", marginBottom:"0.75rem" })}>
+              {["Su","Mo","Tu","We","Th","Fr","Sa"].map(function(d){ return <div key={d} style={lhIn({ textAlign:"center", fontSize:"0.62rem", color:"#9a9488", fontWeight:700 })}>{d}</div>; })}
               {days.map(function(dateIso, i) {
                 if (!dateIso) return <div key={"e"+i}/>;
                 var day = getDay(dateIso);
@@ -15930,30 +15973,30 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 var logged = schAttendance[dateIso];
                 var isToday = dateIso === todayIso;
                 return (
-                  <button type="button" key={dateIso} onClick={function(){ setPickerDate(dateIso); }} style={{
+                  <button type="button" key={dateIso} onClick={function(){ setPickerDate(dateIso); }} style={lhIn({
                     padding:"0.3rem 0", borderRadius:"0.4rem", cursor:"pointer", fontSize:"0.72rem", fontFamily:"inherit",
                     border: isToday ? "2px solid "+LC.navy : "1px solid "+(dt?dt.color+"55":"#E7E1D4"),
                     background: dt ? dt.color+"22" : "#fff", color: dt ? LC.navy : "#7a7568", position:"relative"
-                  }}>
+                  })}>
                     {new Date(dateIso+"T12:00:00").getDate()}
-                    {logged && <span style={{ position:"absolute", bottom:2, right:3, width:4, height:4, borderRadius:"50%", background: logged==="present"?LC.seaglass:LH_ROSE }}/>}
+                    {logged && <span style={lhIn({ position:"absolute", bottom:2, right:3, width:4, height:4, borderRadius:"50%", background: logged==="present"?LC.seaglass:LH_ROSE })}/>}
                   </button>
                 );
               })}
             </div>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:"0.4rem" }}>
-              {DAY_TYPES.map(function(t){ return <span key={t.id} style={{ fontSize:"0.68rem", color:"#7a7568", display:"flex", alignItems:"center", gap:"0.25rem" }}><span style={{ width:8, height:8, borderRadius:"50%", background:t.color, display:"inline-block" }}/>{t.label}</span>; })}
+            <div style={lhIn({ display:"flex", flexWrap:"wrap", gap:"0.4rem" })}>
+              {DAY_TYPES.map(function(t){ return <span key={t.id} style={lhIn({ fontSize:"0.68rem", color:"#7a7568", display:"flex", alignItems:"center", gap:"0.25rem" })}><span style={lhIn({ width:8, height:8, borderRadius:"50%", background:t.color, display:"inline-block" })}/>{t.label}</span>; })}
             </div>
 
             {pickerDate && (
-              <div style={{ position:"fixed", inset:0, background:"rgba(36,58,90,0.35)", zIndex:200, display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={function(){ setPickerDate(null); }}>
-                <div onClick={function(e){ e.stopPropagation(); }} style={{ background:"#fff", borderRadius:"1.2rem 1.2rem 0 0", padding:"1.25rem", width:"min(420px,100%)" }}>
-                  <div style={{ fontWeight:700, color:LC.navy, marginBottom:"0.75rem" }}>{fmtMonthDay(pickerDate)}</div>
+              <div style={lhIn({ position:"fixed", inset:0, background:"rgba(36,58,90,0.35)", zIndex:200, display:"flex", alignItems:"flex-end", justifyContent:"center" })} onClick={function(){ setPickerDate(null); }}>
+                <div onClick={function(e){ e.stopPropagation(); }} style={lhIn({ background:"#fff", borderRadius:"1.2rem 1.2rem 0 0", padding:"1.25rem", width:"min(420px,100%)" })}>
+                  <div style={lhIn({ fontWeight:700, color:LC.navy, marginBottom:"0.75rem" })}>{fmtMonthDay(pickerDate)}</div>
                   {DAY_TYPES.map(function(t){
                     var active = getDay(pickerDate).dayType === t.id;
                     return (
-                      <button type="button" key={t.id} onClick={function(){ setDayType(pickerDate, t.id); setPickerDate(null); }} style={{ display:"flex", alignItems:"center", gap:"0.5rem", width:"100%", textAlign:"left", background:active?t.color+"22":"none", border:"none", borderRadius:"0.5rem", padding:"0.5rem 0.6rem", cursor:"pointer", fontFamily:"inherit", fontSize:"0.85rem", color:LC.navy, marginBottom:"2px" }}>
-                        <span style={{ width:10, height:10, borderRadius:"50%", background:t.color, display:"inline-block" }}/>
+                      <button type="button" key={t.id} onClick={function(){ setDayType(pickerDate, t.id); setPickerDate(null); }} style={lhIn({ display:"flex", alignItems:"center", gap:"0.5rem", width:"100%", textAlign:"left", background:active?t.color+"22":"none", border:"none", borderRadius:"0.5rem", padding:"0.5rem 0.6rem", cursor:"pointer", fontFamily:"inherit", fontSize:"0.85rem", color:LC.navy, marginBottom:"2px" })}>
+                        <span style={lhIn({ width:10, height:10, borderRadius:"50%", background:t.color, display:"inline-block" })}/>
                         {t.label}
                       </button>
                     );
@@ -15964,17 +16007,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             )}
 
             {showBulk && (
-              <div style={{ position:"fixed", inset:0, background:"rgba(36,58,90,0.35)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" }}>
-                <div style={{ background:"#fff", borderRadius:"1rem", padding:"1.25rem", width:"min(360px,100%)" }}>
-                  <div style={{ fontWeight:700, color:LC.navy, marginBottom:"0.75rem" }}>Bulk-set day type</div>
+              <div style={lhIn({ position:"fixed", inset:0, background:"rgba(36,58,90,0.35)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" })}>
+                <div style={lhIn({ background:"#fff", borderRadius:"1rem", padding:"1.25rem", width:"min(360px,100%)" })}>
+                  <div style={lhIn({ fontWeight:700, color:LC.navy, marginBottom:"0.75rem" })}>Bulk-set day type</div>
                   {fieldRow("Start", <input type="date" defaultValue={fv("bulkStart","")} onChange={fSet("bulkStart")} style={inp()}/>)}
                   {fieldRow("End", <input type="date" defaultValue={fv("bulkEnd","")} onChange={fSet("bulkEnd")} style={inp()}/>)}
-                  {fieldRow("Day type", <div style={{ display:"flex", flexWrap:"wrap", gap:"0.4rem" }}>{DAY_TYPES.map(function(t){ return pillToggle(t.label, fv("bulkType","")===t.id, function(){ fSetLive("bulkType", t.id); }); })}</div>)}
-                  <label style={{ display:"flex", alignItems:"center", gap:"0.4rem", fontSize:"0.8rem", color:"#7a7568", marginBottom:"0.75rem", cursor:"pointer" }}>
-                    <input type="checkbox" checked={!!fv("bulkWeekdaysOnly",true)} onChange={fChk("bulkWeekdaysOnly")} style={{ cursor:"pointer" }}/>
+                  {fieldRow("Day type", <div style={lhIn({ display:"flex", flexWrap:"wrap", gap:"0.4rem" })}>{DAY_TYPES.map(function(t){ return pillToggle(t.label, fv("bulkType","")===t.id, function(){ fSetLive("bulkType", t.id); }); })}</div>)}
+                  <label style={lhIn({ display:"flex", alignItems:"center", gap:"0.4rem", fontSize:"0.8rem", color:"#7a7568", marginBottom:"0.75rem", cursor:"pointer" })}>
+                    <input type="checkbox" checked={!!fv("bulkWeekdaysOnly",true)} onChange={fChk("bulkWeekdaysOnly")} style={lhIn({ cursor:"pointer" })}/>
                     Weekdays only
                   </label>
-                  <div style={{ display:"flex", gap:"0.5rem" }}>
+                  <div style={lhIn({ display:"flex", gap:"0.5rem" })}>
                     <button type="button" onClick={function(){
                       var start=fv("bulkStart",""), end=fv("bulkEnd",""), type=fv("bulkType",""), weekdaysOnly=fv("bulkWeekdaysOnly",true);
                       if (!start || !end || !type) return;
@@ -16016,8 +16059,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           return formCard(
             <div>
               {fieldRow("Loop name *", <input defaultValue={fv("name","")} onChange={fSet("name")} placeholder="e.g. Morning Loop" style={inp()} autoFocus/>)}
-              {fieldRow("Icon", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LOOP_ICONS.map(function(ic){ return <button type="button" key={ic} onClick={function(){ fSetLive("icon", ic); }} style={{ background:selIcon===ic?LC.seaglass+"33":"transparent", border:"1.5px solid "+(selIcon===ic?LC.seaglass:"#D8D2C4"), borderRadius:"0.5rem", width:34, height:34, cursor:"pointer", fontSize:"1rem" }}>{ic}</button>; })}</div>)}
-              {fieldRow("Colour", <div style={{ display:"flex", gap:"0.4rem" }}>{loopTints.map(function(tint){ return <button type="button" key={tint} onClick={function(){ fSetLive("tint", tint); }} style={{ width:24, height:24, borderRadius:"50%", background:tint, border:selTint===tint?"3px solid "+LC.navy:"2px solid transparent", cursor:"pointer" }}/>; })}</div>)}
+              {fieldRow("Icon", <div style={lhIn({ display:"flex", gap:"0.4rem", flexWrap:"wrap" })}>{LOOP_ICONS.map(function(ic){ return <button type="button" key={ic} onClick={function(){ fSetLive("icon", ic); }} style={lhIn({ background:selIcon===ic?LC.seaglass+"33":"transparent", border:"1.5px solid "+(selIcon===ic?LC.seaglass:"#D8D2C4"), borderRadius:"0.5rem", width:34, height:34, cursor:"pointer", fontSize:"1rem" })}>{ic}</button>; })}</div>)}
+              {fieldRow("Colour", <div style={lhIn({ display:"flex", gap:"0.4rem" })}>{loopTints.map(function(tint){ return <button type="button" key={tint} onClick={function(){ fSetLive("tint", tint); }} style={lhIn({ width:24, height:24, borderRadius:"50%", background:tint, border:selTint===tint?"3px solid "+LC.navy:"2px solid transparent", cursor:"pointer" })}/>; })}</div>)}
               {formBtns(function(){ if(!nameTrim) return; applyHs({ loops: lhLoops.concat([{ id:uid(), name:nameTrim, icon:selIcon, tint:selTint, items:[] }]) }); closeForm(); })}
             </div>
           );
@@ -16026,7 +16069,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div>
             {lhAddMode !== "loop" && <button type="button" onClick={function(){ openAdd("loop",{ icon:LOOP_ICONS[0], tint:loopTints[0] }); }} style={btnP(LC.seaglass,{ fontSize:"0.82rem", marginBottom:"0.85rem" })}>+ Add Loop</button>}
             {lhAddMode === "loop" && AddLoopForm()}
-            {lhLoops.length === 0 && lhAddMode !== "loop" && <div style={{ color:"#9a9488", textAlign:"center", padding:"1.5rem 0", fontSize:"0.85rem" }}>No loops yet — create your first rotation!</div>}
+            {lhLoops.length === 0 && lhAddMode !== "loop" && <div style={lhIn({ color:"#9a9488", textAlign:"center", padding:"1.5rem 0", fontSize:"0.85rem" })}>No loops yet — create your first rotation!</div>}
             {lhLoops.map(function(loop) { return <LoopCard key={loop.id} loop={loop} loopTints={loopTints}/>; })}
           </div>
         );
@@ -16042,42 +16085,42 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var doneCount = items.filter(function(it){ return it.status==="done"; }).length;
         return (
           <SectionShell tabName="plan-loops" sectionName={loop.id} emoji={loop.icon||"🔁"} title={loop.name} defaultOpen={false}
-            right={items.length>0 ? <span style={{ fontSize:"0.68rem", color:"#8a8578", flexShrink:0 }}>{doneCount}/{items.length}</span> : null}>
+            right={items.length>0 ? <span style={lhIn({ fontSize:"0.68rem", color:"#8a8578", flexShrink:0 })}>{doneCount}/{items.length}</span> : null}>
             {isEditing ? (
               (function(){
                 var nameTrim=(fv("name","")).trim(); var selIcon=fv("icon",loop.icon||LOOP_ICONS[0]); var selTint=fv("tint",loop.tint||loopTints[0]);
                 return formCard(
                   <div>
                     {fieldRow("Name", <input defaultValue={fv("name","")} onChange={fSet("name")} style={inp()} autoFocus/>)}
-                    {fieldRow("Icon", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LOOP_ICONS.map(function(ic){ return <button type="button" key={ic} onClick={function(){ fSetLive("icon", ic); }} style={{ background:selIcon===ic?LC.seaglass+"33":"transparent", border:"1.5px solid "+(selIcon===ic?LC.seaglass:"#D8D2C4"), borderRadius:"0.5rem", width:34, height:34, cursor:"pointer", fontSize:"1rem" }}>{ic}</button>; })}</div>)}
+                    {fieldRow("Icon", <div style={lhIn({ display:"flex", gap:"0.4rem", flexWrap:"wrap" })}>{LOOP_ICONS.map(function(ic){ return <button type="button" key={ic} onClick={function(){ fSetLive("icon", ic); }} style={lhIn({ background:selIcon===ic?LC.seaglass+"33":"transparent", border:"1.5px solid "+(selIcon===ic?LC.seaglass:"#D8D2C4"), borderRadius:"0.5rem", width:34, height:34, cursor:"pointer", fontSize:"1rem" })}>{ic}</button>; })}</div>)}
                     {formBtns(function(){ if(!nameTrim) return; applyHsLoopUpdate(loop.id, { name:nameTrim, icon:selIcon, tint:selTint }); closeForm(); })}
                   </div>
                 );
               })()
             ) : (
-              <div style={{ display:"flex", justifyContent:"flex-end", gap:"0.5rem", marginBottom:"0.5rem" }}>
-                <button type="button" onClick={function(){ openEdit(loop.id,{ name:loop.name, icon:loop.icon, tint:loop.tint }); setLhAddMode("edit-loop"); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem" }}>Edit</button>
-                <button type="button" onClick={function(){ if(window.confirm("Remove loop "+loop.name+"?")) applyHs({ loops: lhLoops.filter(function(l){ return l.id!==loop.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem" }}>✕</button>
+              <div style={lhIn({ display:"flex", justifyContent:"flex-end", gap:"0.5rem", marginBottom:"0.5rem" })}>
+                <button type="button" onClick={function(){ openEdit(loop.id,{ name:loop.name, icon:loop.icon, tint:loop.tint }); setLhAddMode("edit-loop"); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem" })}>Edit</button>
+                <button type="button" onClick={function(){ if(window.confirm("Remove loop "+loop.name+"?")) applyHs({ loops: lhLoops.filter(function(l){ return l.id!==loop.id; }) }); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem" })}>✕</button>
               </div>
             )}
             {!isEditing && items.map(function(item) {
               var isUpNext = upNext && upNext.id===item.id;
               var statusColor = item.status==="done"?tint:item.status==="skip"?"#9a9488":item.status==="later"?"#C9A45B":"#D8D2C4";
               return (
-                <div key={item.id} style={{ display:"flex", alignItems:"flex-start", gap:"0.5rem", padding:"0.3rem 0", borderBottom:"1px solid #F0EBDF" }}>
-                  <span style={{ color:statusColor, fontSize:"0.9rem", marginTop:"2px" }}>{item.status==="done"?"●":item.status==="skip"?"⊘":item.status==="later"?"◔":"○"}</span>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:"0.85rem", color:item.status==="done"||item.status==="skip"?"#9a9488":"#3a3a34", textDecoration:item.status==="done"||item.status==="skip"?"line-through":"none" }}>
-                      {item.text} {isUpNext && <span style={{ fontSize:"0.62rem", fontWeight:700, color:tint, background:tint+"22", padding:"1px 6px", borderRadius:"99px", marginLeft:"0.3rem" }}>Up Next</span>}
+                <div key={item.id} style={lhIn({ display:"flex", alignItems:"flex-start", gap:"0.5rem", padding:"0.3rem 0", borderBottom:"1px solid #F0EBDF" })}>
+                  <span style={lhIn({ color:statusColor, fontSize:"0.9rem", marginTop:"2px" })}>{item.status==="done"?"●":item.status==="skip"?"⊘":item.status==="later"?"◔":"○"}</span>
+                  <div style={lhIn({ flex:1 })}>
+                    <div style={lhIn({ fontSize:"0.85rem", color:item.status==="done"||item.status==="skip"?"#9a9488":"#3a3a34", textDecoration:item.status==="done"||item.status==="skip"?"line-through":"none" })}>
+                      {item.text} {isUpNext && <span style={lhIn({ fontSize:"0.62rem", fontWeight:700, color:tint, background:tint+"22", padding:"1px 6px", borderRadius:"99px", marginLeft:"0.3rem" })}>Up Next</span>}
                     </div>
-                    <div style={{ display:"flex", gap:"0.3rem", marginTop:"0.2rem" }}>
+                    <div style={lhIn({ display:"flex", gap:"0.3rem", marginTop:"0.2rem" })}>
                       {["done","skip","later"].map(function(act){
                         var isAct = item.status===act; var actColor = act==="done"?tint:act==="skip"?"#9a9488":"#C9A45B";
-                        return <button type="button" key={act} onClick={function(){ applyHsLoopItemUpdate(loop.id,item.id,{status:lhSetStatusLocal(item.status,act)}); }} style={{ fontSize:"0.66rem", padding:"0.1rem 0.45rem", borderRadius:"99px", border:"1.5px solid "+(isAct?actColor:"#D8D2C4"), background:isAct?actColor+"22":"transparent", color:isAct?actColor:"#9a9488", fontWeight:isAct?700:400, cursor:"pointer", fontFamily:"inherit" }}>{act==="done"?"Done":act==="skip"?"Skip":"Later"}</button>;
+                        return <button type="button" key={act} onClick={function(){ applyHsLoopItemUpdate(loop.id,item.id,{status:lhSetStatusLocal(item.status,act)}); }} style={lhIn({ fontSize:"0.66rem", padding:"0.1rem 0.45rem", borderRadius:"99px", border:"1.5px solid "+(isAct?actColor:"#D8D2C4"), background:isAct?actColor+"22":"transparent", color:isAct?actColor:"#9a9488", fontWeight:isAct?700:400, cursor:"pointer", fontFamily:"inherit" })}>{act==="done"?"Done":act==="skip"?"Skip":"Later"}</button>;
                       })}
                     </div>
                   </div>
-                  <button type="button" onClick={function(){ applyHsLoopUpdate(loop.id,{ items: items.filter(function(it){ return it.id!==item.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.72rem" }}>✕</button>
+                  <button type="button" onClick={function(){ applyHsLoopUpdate(loop.id,{ items: items.filter(function(it){ return it.id!==item.id; }) }); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.72rem" })}>✕</button>
                 </div>
               );
             })}
@@ -16090,9 +16133,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       function AddLoopItemRow({ loop, items }) {
         var [adding, setAdding] = React.useState(false);
         var [text, setText] = React.useState("");
-        if (!adding) return <button type="button" onClick={function(){ setAdding(true); }} style={{ marginTop:"0.5rem", background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.78rem", fontFamily:"inherit" }}>+ Add item</button>;
+        if (!adding) return <button type="button" onClick={function(){ setAdding(true); }} style={lhIn({ marginTop:"0.5rem", background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.78rem", fontFamily:"inherit" })}>+ Add item</button>;
         return (
-          <div style={{ display:"flex", gap:"0.4rem", marginTop:"0.5rem" }}>
+          <div style={lhIn({ display:"flex", gap:"0.4rem", marginTop:"0.5rem" })}>
             <input value={text} onChange={function(e){ setText(e.target.value); }} onKeyDown={function(e){ if(e.key==="Enter" && text.trim()){ applyHsLoopUpdate(loop.id,{ items: items.concat([{ id:uid(), text:text.trim(), status:"todo", note:"" }]) }); setText(""); } }} placeholder="New item…" style={inp({ flex:1, fontSize:"0.82rem" })} autoFocus/>
             <button type="button" onClick={function(){ if(text.trim()){ applyHsLoopUpdate(loop.id,{ items: items.concat([{ id:uid(), text:text.trim(), status:"todo", note:"" }]) }); setText(""); } }} style={btnP(LC.seaglass,{ fontSize:"0.78rem" })}>Add</button>
             <button type="button" onClick={function(){ setAdding(false); setText(""); }} style={btnS({ fontSize:"0.78rem" })}>Done</button>
@@ -16103,7 +16146,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       // ── Subjects/Curricula — always visible ─────────────────────────────────
       function SubjectsSection() {
         return (
-          <div style={{ marginTop:"1rem", paddingTop:"1rem", borderTop:"1px solid #E7E1D4" }}>
+          <div style={lhIn({ marginTop:"1rem", paddingTop:"1rem", borderTop:"1px solid #E7E1D4" })}>
           <SectionShell tabName="plan" sectionName="subjects" emoji="📚" title="Curriculum" defaultOpen={false}>
             {lhAddMode !== "subject" && <button type="button" onClick={function(){ openAdd("subject",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Subject</button>}
             {lhAddMode === "subject" && formCard(
@@ -16119,7 +16162,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 })}
               </div>
             )}
-            {subjectRecords.length === 0 && lhAddMode !== "subject" && <div style={{ color:"#9a9488", fontSize:"0.82rem" }}>No subjects added yet.</div>}
+            {subjectRecords.length === 0 && lhAddMode !== "subject" && <div style={lhIn({ color:"#9a9488", fontSize:"0.82rem" })}>No subjects added yet.</div>}
             {subjectRecords.map(function(r) {
               if (lhEditId === r.id) {
                 return formCard(
@@ -16138,13 +16181,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               }
               return (
                 <div key={r.id} style={lhRow(r.subject, { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.45rem", display:"flex", alignItems:"flex-start", gap:"0.5rem" })}>
-                  <div style={{ flex:1 }}>
+                  <div style={lhIn({ flex:1 })}>
                     <div style={lhText(r.subject, { fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" })}>{r.subject}</div>
-                    {r.name && <div style={{ fontSize:"0.78rem", color:LC.seaglass, fontWeight:600 }}>{r.name}</div>}
-                    {r.website && <div style={{ fontSize:"0.74rem", color:"#8a8578" }}>{r.website}</div>}
+                    {r.name && <div style={lhIn({ fontSize:"0.78rem", color:LC.seaglass, fontWeight:600 })}>{r.name}</div>}
+                    {r.website && <div style={lhIn({ fontSize:"0.74rem", color:"#8a8578" })}>{r.website}</div>}
                   </div>
-                  <button type="button" onClick={function(){ openEdit(r.id, r); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem" }}>Edit</button>
-                  <button type="button" onClick={function(){ saveSubjectRecords(subjectRecords.filter(function(x){ return x.id!==r.id; })); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem" }}>✕</button>
+                  <button type="button" onClick={function(){ openEdit(r.id, r); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem" })}>Edit</button>
+                  <button type="button" onClick={function(){ saveSubjectRecords(subjectRecords.filter(function(x){ return x.id!==r.id; })); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem" })}>✕</button>
                 </div>
               );
             })}
@@ -16159,11 +16202,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       ].concat(childMode==="homeschool" ? [{ id:"month", label:"Month" },{ id:"year", label:"Year" },{ id:"loops", label:"Loops" }] : []);
 
       return (
-        <div style={{ background:LC.cream, borderRadius:"1rem", padding:"1rem" }}>
-          <div style={{ display:"flex", gap:"0.3rem", marginBottom:"1rem" }}>
+        <div style={lhIn({ background:LC.cream, borderRadius:"1rem", padding:"1rem" })}>
+          <div style={REDESIGN ? Object.assign({}, RD_SEG_TRACK, { marginBottom:"1rem" }) : { display:"flex", gap:"0.3rem", marginBottom:"1rem" }}>
             {PLAN_PILLS.map(function(p){
               var active = planSubTab === p.id;
-              return <button type="button" key={p.id} onClick={function(){ setPlanSubTab(p.id); closeForm(); }} style={{ padding:"0.3rem 0.85rem", borderRadius:"99px", border:"none", background:active?LC.seaglass:"transparent", color:active?"#fff":"#7a7568", fontWeight:active?700:500, fontSize:"0.8rem", cursor:"pointer", fontFamily:"inherit" }}>{p.label}</button>;
+              return <button type="button" key={p.id} onClick={function(){ setPlanSubTab(p.id); closeForm(); }} style={REDESIGN ? Object.assign(rdSeg(active, LH_AREA_TONE.plan), { padding:"7px 4px" }) : { padding:"0.3rem 0.85rem", borderRadius:"99px", border:"none", background:active?LC.seaglass:"transparent", color:active?"#fff":"#7a7568", fontWeight:active?700:500, fontSize:"0.8rem", cursor:"pointer", fontFamily:"inherit" }}>{p.label}</button>;
             })}
           </div>
 
@@ -16208,23 +16251,23 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       function openEdit(id, item) { lhFormRef.current = Object.assign({}, item); setLhEditId(id); setLhAddMode(null); }
       function closeForm() { lhFormRef.current = {}; setLhAddMode(null); setLhEditId(null); }
       function fieldRow(label, children) {
-        return (<div style={{ marginBottom:"0.7rem" }}><div style={{ fontSize:"0.73rem", fontWeight:600, color:"#7a7568", marginBottom:"0.2rem", textTransform:"uppercase", letterSpacing:"0.04em" }}>{label}</div>{children}</div>);
+        return (<div style={lhIn({ marginBottom:"0.7rem" })}><div style={lhIn({ fontSize:"0.73rem", fontWeight:600, color:"#7a7568", marginBottom:"0.2rem", textTransform:"uppercase", letterSpacing:"0.04em" })}>{label}</div>{children}</div>);
       }
       function formCard(children) {
-        return (<div style={{ background:"#FBF9F4", border:"1.5px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", marginBottom:"0.65rem" }}>{children}</div>);
+        return (<div style={lhIn({ background:"#FBF9F4", border:"1.5px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", marginBottom:"0.65rem" })}>{children}</div>);
       }
       function formBtns(onSave) {
-        return (<div style={{ display:"flex", gap:"0.5rem", marginTop:"0.6rem" }}><button type="button" onClick={onSave} style={btnP(LC.seaglass,{ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Save</button><button type="button" onClick={closeForm} style={btnS({ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Cancel</button></div>);
+        return (<div style={lhIn({ display:"flex", gap:"0.5rem", marginTop:"0.6rem" })}><button type="button" onClick={onSave} style={btnP(LC.seaglass,{ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Save</button><button type="button" onClick={closeForm} style={btnS({ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Cancel</button></div>);
       }
       function pillToggle(label, active, onClick) {
-        return (<button type="button" key={label} onClick={onClick} style={{ padding:"0.22rem 0.65rem", borderRadius:"99px", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:400, cursor:"pointer", fontFamily:"inherit" }}>{label}</button>);
+        return (<button type="button" key={label} onClick={onClick} style={lhIn({ padding:"0.22rem 0.65rem", borderRadius:"99px", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:400, cursor:"pointer", fontFamily:"inherit" })}>{label}</button>);
       }
 
-      var itemRowStyle = { background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.45rem", display:"flex", alignItems:"flex-start", gap:"0.5rem" };
-      var emptyTextStyle = { color:"#9a9488", fontSize:"0.82rem", padding:"0.4rem 0" };
-      var editBtnStyle = { background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem", flexShrink:0 };
-      var delBtnStyle = { background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem", flexShrink:0 };
-      var subheadStyle = { fontSize:"0.72rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:"0.4rem" };
+      var itemRowStyle = lhIn({ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.45rem", display:"flex", alignItems:"flex-start", gap:"0.5rem" });
+      var emptyTextStyle = lhIn({ color:"#9a9488", fontSize:"0.82rem", padding:"0.4rem 0" });
+      var editBtnStyle = lhIn({ background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem", flexShrink:0 });
+      var delBtnStyle = lhIn({ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem", flexShrink:0 });
+      var subheadStyle = lhIn({ fontSize:"0.72rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:"0.4rem" });
 
       var childSchool = schoolData[activeChild] || {};
       var childPublic = childSchool.public || {};
@@ -16319,11 +16362,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               }
               return (
                 <div key={t.id} style={itemRowStyle}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{t.name}</div>
+                  <div style={lhIn({ flex:1 })}>
+                    <div style={lhIn({ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" })}>{t.name}</div>
                     {t.subject && <div style={lhText(t.subject, { fontSize:"0.78rem", color:LC.seaglass, fontWeight:600 })}>{t.subject}</div>}
-                    {(t.email||t.phone) && <div style={{ fontSize:"0.75rem", color:"#8a8578" }}>{[t.email,t.phone].filter(Boolean).join(" · ")}</div>}
-                    {t.notes && <div style={{ fontSize:"0.74rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.2rem" }}>{t.notes}</div>}
+                    {(t.email||t.phone) && <div style={lhIn({ fontSize:"0.75rem", color:"#8a8578" })}>{[t.email,t.phone].filter(Boolean).join(" · ")}</div>}
+                    {t.notes && <div style={lhIn({ fontSize:"0.74rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.2rem" })}>{t.notes}</div>}
                   </div>
                   <button type="button" onClick={function(){ openEdit(t.id, t); }} style={editBtnStyle}>Edit</button>
                   <button type="button" onClick={function(){ savePub({ teachers: teachers.filter(function(x){ return x.id!==t.id; }) }); }} style={delBtnStyle}>✕</button>
@@ -16331,8 +16374,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               );
             })}
 
-            <div style={{ marginTop:"0.85rem", paddingTop:"0.75rem", borderTop:"1px solid #F0EBDF" }}>
-              <div style={{ fontSize:"0.78rem", fontWeight:700, color:LC.navy, marginBottom:"0.4rem" }}>🎁 Teacher Appreciation Week</div>
+            <div style={lhIn({ marginTop:"0.85rem", paddingTop:"0.75rem", borderTop:"1px solid #F0EBDF" })}>
+              <div style={lhIn({ fontSize:"0.78rem", fontWeight:700, color:LC.navy, marginBottom:"0.4rem" })}>🎁 Teacher Appreciation Week</div>
               {fieldRow("Week of", <input type="date" value={appWeek.start||""} onChange={function(e){ savePub({ teacherAppWeek: Object.assign({}, appWeek, { start: e.target.value }) }); }} style={inp()}/>)}
               {fieldRow("Gift ideas / plan", <textarea value={appWeekIdeas} onChange={function(e){ setAppWeekIdeas(e.target.value); }} onBlur={function(){ savePub({ teacherAppWeek: Object.assign({}, appWeek, { ideas: appWeekIdeas }) }); }} placeholder="Cards, donations, treats per teacher…" style={inp({ height:56, resize:"vertical" })}/>)}
             </div>
@@ -16372,10 +16415,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           }
           return (
             <div key={a.id} style={itemRowStyle}>
-              <div style={{ flex:1 }}>
-                <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{a.title}</div>
-                <div style={{ fontSize:"0.75rem", color:"#8a8578" }}>{[a.date?fmtMonthDay(a.date):"", a.time, a.location].filter(Boolean).join(" · ")}</div>
-                {a.notes && <div style={{ fontSize:"0.74rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.2rem" }}>{a.notes}</div>}
+              <div style={lhIn({ flex:1 })}>
+                <div style={lhIn({ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" })}>{a.title}</div>
+                <div style={lhIn({ fontSize:"0.75rem", color:"#8a8578" })}>{[a.date?fmtMonthDay(a.date):"", a.time, a.location].filter(Boolean).join(" · ")}</div>
+                {a.notes && <div style={lhIn({ fontSize:"0.74rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.2rem" })}>{a.notes}</div>}
               </div>
               {a.date && <button type="button" onClick={function(){ addActivityToCalendar(a); }} title="Add to Calendar" style={Object.assign({}, editBtnStyle, addedActivityIds[a.id] ? {color:LC.seaglass} : null)}>{addedActivityIds[a.id] ? "✓ Added" : "📅 Add to Calendar"}</button>}
               <button type="button" onClick={function(){ openEdit(a.id, a); }} style={editBtnStyle}>Edit</button>
@@ -16420,7 +16463,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div>
                 {fieldRow("Title *", <input defaultValue={fv("title","")} onChange={fSet("title")} autoFocus style={inp()}/>)}
                 {fieldRow("Date", <input type="date" defaultValue={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
-                {fieldRow("Type", <div style={{ display:"flex", flexWrap:"wrap", gap:"0.4rem" }}>{CAL_EVENT_TYPES.map(function(t){ return pillToggle(t.label, fv("type","event")===t.id, function(){ fSetLive("type", t.id); }); })}</div>)}
+                {fieldRow("Type", <div style={lhIn({ display:"flex", flexWrap:"wrap", gap:"0.4rem" })}>{CAL_EVENT_TYPES.map(function(t){ return pillToggle(t.label, fv("type","event")===t.id, function(){ fSetLive("type", t.id); }); })}</div>)}
                 {fieldRow("Notes", <textarea defaultValue={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
                 {formBtns(function(){
                   var t=(fv("title","")).trim(); if(!t) return;
@@ -16436,7 +16479,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   <div key={ev.id}>
                     {fieldRow("Title *", <input defaultValue={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
                     {fieldRow("Date", <input type="date" defaultValue={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
-                    {fieldRow("Type", <div style={{ display:"flex", flexWrap:"wrap", gap:"0.4rem" }}>{CAL_EVENT_TYPES.map(function(t){ return pillToggle(t.label, fv("type","event")===t.id, function(){ fSetLive("type", t.id); }); })}</div>)}
+                    {fieldRow("Type", <div style={lhIn({ display:"flex", flexWrap:"wrap", gap:"0.4rem" })}>{CAL_EVENT_TYPES.map(function(t){ return pillToggle(t.label, fv("type","event")===t.id, function(){ fSetLive("type", t.id); }); })}</div>)}
                     {fieldRow("Notes", <textarea defaultValue={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
                     {formBtns(function(){
                       var t=(fv("title","")).trim(); if(!t) return;
@@ -16449,10 +16492,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               var typeLabel = (CAL_EVENT_TYPES.find(function(t){ return t.id===ev.type; })||CAL_EVENT_TYPES[0]).label;
               return (
                 <div key={ev.id} style={itemRowStyle}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{ev.title}</div>
-                    <div style={{ fontSize:"0.75rem", color:LC.seaglass, fontWeight:600 }}>{typeLabel}</div>
-                    {ev.date && <div style={{ fontSize:"0.74rem", color:"#8a8578" }}>{fmtMonthDay(ev.date)}</div>}
+                  <div style={lhIn({ flex:1 })}>
+                    <div style={lhIn({ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" })}>{ev.title}</div>
+                    <div style={lhIn({ fontSize:"0.75rem", color:LC.seaglass, fontWeight:600 })}>{typeLabel}</div>
+                    {ev.date && <div style={lhIn({ fontSize:"0.74rem", color:"#8a8578" })}>{fmtMonthDay(ev.date)}</div>}
                   </div>
                   <button type="button" onClick={function(){ openEdit(ev.id, ev); }} style={editBtnStyle}>Edit</button>
                   <button type="button" onClick={function(){ savePub({ calEvents: calEvents.filter(function(x){ return x.id!==ev.id; }) }); }} style={delBtnStyle}>✕</button>
@@ -16492,9 +16535,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               }
               return (
                 <div key={s.id} style={itemRowStyle}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>🎉 {s.theme}</div>
-                    {s.date && <div style={{ fontSize:"0.74rem", color:"#8a8578" }}>{fmtMonthDay(s.date)}</div>}
+                  <div style={lhIn({ flex:1 })}>
+                    <div style={lhIn({ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" })}>🎉 {s.theme}</div>
+                    {s.date && <div style={lhIn({ fontSize:"0.74rem", color:"#8a8578" })}>{fmtMonthDay(s.date)}</div>}
                   </div>
                   <button type="button" onClick={function(){ openEdit(s.id, s); }} style={editBtnStyle}>Edit</button>
                   <button type="button" onClick={function(){ savePub({ spiritDays: spiritDays.filter(function(x){ return x.id!==s.id; }) }); }} style={delBtnStyle}>✕</button>
@@ -16544,9 +16587,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               }
               return (
                 <div key={c.id} style={itemRowStyle}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{c.name}{c.role?" · "+c.role:""}</div>
-                    {(c.phone||c.email) && <div style={{ fontSize:"0.75rem", color:"#8a8578" }}>{[c.phone,c.email].filter(Boolean).join(" · ")}</div>}
+                  <div style={lhIn({ flex:1 })}>
+                    <div style={lhIn({ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" })}>{c.name}{c.role?" · "+c.role:""}</div>
+                    {(c.phone||c.email) && <div style={lhIn({ fontSize:"0.75rem", color:"#8a8578" })}>{[c.phone,c.email].filter(Boolean).join(" · ")}</div>}
                   </div>
                   <button type="button" onClick={function(){ openEdit(c.id, c); }} style={editBtnStyle}>Edit</button>
                   <button type="button" onClick={function(){ commsMutate({ contacts: commsContacts.filter(function(x){ return x.id!==c.id; }) }); }} style={delBtnStyle}>✕</button>
@@ -16593,20 +16636,20 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               var hasAction = entry.action && entry.action.trim() !== "";
               return (
                 <div key={entry.id} style={lhRow(entry.subject, { background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.5rem" })}>
-                  <div style={{ display:"flex", alignItems:"flex-start", gap:"0.5rem" }}>
-                    <div style={{ flex:1 }}>
-                      {entry.subject && <div style={{ fontWeight:700, fontSize:"0.85rem", color:"#3a3a34" }}>{entry.subject}</div>}
-                      <div style={{ fontSize:"0.74rem", color:"#8a8578" }}>{[entry.who, entry.date?fmtMonthDay(entry.date):""].filter(Boolean).join(" · ")}</div>
+                  <div style={lhIn({ display:"flex", alignItems:"flex-start", gap:"0.5rem" })}>
+                    <div style={lhIn({ flex:1 })}>
+                      {entry.subject && <div style={lhIn({ fontWeight:700, fontSize:"0.85rem", color:"#3a3a34" })}>{entry.subject}</div>}
+                      <div style={lhIn({ fontSize:"0.74rem", color:"#8a8578" })}>{[entry.who, entry.date?fmtMonthDay(entry.date):""].filter(Boolean).join(" · ")}</div>
                     </div>
                     <button type="button" onClick={function(){ openEdit(entry.id, entry); }} style={editBtnStyle}>Edit</button>
                     <button type="button" onClick={function(){ commsMutate({ log: commsLog.filter(function(x){ return x.id!==entry.id; }) }); }} style={delBtnStyle}>✕</button>
                   </div>
-                  {entry.note && <div style={{ fontSize:"0.8rem", color:"#5a5a50", marginTop:"0.3rem" }}>{entry.note}</div>}
+                  {entry.note && <div style={lhIn({ fontSize:"0.8rem", color:"#5a5a50", marginTop:"0.3rem" })}>{entry.note}</div>}
                   {hasAction && (
-                    <div onClick={function(){ commsMutate({ log: commsLog.map(function(x){ return x.id===entry.id ? Object.assign({},x,{actionDone:!x.actionDone}) : x; }) }); }} style={{ display:"flex", alignItems:"center", gap:"0.4rem", borderTop:"1px solid #F0EBDF", paddingTop:"0.4rem", marginTop:"0.4rem", cursor:"pointer" }}>
-                      <span style={{ color:entry.actionDone?LC.seaglass:"#9a9488" }}>{entry.actionDone?"●":"○"}</span>
-                      <span style={{ fontSize:"0.78rem", color:entry.actionDone?"#9a9488":"#3a3a34", textDecoration:entry.actionDone?"line-through":"none" }}>{entry.action}</span>
-                      {!entry.actionDone && <span style={{ fontSize:"0.62rem", fontWeight:700, color:LH_ROSE, background:LH_ROSE+"22", padding:"1px 6px", borderRadius:"99px", marginLeft:"auto" }}>Follow up</span>}
+                    <div onClick={function(){ commsMutate({ log: commsLog.map(function(x){ return x.id===entry.id ? Object.assign({},x,{actionDone:!x.actionDone}) : x; }) }); }} style={lhIn({ display:"flex", alignItems:"center", gap:"0.4rem", borderTop:"1px solid #F0EBDF", paddingTop:"0.4rem", marginTop:"0.4rem", cursor:"pointer" })}>
+                      <span style={lhIn({ color:entry.actionDone?LC.seaglass:"#9a9488" })}>{entry.actionDone?"●":"○"}</span>
+                      <span style={lhIn({ fontSize:"0.78rem", color:entry.actionDone?"#9a9488":"#3a3a34", textDecoration:entry.actionDone?"line-through":"none" })}>{entry.action}</span>
+                      {!entry.actionDone && <span style={lhIn({ fontSize:"0.62rem", fontWeight:700, color:LH_ROSE, background:LH_ROSE+"22", padding:"1px 6px", borderRadius:"99px", marginLeft:"auto" })}>Follow up</span>}
                     </div>
                   )}
                 </div>
@@ -16631,7 +16674,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var sorted = filtered.slice().sort(function(a,b){ return (a.due||"") < (b.due||"") ? -1:1; });
         return (
           <SectionShell tabName="records" sectionName="homework" emoji="✏️" title="Homework" defaultOpen={false}>
-            <div style={{ display:"flex", gap:"0.3rem", flexWrap:"wrap", marginBottom:"0.65rem" }}>
+            <div style={lhIn({ display:"flex", gap:"0.3rem", flexWrap:"wrap", marginBottom:"0.65rem" })}>
               {[["all","All"],["due soon","Due Soon"],["overdue","Overdue"],["completed","Completed"]].map(function(f){
                 return pillToggle(f[1], hwFilter===f[0], function(){ setHwFilter(f[0]); });
               })}
@@ -16655,10 +16698,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               var isDone = hw.status==="Done" || hw.status==="Turned in";
               return (
                 <div key={hw.id} style={lhRow(hw.subj, itemRowStyle)}>
-                  <input type="checkbox" checked={isDone} onChange={function(){ applySchoolLh({ homework: homework.map(function(h){ return h.id===hw.id ? Object.assign({},h,{ status:isDone?"Not started":"Done" }) : h; }) }); }} style={{ cursor:"pointer", flexShrink:0, marginTop:"2px" }}/>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:isDone?"#9a9488":"#3a3a34", textDecoration:isDone?"line-through":"none" }}>{hw.task}</div>
-                    <div style={{ fontSize:"0.75rem", color:"#8a8578" }}>{hw.subj}{hw.due ? " · due "+fmtMonthDay(hw.due) : ""}</div>
+                  <input type="checkbox" checked={isDone} onChange={function(){ applySchoolLh({ homework: homework.map(function(h){ return h.id===hw.id ? Object.assign({},h,{ status:isDone?"Not started":"Done" }) : h; }) }); }} style={lhIn({ cursor:"pointer", flexShrink:0, marginTop:"2px" })}/>
+                  <div style={lhIn({ flex:1 })}>
+                    <div style={lhIn({ fontWeight:700, fontSize:"0.86rem", color:isDone?"#9a9488":"#3a3a34", textDecoration:isDone?"line-through":"none" })}>{hw.task}</div>
+                    <div style={lhIn({ fontSize:"0.75rem", color:"#8a8578" })}>{hw.subj}{hw.due ? " · due "+fmtMonthDay(hw.due) : ""}</div>
                   </div>
                   <button type="button" onClick={function(){ applySchoolLh({ homework: homework.filter(function(h){ return h.id!==hw.id; }) }); }} style={delBtnStyle}>✕</button>
                 </div>
@@ -16679,7 +16722,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       }
 
       return (
-        <div style={{ background:LC.cream, borderRadius:"1rem", padding:"1rem" }}>
+        <div style={lhIn({ background:LC.cream, borderRadius:"1rem", padding:"1rem" })}>
           {childMode === "school" ? (
             <div>
               <TeacherContactsSection/>
@@ -16734,24 +16777,24 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       function openEdit(id, item) { lhFormRef.current = Object.assign({}, item); setLhEditId(id); setLhAddMode(null); }
       function closeForm() { lhFormRef.current = {}; setLhAddMode(null); setLhEditId(null); }
       function fieldRow(label, children) {
-        return (<div style={{ marginBottom:"0.7rem" }}><div style={{ fontSize:"0.73rem", fontWeight:600, color:"#7a7568", marginBottom:"0.2rem", textTransform:"uppercase", letterSpacing:"0.04em" }}>{label}</div>{children}</div>);
+        return (<div style={lhIn({ marginBottom:"0.7rem" })}><div style={lhIn({ fontSize:"0.73rem", fontWeight:600, color:"#7a7568", marginBottom:"0.2rem", textTransform:"uppercase", letterSpacing:"0.04em" })}>{label}</div>{children}</div>);
       }
       function formCard(children) {
-        return (<div style={{ background:"#FBF9F4", border:"1.5px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", marginBottom:"0.65rem" }}>{children}</div>);
+        return (<div style={lhIn({ background:"#FBF9F4", border:"1.5px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", marginBottom:"0.65rem" })}>{children}</div>);
       }
       function formBtns(onSave) {
-        return (<div style={{ display:"flex", gap:"0.5rem", marginTop:"0.6rem" }}><button type="button" onClick={onSave} style={btnP(LC.seaglass,{ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Save</button><button type="button" onClick={closeForm} style={btnS({ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Cancel</button></div>);
+        return (<div style={lhIn({ display:"flex", gap:"0.5rem", marginTop:"0.6rem" })}><button type="button" onClick={onSave} style={btnP(LC.seaglass,{ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Save</button><button type="button" onClick={closeForm} style={btnS({ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Cancel</button></div>);
       }
       function pillToggle(label, active, onClick) {
-        return (<button type="button" key={label} onClick={onClick} style={{ padding:"0.22rem 0.65rem", borderRadius:"99px", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:400, cursor:"pointer", fontFamily:"inherit" }}>{label}</button>);
+        return (<button type="button" key={label} onClick={onClick} style={lhIn({ padding:"0.22rem 0.65rem", borderRadius:"99px", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:400, cursor:"pointer", fontFamily:"inherit" })}>{label}</button>);
       }
 
-      var itemRowStyle = { background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.45rem", display:"flex", alignItems:"flex-start", gap:"0.5rem" };
-      var emptyTextStyle = { color:"#9a9488", fontSize:"0.82rem", padding:"0.4rem 0" };
-      var editBtnStyle = { background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem", flexShrink:0 };
-      var delBtnStyle = { background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem", flexShrink:0 };
-      var subheadStyle = { fontSize:"0.72rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:"0.4rem" };
-      var adjBtnSt = { background:"none", border:"1.5px solid #D8D2C4", borderRadius:"50%", width:"24px", height:"24px", cursor:"pointer", fontSize:"0.9rem", color:"#7a7568", padding:0, lineHeight:1, fontFamily:"inherit" };
+      var itemRowStyle = lhIn({ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.45rem", display:"flex", alignItems:"flex-start", gap:"0.5rem" });
+      var emptyTextStyle = lhIn({ color:"#9a9488", fontSize:"0.82rem", padding:"0.4rem 0" });
+      var editBtnStyle = lhIn({ background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem", flexShrink:0 });
+      var delBtnStyle = lhIn({ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem", flexShrink:0 });
+      var subheadStyle = lhIn({ fontSize:"0.72rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:"0.4rem" });
+      var adjBtnSt = lhIn({ background:"none", border:"1.5px solid #D8D2C4", borderRadius:"50%", width:"24px", height:"24px", cursor:"pointer", fontSize:"0.9rem", color:"#7a7568", padding:0, lineHeight:1, fontFamily:"inherit" });
 
       var childSchoolHs = (schoolData[activeChild] && schoolData[activeChild].homeschool) || {};
       var schAttendance = childSchoolHs.attendance || {};
@@ -16837,35 +16880,35 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var STATUS_LABEL = { present:"P", half:"H", absent:"A" };
         return (
           <SectionShell tabName="growth" sectionName="attendance" emoji="📋" title="Attendance Record" defaultOpen={false}>
-            <div style={{ display:"flex", gap:"1.15rem", marginBottom:"0.85rem", flexWrap:"wrap" }}>
-              <div><span style={{ fontSize:"1.3rem", fontWeight:800, color:LC.seaglass }}>{ytd.present}</span><div style={{ fontSize:"0.64rem", color:"#8a8578" }}>Present</div></div>
-              <div><span style={{ fontSize:"1.3rem", fontWeight:800, color:"#C9A45B" }}>{ytd.half}</span><div style={{ fontSize:"0.64rem", color:"#8a8578" }}>Half days</div></div>
-              <div><span style={{ fontSize:"1.3rem", fontWeight:800, color:LH_ROSE }}>{ytd.absent}</span><div style={{ fontSize:"0.64rem", color:"#8a8578" }}>Absent</div></div>
-              <div><span style={{ fontSize:"1.3rem", fontWeight:800, color:LC.navy }}>{ytd.total}</span><div style={{ fontSize:"0.64rem", color:"#8a8578" }}>Total logged</div></div>
+            <div style={lhIn({ display:"flex", gap:"1.15rem", marginBottom:"0.85rem", flexWrap:"wrap" })}>
+              <div><span style={lhIn({ fontSize:"1.3rem", fontWeight:800, color:LC.seaglass })}>{ytd.present}</span><div style={lhIn({ fontSize:"0.64rem", color:"#8a8578" })}>Present</div></div>
+              <div><span style={lhIn({ fontSize:"1.3rem", fontWeight:800, color:"#C9A45B" })}>{ytd.half}</span><div style={lhIn({ fontSize:"0.64rem", color:"#8a8578" })}>Half days</div></div>
+              <div><span style={lhIn({ fontSize:"1.3rem", fontWeight:800, color:LH_ROSE })}>{ytd.absent}</span><div style={lhIn({ fontSize:"0.64rem", color:"#8a8578" })}>Absent</div></div>
+              <div><span style={lhIn({ fontSize:"1.3rem", fontWeight:800, color:LC.navy })}>{ytd.total}</span><div style={lhIn({ fontSize:"0.64rem", color:"#8a8578" })}>Total logged</div></div>
             </div>
-            <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", marginBottom:"0.6rem" }}>
-              <button type="button" onClick={function(){ shiftMonth(-1); }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"1.1rem", color:"#7a7568" }}>‹</button>
-              <span style={{ flex:1, textAlign:"center", fontWeight:700, color:LC.navy, fontSize:"0.88rem" }}>{monthLabel}</span>
-              <button type="button" onClick={function(){ shiftMonth(1); }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"1.1rem", color:"#7a7568" }}>›</button>
+            <div style={lhIn({ display:"flex", alignItems:"center", gap:"0.5rem", marginBottom:"0.6rem" })}>
+              <button type="button" onClick={function(){ shiftMonth(-1); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", fontSize:"1.1rem", color:"#7a7568" })}>‹</button>
+              <span style={lhIn({ flex:1, textAlign:"center", fontWeight:700, color:LC.navy, fontSize:"0.88rem" })}>{monthLabel}</span>
+              <button type="button" onClick={function(){ shiftMonth(1); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", fontSize:"1.1rem", color:"#7a7568" })}>›</button>
             </div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:"3px", marginBottom:"0.6rem" }}>
-              {["Su","Mo","Tu","We","Th","Fr","Sa"].map(function(d){ return <div key={d} style={{ textAlign:"center", fontSize:"0.6rem", color:"#9a9488", fontWeight:700 }}>{d}</div>; })}
+            <div style={lhIn({ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:"3px", marginBottom:"0.6rem" })}>
+              {["Su","Mo","Tu","We","Th","Fr","Sa"].map(function(d){ return <div key={d} style={lhIn({ textAlign:"center", fontSize:"0.6rem", color:"#9a9488", fontWeight:700 })}>{d}</div>; })}
               {days.map(function(dateIso, i) {
                 if (!dateIso) return <div key={"e"+i}/>;
                 var status = getAttendanceStatus(dateIso);
                 var isToday = dateIso === todayIso;
                 return (
-                  <button type="button" key={dateIso} onClick={function(){ cycle(dateIso); }} style={{
+                  <button type="button" key={dateIso} onClick={function(){ cycle(dateIso); }} style={lhIn({
                     padding:"0.28rem 0", borderRadius:"0.4rem", cursor:"pointer", fontSize:"0.7rem", fontFamily:"inherit",
                     border: isToday ? "2px solid "+LC.navy : "1px solid "+(status?STATUS_COLOR[status]+"55":"#E7E1D4"),
                     background: status ? STATUS_COLOR[status]+"22" : "#fff", color: status ? LC.navy : "#7a7568"
-                  }}>
+                  })}>
                     {status ? STATUS_LABEL[status] : new Date(dateIso+"T12:00:00").getDate()}
                   </button>
                 );
               })}
             </div>
-            <div style={{ fontSize:"0.7rem", color:"#9a9488" }}>Tap a day to cycle: Present → Half → Absent → clear</div>
+            <div style={lhIn({ fontSize:"0.7rem", color:"#9a9488" })}>Tap a day to cycle: Present → Half → Absent → clear</div>
           </SectionShell>
         );
       }
@@ -16876,7 +16919,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           var isChallenge = fv("kind","goal") === "challenge";
           return formCard(
             <div>
-              {fieldRow("Type", <div style={{ display:"flex", gap:"0.4rem" }}>{pillToggle("Goal", !isChallenge, function(){ fSetLive("kind", "goal"); })}{pillToggle("Challenge", isChallenge, function(){ fSetLive("kind", "challenge"); })}</div>)}
+              {fieldRow("Type", <div style={lhIn({ display:"flex", gap:"0.4rem" })}>{pillToggle("Goal", !isChallenge, function(){ fSetLive("kind", "goal"); })}{pillToggle("Challenge", isChallenge, function(){ fSetLive("kind", "challenge"); })}</div>)}
               {fieldRow("Category *", <input defaultValue={fv("cat","")} onChange={fSet("cat")} autoFocus style={inp()}/>)}
               {fieldRow("Goal *", <textarea defaultValue={fv("goal","")} onChange={fSet("goal")} style={inp({ height:60, resize:"vertical" })}/>)}
               {isChallenge && fieldRow("Target", <input type="number" min="0" defaultValue={fv("target","")} onChange={fSet("target")} style={inp({ width:"140px" })}/>)}
@@ -16884,7 +16927,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               {fieldRow("Why", <textarea defaultValue={fv("why","")} onChange={fSet("why")} style={inp({ height:50, resize:"vertical" })}/>)}
               {fieldRow("Source", <input defaultValue={fv("source","parent")} onChange={fSet("source")} style={inp()}/>)}
               {!isChallenge && fieldRow("Steps (one per line)", <textarea defaultValue={fv("stepsText","")} onChange={fSet("stepsText")} style={inp({ height:70, resize:"vertical" })}/>)}
-              {!isChallenge && fieldRow("Progress", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_PROGRESS_GROWTH.map(function(p){ return pillToggle(p, fv("progress","Not started")===p, function(){ fSetLive("progress", p); }); })}</div>)}
+              {!isChallenge && fieldRow("Progress", <div style={lhIn({ display:"flex", gap:"0.4rem", flexWrap:"wrap" })}>{LH_PROGRESS_GROWTH.map(function(p){ return pillToggle(p, fv("progress","Not started")===p, function(){ fSetLive("progress", p); }); })}</div>)}
               {fieldRow("Evidence", <textarea defaultValue={fv("evidence","")} onChange={fSet("evidence")} style={inp({ height:50, resize:"vertical" })}/>)}
               {fieldRow("Reflect", <textarea defaultValue={fv("reflect","")} onChange={fSet("reflect")} style={inp({ height:50, resize:"vertical" })}/>)}
               {formBtns(onSave)}
@@ -16927,43 +16970,43 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 var targetNum = parseInt(g.target) || 0;
                 var pct = targetNum>0 ? Math.min(1, displayProgress/targetNum) : 0;
                 challengeBlock = (
-                  <div style={{ marginTop:"0.55rem" }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", marginBottom:"0.25rem" }}>
-                      <span style={{ fontWeight:700, color:"#3a3a34" }}>{displayProgress}</span>
-                      <span style={{ fontSize:"0.78rem", color:"#8a8578" }}>/ {g.target||"?"} {g.unit||""}</span>
-                      <div style={{ display:"flex", gap:"0.3rem", marginLeft:"auto" }}>
+                  <div style={lhIn({ marginTop:"0.55rem" })}>
+                    <div style={lhIn({ display:"flex", alignItems:"center", gap:"0.5rem", marginBottom:"0.25rem" })}>
+                      <span style={lhIn({ fontWeight:700, color:"#3a3a34" })}>{displayProgress}</span>
+                      <span style={lhIn({ fontSize:"0.78rem", color:"#8a8578" })}>/ {g.target||"?"} {g.unit||""}</span>
+                      <div style={lhIn({ display:"flex", gap:"0.3rem", marginLeft:"auto" })}>
                         <button type="button" onClick={function(){ lhSaveUpdate("goals",g.id,{manualAdjust:manualAdjust-1}); }} style={adjBtnSt}>−</button>
                         <button type="button" onClick={function(){ lhSaveUpdate("goals",g.id,{manualAdjust:manualAdjust+1}); }} style={adjBtnSt}>+</button>
                       </div>
                     </div>
-                    {targetNum>0 && <div style={{ background:"#F0EBDF", borderRadius:"99px", height:"6px", overflow:"hidden" }}><div style={{ width:(pct*100)+"%", height:"100%", background:LC.seaglass, borderRadius:"99px" }}/></div>}
+                    {targetNum>0 && <div style={lhIn({ background:"#F0EBDF", borderRadius:"99px", height:"6px", overflow:"hidden" })}><div style={lhIn({ width:(pct*100)+"%", height:"100%", background:LC.seaglass, borderRadius:"99px" })}/></div>}
                   </div>
                 );
               }
               return (
                 <div key={g.id} style={itemRowStyle}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{g.goal}</div>
-                    {g.cat && <div style={{ fontSize:"0.75rem", color:"#8a8578" }}>{g.cat}</div>}
-                    {!isChallenge && <div style={{ fontSize:"0.72rem", color:LC.seaglass, fontWeight:700, marginTop:"0.3rem" }}>{g.progress||"Not started"}</div>}
-                    {isChallenge && <div style={{ fontSize:"0.72rem", color:LC.seaglass, fontWeight:700, marginTop:"0.3rem" }}>Challenge</div>}
+                  <div style={lhIn({ flex:1 })}>
+                    <div style={lhIn({ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" })}>{g.goal}</div>
+                    {g.cat && <div style={lhIn({ fontSize:"0.75rem", color:"#8a8578" })}>{g.cat}</div>}
+                    {!isChallenge && <div style={lhIn({ fontSize:"0.72rem", color:LC.seaglass, fontWeight:700, marginTop:"0.3rem" })}>{g.progress||"Not started"}</div>}
+                    {isChallenge && <div style={lhIn({ fontSize:"0.72rem", color:LC.seaglass, fontWeight:700, marginTop:"0.3rem" })}>Challenge</div>}
                     {challengeBlock}
                     {!isChallenge && stepsArr.length>0 && (
-                      <div style={{ fontSize:"0.75rem", color:"#8a8578", marginTop:"0.3rem" }}>
+                      <div style={lhIn({ fontSize:"0.75rem", color:"#8a8578", marginTop:"0.3rem" })}>
                         {doneCount}/{stepsArr.length} steps
                         {stepsArr.map(function(step) {
                           return (
-                            <div key={step.id} onClick={function(){ lhSaveUpdate("goals", g.id, { steps: stepsArr.map(function(s){ return s.id===step.id ? Object.assign({},s,{done:!s.done}) : s; }) }); }} style={{ display:"flex", alignItems:"center", gap:"0.35rem", marginTop:"0.15rem", cursor:"pointer" }}>
-                              <span style={{ color:step.done?LC.seaglass:"#D8D2C4" }}>{step.done?"●":"○"}</span>
-                              <span style={{ textDecoration:step.done?"line-through":"none", color:step.done?"#9a9488":"#5a5a50" }}>{step.text}</span>
+                            <div key={step.id} onClick={function(){ lhSaveUpdate("goals", g.id, { steps: stepsArr.map(function(s){ return s.id===step.id ? Object.assign({},s,{done:!s.done}) : s; }) }); }} style={lhIn({ display:"flex", alignItems:"center", gap:"0.35rem", marginTop:"0.15rem", cursor:"pointer" })}>
+                              <span style={lhIn({ color:step.done?LC.seaglass:"#D8D2C4" })}>{step.done?"●":"○"}</span>
+                              <span style={lhIn({ textDecoration:step.done?"line-through":"none", color:step.done?"#9a9488":"#5a5a50" })}>{step.text}</span>
                             </div>
                           );
                         })}
                       </div>
                     )}
-                    {g.evidence && <div style={{ fontSize:"0.73rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.3rem" }}>Evidence: {g.evidence}</div>}
+                    {g.evidence && <div style={lhIn({ fontSize:"0.73rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.3rem" })}>Evidence: {g.evidence}</div>}
                   </div>
-                  <div style={{ display:"flex", gap:"0.3rem", flexShrink:0 }}>
+                  <div style={lhIn({ display:"flex", gap:"0.3rem", flexShrink:0 })}>
                     <button type="button" onClick={function(){ openEdit(g.id, Object.assign({},g,{stepsText:stepsArr.map(function(s){ return s.text; }).join("\n")})); }} style={editBtnStyle}>Edit</button>
                     <button type="button" onClick={function(){ lhSaveDel("goals", g.id); }} style={delBtnStyle}>✕</button>
                   </div>
@@ -16983,7 +17026,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhAddMode==="grades-mark" && formCard(
               <div>
                 {fieldRow("Subject *", <input defaultValue={fv("subject","")} onChange={fSet("subject")} autoFocus style={inp()}/>)}
-                {fieldRow("Mark", <div style={{ display:"flex", gap:"0.35rem", flexWrap:"wrap" }}>{MARK_OPTIONS.map(function(m){ return pillToggle(m, fv("mark","")===m, function(){ fSetLive("mark", m); }); })}</div>)}
+                {fieldRow("Mark", <div style={lhIn({ display:"flex", gap:"0.35rem", flexWrap:"wrap" })}>{MARK_OPTIONS.map(function(m){ return pillToggle(m, fv("mark","")===m, function(){ fSetLive("mark", m); }); })}</div>)}
                 {fieldRow("Note", <input defaultValue={fv("comment","")} onChange={fSet("comment")} style={inp()}/>)}
                 {formBtns(function(){
                   var s=(fv("subject","")).trim(); var m=fv("mark","");
@@ -16999,7 +17042,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 return formCard(
                   <div key={row.id}>
                     {fieldRow("Subject *", <input defaultValue={fv("subject","")} onChange={fSet("subject")} style={inp()} autoFocus/>)}
-                    {fieldRow("Mark", <div style={{ display:"flex", gap:"0.35rem", flexWrap:"wrap" }}>{MARK_OPTIONS.map(function(m){ return pillToggle(m, fv("mark","")===m, function(){ fSetLive("mark", m); }); })}</div>)}
+                    {fieldRow("Mark", <div style={lhIn({ display:"flex", gap:"0.35rem", flexWrap:"wrap" })}>{MARK_OPTIONS.map(function(m){ return pillToggle(m, fv("mark","")===m, function(){ fSetLive("mark", m); }); })}</div>)}
                     {fieldRow("Note", <input defaultValue={fv("comment","")} onChange={fSet("comment")} style={inp()}/>)}
                     {formBtns(function(){
                       var s=(fv("subject","")).trim(); var m=fv("mark","");
@@ -17013,11 +17056,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               var col = markColor(row.mark);
               return (
                 <div key={row.id} style={lhRow(row.subject, itemRowStyle)}>
-                  <div style={{ flex:1 }}>
+                  <div style={lhIn({ flex:1 })}>
                     <div style={lhText(row.subject, { fontWeight:600, fontSize:"0.86rem", color:"#3a3a34" })}>{row.subject}</div>
-                    {row.comment && <div style={{ fontSize:"0.76rem", color:"#8a8578", marginTop:"0.2rem" }}>{row.comment}</div>}
+                    {row.comment && <div style={lhIn({ fontSize:"0.76rem", color:"#8a8578", marginTop:"0.2rem" })}>{row.comment}</div>}
                   </div>
-                  {row.mark && <span style={{ fontSize:"0.7rem", fontWeight:700, color:col, background:col+"22", padding:"0.12rem 0.55rem", borderRadius:"99px", flexShrink:0 }}>{row.mark}</span>}
+                  {row.mark && <span style={lhIn({ fontSize:"0.7rem", fontWeight:700, color:col, background:col+"22", padding:"0.12rem 0.55rem", borderRadius:"99px", flexShrink:0 })}>{row.mark}</span>}
                   <button type="button" onClick={function(){ openEdit(row.id, row); }} style={editBtnStyle}>Edit</button>
                   <button type="button" onClick={function(){ gradesMutate({ marks: gradeMarks.filter(function(r){ return r.id!==row.id; }) }); }} style={delBtnStyle}>✕</button>
                 </div>
@@ -17056,8 +17099,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               }
               return (
                 <div key={sc.id} style={itemRowStyle}>
-                  <div style={{ flex:1, fontSize:"0.85rem", color:"#5a5a50" }}>{sc.label}</div>
-                  <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{sc.value}</div>
+                  <div style={lhIn({ flex:1, fontSize:"0.85rem", color:"#5a5a50" })}>{sc.label}</div>
+                  <div style={lhIn({ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" })}>{sc.value}</div>
                   <button type="button" onClick={function(){ openEdit(sc.id, sc); }} style={editBtnStyle}>Edit</button>
                   <button type="button" onClick={function(){ gradesMutate({ scores: gradeScores.filter(function(s){ return s.id!==sc.id; }) }); }} style={delBtnStyle}>✕</button>
                 </div>
@@ -17110,13 +17153,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               }
               return (
                 <div key={p.id} style={lhRow(p.subject, itemRowStyle)}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:"0.4rem", flexWrap:"wrap" }}>
-                      {p.date && <span style={{ fontSize:"0.72rem", color:"#8a8578", fontWeight:700 }}>{fmtMonthDay(p.date)}</span>}
+                  <div style={lhIn({ flex:1 })}>
+                    <div style={lhIn({ display:"flex", alignItems:"center", gap:"0.4rem", flexWrap:"wrap" })}>
+                      {p.date && <span style={lhIn({ fontSize:"0.72rem", color:"#8a8578", fontWeight:700 })}>{fmtMonthDay(p.date)}</span>}
                       {p.subject && <span style={lhChip(p.subject, { background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" })}>{p.subject}</span>}
                     </div>
-                    <div style={{ fontSize:"0.83rem", color:"#3a3a34", marginTop:"0.25rem" }}>{p.note}</div>
-                    {p.photoUrl && <a href={p.photoUrl} target="_blank" rel="noreferrer" style={{ fontSize:"0.74rem", color:LC.seaglass }}>📷 view photo</a>}
+                    <div style={lhIn({ fontSize:"0.83rem", color:"#3a3a34", marginTop:"0.25rem" })}>{p.note}</div>
+                    {p.photoUrl && <a href={p.photoUrl} target="_blank" rel="noreferrer" style={lhIn({ fontSize:"0.74rem", color:LC.seaglass })}>📷 view photo</a>}
                   </div>
                   <button type="button" onClick={function(){ openEdit(p.id, p); }} style={editBtnStyle}>Edit</button>
                   <button type="button" onClick={function(){ applyHs({ portfolio: portfolio.filter(function(x){ return x.id!==p.id; }) }); }} style={delBtnStyle}>✕</button>
@@ -17134,16 +17177,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var breakColor = BREAK_COLORS[breakMode];
         return (
           <SectionShell tabName="growth" sectionName="breakgoals" emoji="🌟" title="Break Goals" defaultOpen={false}>
-            <div style={{ display:"flex", gap:"0.4rem", marginBottom:"0.75rem" }}>
+            <div style={lhIn({ display:"flex", gap:"0.4rem", marginBottom:"0.75rem" })}>
               {["summer","winter","spring"].map(function(b){
                 var active = breakMode===b;
-                return <button type="button" key={b} onClick={function(){ setBreakModeLocal(b); }} style={{ flex:1, padding:"0.35rem 0.5rem", borderRadius:"0.6rem", border:"1.5px solid "+(active?BREAK_COLORS[b]:"#D8D2C4"), background:active?BREAK_COLORS[b]+"22":"transparent", color:active?BREAK_COLORS[b]:"#7a7568", fontWeight:active?700:400, fontSize:"0.78rem", cursor:"pointer", fontFamily:"inherit" }}>{BREAK_EMOJIS[b]} {BREAK_LABELS[b]}</button>;
+                return <button type="button" key={b} onClick={function(){ setBreakModeLocal(b); }} style={lhIn({ flex:1, padding:"0.35rem 0.5rem", borderRadius:"0.6rem", border:"1.5px solid "+(active?BREAK_COLORS[b]:"#D8D2C4"), background:active?BREAK_COLORS[b]+"22":"transparent", color:active?BREAK_COLORS[b]:"#7a7568", fontWeight:active?700:400, fontSize:"0.78rem", cursor:"pointer", fontFamily:"inherit" })}>{BREAK_EMOJIS[b]} {BREAK_LABELS[b]}</button>;
               })}
             </div>
             {lhAddMode!=="breakgoal" && <button type="button" onClick={function(){ openAdd("breakgoal",{ type:"goal" }); }} style={btnP(breakColor,{ fontSize:"0.8rem", marginBottom:"0.65rem", color:"#fff" })}>+ Add Goal</button>}
             {lhAddMode==="breakgoal" && formCard(
               <div>
-                {fieldRow("Type", <div style={{ display:"flex", gap:"0.4rem" }}>{[["goal","🎯 Goal"],["reading","📚 Reading"],["daily","📆 Daily"]].map(function(t){ return pillToggle(t[1], fv("type","goal")===t[0], function(){ fSetLive("type", t[0]); }); })}</div>)}
+                {fieldRow("Type", <div style={lhIn({ display:"flex", gap:"0.4rem" })}>{[["goal","🎯 Goal"],["reading","📚 Reading"],["daily","📆 Daily"]].map(function(t){ return pillToggle(t[1], fv("type","goal")===t[0], function(){ fSetLive("type", t[0]); }); })}</div>)}
                 {fieldRow("Title *", <input defaultValue={fv("title","")} onChange={fSet("title")} autoFocus style={inp()}/>)}
                 {fieldRow("Target number", <input type="number" defaultValue={fv("target","")} onChange={fSet("target")} style={inp({ width:"140px" })}/>)}
                 {fieldRow("Unit", <input defaultValue={fv("unit","")} onChange={fSet("unit")} placeholder="books, days…" style={inp()}/>)}
@@ -17175,12 +17218,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               var pct = g.target && g.progress!=null ? Math.min(100, Math.round((g.progress/parseInt(g.target))*100)) : null;
               return (
                 <div key={g.id} style={itemRowStyle}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{g.title}</div>
-                    {g.target && <div style={{ fontSize:"0.76rem", color:"#8a8578", marginTop:"0.2rem" }}>{g.progress||0} / {g.target} {g.unit}{pct!=null?" · "+pct+"%":""}</div>}
-                    {g.notes && <div style={{ fontSize:"0.74rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.2rem" }}>{g.notes}</div>}
+                  <div style={lhIn({ flex:1 })}>
+                    <div style={lhIn({ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" })}>{g.title}</div>
+                    {g.target && <div style={lhIn({ fontSize:"0.76rem", color:"#8a8578", marginTop:"0.2rem" })}>{g.progress||0} / {g.target} {g.unit}{pct!=null?" · "+pct+"%":""}</div>}
+                    {g.notes && <div style={lhIn({ fontSize:"0.74rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.2rem" })}>{g.notes}</div>}
                     {g.target && (
-                      <div style={{ display:"flex", gap:"0.3rem", marginTop:"0.3rem" }}>
+                      <div style={lhIn({ display:"flex", gap:"0.3rem", marginTop:"0.3rem" })}>
                         <button type="button" onClick={function(){ saveBreakGoals(breakGoals.map(function(x){ return x.id===g.id ? Object.assign({},x,{progress:Math.max(0,(x.progress||0)-1)}) : x; })); }} style={adjBtnSt}>−</button>
                         <button type="button" onClick={function(){ saveBreakGoals(breakGoals.map(function(x){ return x.id===g.id ? Object.assign({},x,{progress:(x.progress||0)+1}) : x; })); }} style={adjBtnSt}>+</button>
                       </div>
@@ -17196,7 +17239,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       }
 
       return (
-        <div style={{ background:LC.cream, borderRadius:"1rem", padding:"1rem" }}>
+        <div style={lhIn({ background:LC.cream, borderRadius:"1rem", padding:"1rem" })}>
           {childMode === "school" ? (
             <div>
               <AttendanceSection/>
@@ -17244,23 +17287,23 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       function openEdit(id, item) { lhFormRef.current = Object.assign({}, item); setLhEditId(id); setLhAddMode(null); }
       function closeForm() { lhFormRef.current = {}; setLhAddMode(null); setLhEditId(null); }
       function fieldRow(label, children) {
-        return (<div style={{ marginBottom:"0.7rem" }}><div style={{ fontSize:"0.73rem", fontWeight:600, color:"#7a7568", marginBottom:"0.2rem", textTransform:"uppercase", letterSpacing:"0.04em" }}>{label}</div>{children}</div>);
+        return (<div style={lhIn({ marginBottom:"0.7rem" })}><div style={lhIn({ fontSize:"0.73rem", fontWeight:600, color:"#7a7568", marginBottom:"0.2rem", textTransform:"uppercase", letterSpacing:"0.04em" })}>{label}</div>{children}</div>);
       }
       function formCard(children) {
-        return (<div style={{ background:"#FBF9F4", border:"1.5px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", marginBottom:"0.65rem" }}>{children}</div>);
+        return (<div style={lhIn({ background:"#FBF9F4", border:"1.5px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", marginBottom:"0.65rem" })}>{children}</div>);
       }
       function formBtns(onSave) {
-        return (<div style={{ display:"flex", gap:"0.5rem", marginTop:"0.6rem" }}><button type="button" onClick={onSave} style={btnP(LC.seaglass,{ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Save</button><button type="button" onClick={closeForm} style={btnS({ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Cancel</button></div>);
+        return (<div style={lhIn({ display:"flex", gap:"0.5rem", marginTop:"0.6rem" })}><button type="button" onClick={onSave} style={btnP(LC.seaglass,{ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Save</button><button type="button" onClick={closeForm} style={btnS({ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Cancel</button></div>);
       }
       function pillToggle(label, active, onClick) {
-        return (<button type="button" key={label} onClick={onClick} style={{ padding:"0.22rem 0.65rem", borderRadius:"99px", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:400, cursor:"pointer", fontFamily:"inherit" }}>{label}</button>);
+        return (<button type="button" key={label} onClick={onClick} style={lhIn({ padding:"0.22rem 0.65rem", borderRadius:"99px", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:400, cursor:"pointer", fontFamily:"inherit" })}>{label}</button>);
       }
 
-      var itemRowStyle = { background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.45rem", display:"flex", alignItems:"flex-start", gap:"0.5rem" };
-      var emptyTextStyle = { color:"#9a9488", fontSize:"0.82rem", padding:"0.4rem 0" };
-      var editBtnStyle = { background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem", flexShrink:0 };
-      var delBtnStyle = { background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem", flexShrink:0 };
-      var subheadStyle = { fontSize:"0.72rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:"0.4rem" };
+      var itemRowStyle = lhIn({ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.45rem", display:"flex", alignItems:"flex-start", gap:"0.5rem" });
+      var emptyTextStyle = lhIn({ color:"#9a9488", fontSize:"0.82rem", padding:"0.4rem 0" });
+      var editBtnStyle = lhIn({ background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem", flexShrink:0 });
+      var delBtnStyle = lhIn({ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem", flexShrink:0 });
+      var subheadStyle = lhIn({ fontSize:"0.72rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:"0.4rem" });
 
       var sharedAll = lhGet(lighthouse, "shared", {});
       var childShared = sharedAll[activeChild] || {};
@@ -17326,13 +17369,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           var stars = [];
           for (var s=1; s<=5; s++) {
             var filled = cur>=s; var sVal=s;
-            stars.push(<button type="button" key={s} onClick={fNum(ratingKey).bind(null,sVal)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"1.1rem", padding:"0 1px", color:filled?"#f59e0b":"#d1d5db" }}>{filled?"★":"☆"}</button>);
+            stars.push(<button type="button" key={s} onClick={fNum(ratingKey).bind(null,sVal)} style={lhIn({ background:"none", border:"none", cursor:"pointer", fontSize:"1.1rem", padding:"0 1px", color:filled?"#f59e0b":"#d1d5db" })}>{filled?"★":"☆"}</button>);
           }
-          return <div style={{ display:"flex", alignItems:"center" }}>{stars}</div>;
+          return <div style={lhIn({ display:"flex", alignItems:"center" })}>{stars}</div>;
         }
         function starDisplay(rating) {
           var out=[];
-          for (var s=1; s<=5; s++) out.push(<span key={s} style={{ color:rating>=s?"#f59e0b":"#d1d5db", fontSize:"0.8rem" }}>{rating>=s?"★":"☆"}</span>);
+          for (var s=1; s<=5; s++) out.push(<span key={s} style={lhIn({ color:rating>=s?"#f59e0b":"#d1d5db", fontSize:"0.8rem" })}>{rating>=s?"★":"☆"}</span>);
           return <span>{out}</span>;
         }
         function BookForm(onSave) {
@@ -17340,18 +17383,18 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <div>
               {fieldRow("Title *", <input defaultValue={fv("title","")} onChange={fSet("title")} autoFocus style={inp()}/>)}
               {fieldRow("Author", <input defaultValue={fv("author","")} onChange={fSet("author")} style={inp()}/>)}
-              {fieldRow("Status", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{BOOK_STATUSES.map(function(o){ return pillToggle(o[1], fv("status","reading")===o[0], function(){ fSetLive("status", o[0]); }); })}</div>)}
-              {fieldRow("Format", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_BOOK_FMTS.map(function(fmt){ return pillToggle(fmt, fv("fmt","")===fmt, function(){ fSetLive("fmt", fmt); }); })}</div>)}
+              {fieldRow("Status", <div style={lhIn({ display:"flex", gap:"0.4rem", flexWrap:"wrap" })}>{BOOK_STATUSES.map(function(o){ return pillToggle(o[1], fv("status","reading")===o[0], function(){ fSetLive("status", o[0]); }); })}</div>)}
+              {fieldRow("Format", <div style={lhIn({ display:"flex", gap:"0.4rem", flexWrap:"wrap" })}>{LH_BOOK_FMTS.map(function(fmt){ return pillToggle(fmt, fv("fmt","")===fmt, function(){ fSetLive("fmt", fmt); }); })}</div>)}
               {fieldRow("Subject", <input defaultValue={fv("subj","")} onChange={fSet("subj")} style={inp()}/>)}
-              <div style={{ display:"flex", gap:"0.6rem" }}>
-                <div style={{ flex:1 }}>{fieldRow("Start", <input type="date" defaultValue={fv("start","")} onChange={fSet("start")} style={inp()}/>)}</div>
-                <div style={{ flex:1 }}>{fieldRow("Finish", <input type="date" defaultValue={fv("finish","")} onChange={fSet("finish")} style={inp()}/>)}</div>
+              <div style={lhIn({ display:"flex", gap:"0.6rem" })}>
+                <div style={lhIn({ flex:1 })}>{fieldRow("Start", <input type="date" defaultValue={fv("start","")} onChange={fSet("start")} style={inp()}/>)}</div>
+                <div style={lhIn({ flex:1 })}>{fieldRow("Finish", <input type="date" defaultValue={fv("finish","")} onChange={fSet("finish")} style={inp()}/>)}</div>
               </div>
               {fieldRow("Rating", starRow("rating"))}
               {fieldRow("Note", <textarea defaultValue={fv("note","")} onChange={fSet("note")} style={inp({ height:56, resize:"vertical" })}/>)}
               {fieldRow("Favourite Quote", <textarea defaultValue={fv("quote","")} onChange={fSet("quote")} style={inp({ height:44, resize:"vertical" })}/>)}
-              <label style={{ display:"flex", alignItems:"center", gap:"0.4rem", fontSize:"0.78rem", color:"#7a7568", cursor:"pointer", marginBottom:"0.5rem" }}>
-                <input type="checkbox" checked={!!fv("includeSummary",false)} onChange={fChk("includeSummary")} style={{ cursor:"pointer" }}/>
+              <label style={lhIn({ display:"flex", alignItems:"center", gap:"0.4rem", fontSize:"0.78rem", color:"#7a7568", cursor:"pointer", marginBottom:"0.5rem" })}>
+                <input type="checkbox" checked={!!fv("includeSummary",false)} onChange={fChk("includeSummary")} style={lhIn({ cursor:"pointer" })}/>
                 Include in summaries
               </label>
               {formBtns(onSave)}
@@ -17369,17 +17412,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           var statusLabel = (BOOK_STATUSES.find(function(o){ return o[0]===b.status; })||BOOK_STATUSES[0])[1];
           return (
             <div key={b.id} style={itemRowStyle}>
-              <div style={{ flex:1 }}>
-                <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{b.title}</div>
-                {b.author && <div style={{ fontSize:"0.78rem", color:"#8a8578" }}>{b.author}</div>}
-                <div style={{ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.35rem", alignItems:"center" }}>
-                  <span style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" }}>{statusLabel}</span>
-                  {b.fmt && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{b.fmt}</span>}
+              <div style={lhIn({ flex:1 })}>
+                <div style={lhIn({ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" })}>{b.title}</div>
+                {b.author && <div style={lhIn({ fontSize:"0.78rem", color:"#8a8578" })}>{b.author}</div>}
+                <div style={lhIn({ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.35rem", alignItems:"center" })}>
+                  <span style={lhIn({ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" })}>{statusLabel}</span>
+                  {b.fmt && <span style={lhIn({ fontSize:"0.7rem", color:"#8a8578" })}>{b.fmt}</span>}
                   {b.subj && <span style={lhChip(b.subj, { fontSize:"0.7rem", color:"#8a8578" })}>{b.subj}</span>}
                 </div>
-                {b.rating>0 && <div style={{ marginTop:"0.25rem" }}>{starDisplay(b.rating)}</div>}
-                {b.note && <div style={{ fontSize:"0.78rem", color:"#5a5a50", marginTop:"0.25rem" }}>{b.note}</div>}
-                {b.quote && <div style={{ fontSize:"0.75rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.2rem", borderLeft:"2px solid #E7E1D4", paddingLeft:"0.5rem" }}>"{b.quote}"</div>}
+                {b.rating>0 && <div style={lhIn({ marginTop:"0.25rem" })}>{starDisplay(b.rating)}</div>}
+                {b.note && <div style={lhIn({ fontSize:"0.78rem", color:"#5a5a50", marginTop:"0.25rem" })}>{b.note}</div>}
+                {b.quote && <div style={lhIn({ fontSize:"0.75rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.2rem", borderLeft:"2px solid #E7E1D4", paddingLeft:"0.5rem" })}>"{b.quote}"</div>}
               </div>
               <button type="button" onClick={function(){ openEdit(b.id, b); }} style={editBtnStyle}>Edit</button>
               <button type="button" onClick={function(){ lhSaveDel("books", b.id); }} style={delBtnStyle}>✕</button>
@@ -17389,12 +17432,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         return (
           <SectionShell tabName="library" sectionName="books" emoji="📚" title="Books" defaultOpen={false}>
             {currentlyReading.length > 0 && (
-              <div style={{ marginBottom:"0.85rem" }}>
+              <div style={lhIn({ marginBottom:"0.85rem" })}>
                 <div style={subheadStyle}>Currently Reading</div>
                 {currentlyReading.map(renderBookRow)}
               </div>
             )}
-            <div style={{ display:"flex", gap:"0.3rem", flexWrap:"wrap", marginBottom:"0.65rem" }}>
+            <div style={lhIn({ display:"flex", gap:"0.3rem", flexWrap:"wrap", marginBottom:"0.65rem" })}>
               {pillToggle("All", bookFilter==="all", function(){ setBookFilter("all"); })}
               {BOOK_STATUSES.map(function(f){ return pillToggle(f[1], bookFilter===f[0], function(){ setBookFilter(f[0]); }); })}
             </div>
@@ -17427,11 +17470,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           return formCard(
             <div>
               {fieldRow(isTrip?"Place *":"What *", <input defaultValue={fv("what","")} onChange={fSet("what")} autoFocus style={inp()}/>)}
-              {fieldRow("Category", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_BEYOND_CATS.map(function(c){ return pillToggle(c, fv("cat","")===c, function(){ fSetLive("cat", c); }); })}</div>)}
+              {fieldRow("Category", <div style={lhIn({ display:"flex", gap:"0.4rem", flexWrap:"wrap" })}>{LH_BEYOND_CATS.map(function(c){ return pillToggle(c, fv("cat","")===c, function(){ fSetLive("cat", c); }); })}</div>)}
               {fieldRow("Date", <input type="date" defaultValue={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
               {isTrip ? (
                 <div>
-                  {fieldRow("Subjects", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_TRIP_SUBJ.map(function(s){ return pillToggle(s, curSubj.indexOf(s)>=0, function(){ toggleSubj(s); }); })}</div>)}
+                  {fieldRow("Subjects", <div style={lhIn({ display:"flex", gap:"0.4rem", flexWrap:"wrap" })}>{LH_TRIP_SUBJ.map(function(s){ return pillToggle(s, curSubj.indexOf(s)>=0, function(){ toggleSubj(s); }); })}</div>)}
                   {fieldRow("What we saw", <textarea defaultValue={fv("saw","")} onChange={fSet("saw")} style={inp({ height:50, resize:"vertical" })}/>)}
                   {fieldRow("What we learned", <textarea defaultValue={fv("learned","")} onChange={fSet("learned")} style={inp({ height:50, resize:"vertical" })}/>)}
                   {fieldRow("A moment", <textarea defaultValue={fv("moment","")} onChange={fSet("moment")} style={inp({ height:44, resize:"vertical" })}/>)}
@@ -17443,8 +17486,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   {fieldRow("Note", <textarea defaultValue={fv("note","")} onChange={fSet("note")} style={inp({ height:56, resize:"vertical" })}/>)}
                 </div>
               )}
-              <label style={{ display:"flex", alignItems:"center", gap:"0.4rem", fontSize:"0.78rem", color:"#7a7568", cursor:"pointer", marginBottom:"0.5rem" }}>
-                <input type="checkbox" checked={!!fv("includeSummary",false)} onChange={fChk("includeSummary")} style={{ cursor:"pointer" }}/>
+              <label style={lhIn({ display:"flex", alignItems:"center", gap:"0.4rem", fontSize:"0.78rem", color:"#7a7568", cursor:"pointer", marginBottom:"0.5rem" })}>
+                <input type="checkbox" checked={!!fv("includeSummary",false)} onChange={fChk("includeSummary")} style={lhIn({ cursor:"pointer" })}/>
                 Include in summaries
               </label>
               {formBtns(onSave)}
@@ -17475,23 +17518,23 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               var subj = Array.isArray(bx.subj) ? bx.subj : [];
               return (
                 <div key={bx.id} style={itemRowStyle}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{bx.what}</div>
-                    <div style={{ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.25rem" }}>
-                      {bx.cat && <span style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" }}>{bx.cat}</span>}
-                      {bx.date && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{fmtMonthDay(bx.date)}</span>}
+                  <div style={lhIn({ flex:1 })}>
+                    <div style={lhIn({ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" })}>{bx.what}</div>
+                    <div style={lhIn({ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.25rem" })}>
+                      {bx.cat && <span style={lhIn({ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" })}>{bx.cat}</span>}
+                      {bx.date && <span style={lhIn({ fontSize:"0.7rem", color:"#8a8578" })}>{fmtMonthDay(bx.date)}</span>}
                     </div>
                     {isTrip ? (
                       <div>
-                        {subj.length>0 && <div style={{ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.3rem" }}>{subj.map(function(s){ return <span key={s} style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.63rem", fontWeight:700, borderRadius:"2rem", padding:"1px 7px" }}>{s}</span>; })}</div>}
-                        {bx.saw && <div style={{ fontSize:"0.76rem", color:"#5a5a50", marginTop:"0.3rem" }}><strong>Saw:</strong> {bx.saw}</div>}
-                        {bx.learned && <div style={{ fontSize:"0.76rem", color:"#5a5a50", marginTop:"0.15rem" }}><strong>Learned:</strong> {bx.learned}</div>}
-                        {bx.moment && <div style={{ fontSize:"0.74rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.2rem" }}>{bx.moment}</div>}
+                        {subj.length>0 && <div style={lhIn({ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.3rem" })}>{subj.map(function(s){ return <span key={s} style={lhIn({ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.63rem", fontWeight:700, borderRadius:"2rem", padding:"1px 7px" })}>{s}</span>; })}</div>}
+                        {bx.saw && <div style={lhIn({ fontSize:"0.76rem", color:"#5a5a50", marginTop:"0.3rem" })}><strong>Saw:</strong> {bx.saw}</div>}
+                        {bx.learned && <div style={lhIn({ fontSize:"0.76rem", color:"#5a5a50", marginTop:"0.15rem" })}><strong>Learned:</strong> {bx.learned}</div>}
+                        {bx.moment && <div style={lhIn({ fontSize:"0.74rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.2rem" })}>{bx.moment}</div>}
                       </div>
                     ) : (
                       <div>
-                        {bx.skill && <div style={{ fontSize:"0.75rem", color:"#8a8578", marginTop:"0.2rem" }}>Skill: {bx.skill}</div>}
-                        {bx.note && <div style={{ fontSize:"0.78rem", color:"#5a5a50", marginTop:"0.25rem" }}>{bx.note}</div>}
+                        {bx.skill && <div style={lhIn({ fontSize:"0.75rem", color:"#8a8578", marginTop:"0.2rem" })}>Skill: {bx.skill}</div>}
+                        {bx.note && <div style={lhIn({ fontSize:"0.78rem", color:"#5a5a50", marginTop:"0.25rem" })}>{bx.note}</div>}
                       </div>
                     )}
                   </div>
@@ -17520,14 +17563,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           return formCard(
             <div>
               {fieldRow("Title *", <input defaultValue={fv("title","")} onChange={fSet("title")} autoFocus style={inp()}/>)}
-              {fieldRow("Type", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_RESOURCE_TYPES.map(function(t){ return pillToggle(t, type===t, function(){ fSetLive("type", t); }); })}</div>)}
+              {fieldRow("Type", <div style={lhIn({ display:"flex", gap:"0.4rem", flexWrap:"wrap" })}>{LH_RESOURCE_TYPES.map(function(t){ return pillToggle(t, type===t, function(){ fSetLive("type", t); }); })}</div>)}
               {(type==="Website"||type==="App") && fieldRow("URL", <input defaultValue={fv("url","")} onChange={fSet("url")} placeholder="https://…" style={inp()}/>)}
               {type==="App" && fieldRow("App name", <input defaultValue={fv("appName","")} onChange={fSet("appName")} style={inp()}/>)}
               {type==="Book" && fieldRow("Author", <input defaultValue={fv("author","")} onChange={fSet("author")} style={inp()}/>)}
               {fieldRow("Grade level", <input defaultValue={fv("gradeLevel","")} onChange={fSet("gradeLevel")} placeholder="e.g. 3rd grade" style={inp()}/>)}
               {fieldRow("Subject", <div><input list="lh-resource-subjects" defaultValue={fv("subject","")} onChange={fSet("subject")} style={inp()}/><datalist id="lh-resource-subjects">{subjSuggestions.map(function(s){ return <option key={s} value={s}/>; })}</datalist></div>)}
-              {fieldRow("Associated child", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{pillToggle("Any child", !fv("childId",""), function(){ fSetLive("childId", ""); })}{learningKids.map(function(p){ return pillToggle(p.name, fv("childId","")===p.id, function(){ fSetLive("childId", p.id); }); })}</div>)}
-              {fieldRow("Login / subscription note", <div><input defaultValue={fv("loginNote","")} onChange={fSet("loginNote")} style={inp()}/><div style={{ fontSize:"0.7rem", color:"#9a9488", marginTop:"0.2rem" }}>Don't store passwords</div></div>)}
+              {fieldRow("Associated child", <div style={lhIn({ display:"flex", gap:"0.4rem", flexWrap:"wrap" })}>{pillToggle("Any child", !fv("childId",""), function(){ fSetLive("childId", ""); })}{learningKids.map(function(p){ return pillToggle(p.name, fv("childId","")===p.id, function(){ fSetLive("childId", p.id); }); })}</div>)}
+              {fieldRow("Login / subscription note", <div><input defaultValue={fv("loginNote","")} onChange={fSet("loginNote")} style={inp()}/><div style={lhIn({ fontSize:"0.7rem", color:"#9a9488", marginTop:"0.2rem" })}>Don't store passwords</div></div>)}
               {fieldRow("Notes", <textarea defaultValue={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
               {formBtns(onSave)}
             </div>
@@ -17552,18 +17595,18 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           var childName = r.childId ? ((learningKids.find(function(p){ return p.id===r.childId; })||{}).name||"") : "";
           return (
             <div key={r.id} style={lhRow(r.subject, itemRowStyle)}>
-              <div style={{ flex:1 }}>
-                <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{r.title}</div>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.25rem" }}>
+              <div style={lhIn({ flex:1 })}>
+                <div style={lhIn({ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" })}>{r.title}</div>
+                <div style={lhIn({ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.25rem" })}>
                   {r.subject && <span style={lhChip(r.subject, { background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" })}>{r.subject}</span>}
-                  {r.gradeLevel && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{r.gradeLevel}</span>}
-                  {childName && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{childName}</span>}
+                  {r.gradeLevel && <span style={lhIn({ fontSize:"0.7rem", color:"#8a8578" })}>{r.gradeLevel}</span>}
+                  {childName && <span style={lhIn({ fontSize:"0.7rem", color:"#8a8578" })}>{childName}</span>}
                 </div>
-                {r.type==="App" && r.appName && <div style={{ fontSize:"0.78rem", color:LC.seaglass, fontWeight:600 }}>{r.appName}</div>}
-                {r.type==="Book" && r.author && <div style={{ fontSize:"0.78rem", color:"#8a8578" }}>by {r.author}</div>}
-                {r.url && (r.type==="Website"||r.type==="App") && <a href={r.url.indexOf("http")===0?r.url:"https://"+r.url} target="_blank" rel="noreferrer" style={{ fontSize:"0.75rem", color:"#7A95B8", display:"block", marginTop:"0.15rem" }}>🔗 {r.url}</a>}
-                {r.loginNote && <div style={{ fontSize:"0.74rem", color:"#8a8578", marginTop:"0.2rem" }}>🔒 {r.loginNote}</div>}
-                {r.notes && <div style={{ fontSize:"0.74rem", color:"#8a8578", marginTop:"0.2rem" }}>{r.notes}</div>}
+                {r.type==="App" && r.appName && <div style={lhIn({ fontSize:"0.78rem", color:LC.seaglass, fontWeight:600 })}>{r.appName}</div>}
+                {r.type==="Book" && r.author && <div style={lhIn({ fontSize:"0.78rem", color:"#8a8578" })}>by {r.author}</div>}
+                {r.url && (r.type==="Website"||r.type==="App") && <a href={r.url.indexOf("http")===0?r.url:"https://"+r.url} target="_blank" rel="noreferrer" style={lhIn({ fontSize:"0.75rem", color:"#7A95B8", display:"block", marginTop:"0.15rem" })}>🔗 {r.url}</a>}
+                {r.loginNote && <div style={lhIn({ fontSize:"0.74rem", color:"#8a8578", marginTop:"0.2rem" })}>🔒 {r.loginNote}</div>}
+                {r.notes && <div style={lhIn({ fontSize:"0.74rem", color:"#8a8578", marginTop:"0.2rem" })}>{r.notes}</div>}
               </div>
               <button type="button" onClick={function(){ openEdit(r.id, r); }} style={editBtnStyle}>Edit</button>
               <button type="button" onClick={function(){ lhResourceDel(r.id); }} style={delBtnStyle}>✕</button>
@@ -17587,29 +17630,29 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               var items = filteredResources.filter(function(r){ return r.type===type; });
               if (items.length===0) return null;
               return (
-                <div key={type} style={{ marginBottom:"0.85rem" }}>
+                <div key={type} style={lhIn({ marginBottom:"0.85rem" })}>
                   <div style={subheadStyle}>{LH_RESOURCE_TYPE_LABELS[type]}</div>
                   {items.map(ResourceRow)}
                 </div>
               );
             })}
 
-            <div style={{ borderTop:"1px solid #F0EBDF", marginTop:"0.5rem", paddingTop:"0.85rem" }}>
+            <div style={lhIn({ borderTop:"1px solid #F0EBDF", marginTop:"0.5rem", paddingTop:"0.85rem" })}>
               <div style={subheadStyle}>Curricula (from Plan)</div>
               {resourceRecords.length===0 && <div style={emptyTextStyle}>No curricula added yet. Add subjects in Plan to see them here.</div>}
               {resourceRecords.map(function(r) {
                 return (
                   <div key={r.id} style={lhRow(r.subject, itemRowStyle)}>
-                    <div style={{ flex:1 }}>
+                    <div style={lhIn({ flex:1 })}>
                       <div style={lhText(r.subject, { fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" })}>{r.subject}</div>
-                      {r.name && <div style={{ fontSize:"0.78rem", color:LC.seaglass, fontWeight:600 }}>{r.name}</div>}
-                      {r.website && <a href={r.website.indexOf("http")===0?r.website:"https://"+r.website} target="_blank" rel="noreferrer" style={{ fontSize:"0.75rem", color:"#7A95B8", display:"block", marginTop:"0.15rem" }}>🔗 {r.website}</a>}
-                      {r.notes && <div style={{ fontSize:"0.74rem", color:"#8a8578", marginTop:"0.2rem" }}>{r.notes}</div>}
+                      {r.name && <div style={lhIn({ fontSize:"0.78rem", color:LC.seaglass, fontWeight:600 })}>{r.name}</div>}
+                      {r.website && <a href={r.website.indexOf("http")===0?r.website:"https://"+r.website} target="_blank" rel="noreferrer" style={lhIn({ fontSize:"0.75rem", color:"#7A95B8", display:"block", marginTop:"0.15rem" })}>🔗 {r.website}</a>}
+                      {r.notes && <div style={lhIn({ fontSize:"0.74rem", color:"#8a8578", marginTop:"0.2rem" })}>{r.notes}</div>}
                     </div>
                   </div>
                 );
               })}
-              <button type="button" onClick={function(){ setLearningSubTab("plan"); }} style={{ background:"none", border:"none", cursor:"pointer", color:LC.seaglass, fontWeight:700, fontSize:"0.78rem", padding:0, marginTop:"0.4rem" }}>Manage in Plan →</button>
+              <button type="button" onClick={function(){ setLearningSubTab("plan"); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", color:LC.seaglass, fontWeight:700, fontSize:"0.78rem", padding:0, marginTop:"0.4rem" })}>Manage in Plan →</button>
             </div>
           </SectionShell>
         );
@@ -17642,23 +17685,23 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         }
         return (
           <SectionShell tabName="library" sectionName="keepsakes" emoji="📄" title={summaryLabel} defaultOpen={false}>
-            <div style={{ fontSize:"0.82rem", color:"#5a5a50", lineHeight:1.55, marginBottom:"0.75rem" }}>
+            <div style={lhIn({ fontSize:"0.82rem", color:"#5a5a50", lineHeight:1.55, marginBottom:"0.75rem" })}>
               {childMode==="school" ? "A keepsake record of everything "+(childPerson?childPerson.name:"they")+" experienced and learned." : "Pull together everything "+(childPerson?childPerson.name:"they")+" has done."}
             </div>
             <button type="button" onClick={handleGenerate} style={btnP(LC.seaglass,{ fontSize:"0.82rem" })}>{generated?"Regenerate "+summaryLabel:"Generate "+summaryLabel}</button>
             {generated && (
-              <div style={{ marginTop:"0.65rem" }}>
+              <div style={lhIn({ marginTop:"0.65rem" })}>
                 <textarea value={summaryText} onChange={function(e){ setSummaryText(e.target.value); }} style={inp({ height:180, resize:"vertical", fontSize:"0.85rem", lineHeight:1.6 })}/>
                 <button type="button" onClick={function(){ copyText(summaryText); }} style={btnS({ marginTop:"0.4rem", fontSize:"0.8rem" })}>Copy text</button>
               </div>
             )}
             {learningKids.length>1 && (
-              <div style={{ borderTop:"1px solid #F0EBDF", marginTop:"1.25rem", paddingTop:"1rem" }}>
+              <div style={lhIn({ borderTop:"1px solid #F0EBDF", marginTop:"1.25rem", paddingTop:"1rem" })}>
                 <div style={subheadStyle}>Household Overview</div>
-                <div style={{ fontSize:"0.78rem", color:"#8a8578", marginBottom:"0.55rem" }}>A quick snapshot of what everyone has been up to.</div>
+                <div style={lhIn({ fontSize:"0.78rem", color:"#8a8578", marginBottom:"0.55rem" })}>A quick snapshot of what everyone has been up to.</div>
                 <button type="button" onClick={handleHousehold} style={btnP(LC.seaglass,{ fontSize:"0.78rem" })}>Generate overview</button>
                 {householdText && (
-                  <div style={{ marginTop:"0.6rem" }}>
+                  <div style={lhIn({ marginTop:"0.6rem" })}>
                     <textarea value={householdText} onChange={function(e){ setHouseholdText(e.target.value); }} style={inp({ height:80, resize:"vertical", fontSize:"0.82rem", lineHeight:1.5 })}/>
                     <button type="button" onClick={function(){ copyText(householdText); }} style={btnS({ marginTop:"0.35rem", fontSize:"0.78rem" })}>Copy</button>
                   </div>
@@ -17670,7 +17713,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       }
 
       return (
-        <div style={{ background:LC.cream, borderRadius:"1rem", padding:"1rem" }}>
+        <div style={lhIn({ background:LC.cream, borderRadius:"1rem", padding:"1rem" })}>
           <BooksSection/>
           <BeyondSection/>
           <ResourcesSection/>
@@ -17681,10 +17724,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     if (allPeople.length === 0) {
       return (
-        <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
-          <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>📚</div>
-          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" }}>Lighthouse</div>
-          <div style={{ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>Add people in Settings to start tracking learning records.</div>
+        <div style={lhIn({ padding: "2rem 1rem", textAlign: "center" })}>
+          <div style={lhIn({ fontSize: "2.5rem", marginBottom: "0.75rem" })}>📚</div>
+          <div style={lhIn({ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" })}>Lighthouse</div>
+          <div style={lhIn({ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" })}>Add people in Settings to start tracking learning records.</div>
           <button onClick={function() { goTab("settings"); }} style={btnP(T.sage)}>Go to Settings</button>
         </div>
       );
@@ -17696,10 +17739,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     if (allMinors.length === 0) {
       return (
-        <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
-          <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>📚</div>
-          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" }}>Lighthouse</div>
-          <div style={{ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>Add children to your People list in Settings to track school info.</div>
+        <div style={lhIn({ padding: "2rem 1rem", textAlign: "center" })}>
+          <div style={lhIn({ fontSize: "2.5rem", marginBottom: "0.75rem" })}>📚</div>
+          <div style={lhIn({ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" })}>Lighthouse</div>
+          <div style={lhIn({ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" })}>Add children to your People list in Settings to track school info.</div>
           <button onClick={function() { goTab("settings"); }} style={btnP(T.sage)}>Go to Settings</button>
         </div>
       );
@@ -17707,10 +17750,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     if (learningKids.length === 0) {
       return (
-        <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
-          <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>📚</div>
-          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" }}>Lighthouse</div>
-          <div style={{ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>No children have a school type set yet. Update in Settings.</div>
+        <div style={lhIn({ padding: "2rem 1rem", textAlign: "center" })}>
+          <div style={lhIn({ fontSize: "2.5rem", marginBottom: "0.75rem" })}>📚</div>
+          <div style={lhIn({ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" })}>Lighthouse</div>
+          <div style={lhIn({ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" })}>No children have a school type set yet. Update in Settings.</div>
           <button onClick={function() { goTab("settings"); }} style={btnP(T.sage)}>Go to Settings</button>
         </div>
       );
@@ -17733,18 +17776,18 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
 
     return (
-      <div style={{ paddingBottom: "4rem" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:"0.4rem" }}>
-            <button onClick={function(){ goTab("anchor"); }} style={{ background:"none", border:"none", cursor:"pointer", padding:"2px 4px", display:"flex", alignItems:"center", opacity:0.5, flexShrink:0 }}>
-              <span style={{ fontSize:17, color:T.textSoft, lineHeight:1 }}>←</span>
+      <div style={lhIn({ paddingBottom: "4rem" })}>
+        <div style={lhIn({ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" })}>
+          <div style={lhIn({ display:"flex", alignItems:"center", gap:"0.4rem" })}>
+            <button onClick={function(){ goTab("anchor"); }} style={lhIn({ background:"none", border:"none", cursor:"pointer", padding:"2px 4px", display:"flex", alignItems:"center", opacity:0.5, flexShrink:0 })}>
+              <span style={lhIn({ fontSize:17, color:T.textSoft, lineHeight:1 })}>←</span>
             </button>
-            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.45rem", color: T.textDark }}>📚 Lighthouse</div>
+            <div style={lhIn({ fontFamily: "Cormorant Garamond, serif", fontSize: "1.45rem", color: T.textDark })}>📚 Lighthouse</div>
           </div>
         </div>
 
         {/* Child switcher — one chip per minor in af_people */}
-        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.85rem", overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: "2px" }}>
+        <div style={lhIn({ display: "flex", gap: "0.5rem", marginBottom: "0.85rem", overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: "2px" })}>
           {learningKids.map(function(p) {
             var isAct = p.id === activeChild;
             var pMode = modes[p.id] || null;
@@ -17754,19 +17797,19 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <button key={p.id} onClick={function(){ setActiveChild(p.id); }} style={pill}>
                 <span style={dot}/>
                 {p.name}
-                {pMode === "homeschool" && <span style={{ fontSize:"0.65rem" }}> 🏡</span>}
-                {pMode === "school" && <span style={{ fontSize:"0.65rem" }}> 🏫</span>}
+                {pMode === "homeschool" && <span style={lhIn({ fontSize:"0.65rem" })}> 🏡</span>}
+                {pMode === "school" && <span style={lhIn({ fontSize:"0.65rem" })}> 🏫</span>}
               </button>
             );
           })}
         </div>
 
         {/* Tab nav */}
-        <div style={{ display: "flex", gap: "0.25rem", overflowX: "auto", paddingBottom: "3px", marginBottom: "0.85rem" }}>
+        <div style={lhIn({ display: "flex", gap: "0.25rem", overflowX: "auto", paddingBottom: "3px", marginBottom: "0.85rem" })}>
           {LEARNING_TABS.map(function(t) {
             var isActive = learningSubTab === t.id;
             return (
-              <button key={t.id} onClick={function(){ setLearningSubTab(t.id); }} style={{ background:isActive?T.sage:"transparent", color:isActive?"#fff":T.textMid, border:"1.5px solid "+(isActive?T.sage:T.border), borderRadius:"99px", padding:"0.3rem 0.75rem", cursor:"pointer", fontSize:"0.74rem", fontWeight:isActive?700:500, fontFamily:"inherit", whiteSpace:"nowrap", flexShrink:0, transition:"all 0.14s" }}>
+              <button key={t.id} onClick={function(){ setLearningSubTab(t.id); }} style={lhIn({ background:isActive?T.sage:"transparent", color:isActive?"#fff":T.textMid, border:"1.5px solid "+(isActive?T.sage:T.border), borderRadius:"99px", padding:"0.3rem 0.75rem", cursor:"pointer", fontSize:"0.74rem", fontWeight:isActive?700:500, fontFamily:"inherit", whiteSpace:"nowrap", flexShrink:0, transition:"all 0.14s" })}>
                 {t.emoji} {t.label}
               </button>
             );
@@ -18438,6 +18481,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
   // ── Calendar Event Form Modal ────────────────────────────────────────────────
   _hfRenders.CalEventFormModal = function CalEventFormModal(){
+    // af_redesign: the form reads the new-look palette (no purple or pink);
+    // flag off: HomeFlow's own theme, exactly as before.
+    const T = REDESIGN ? RD_T : HF_KIT.T;
     const[f,setF]=useState(calFormInit||{title:"",date:"",time:"",color:"#6A9BB5",colorLabel:"",colorCustom:"",note:""});
     // schoolData lives in LearningTab (a sibling render fn, not this one's
     // closure) as its own useSaved("schoolData") call — this is a second,
@@ -18519,7 +18565,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 var _rv=p.id,_rl=p.name;
                 var _ra=_rv===""?!f.responsibleParent:f.responsibleParent===_rv;
                 return (
-                  <button key={_rv||"none"} onClick={function(){setF(function(prev){return Object.assign({},prev,{responsibleParent:_rv||null});});}} style={{flex:1,padding:"0.35rem 0.3rem",borderRadius:"0.45rem",border:"1.5px solid "+(_ra?T.blue:T.border),background:_ra?T.bluePale:"transparent",color:_ra?T.blue:T.textMid,fontSize:"0.72rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                  <button key={_rv||"none"} onClick={function(){setF(function(prev){return Object.assign({},prev,{responsibleParent:_rv||null});});}} style={REDESIGN?rdChip(_ra,RD_TONE.blue,{flex:1,padding:"6px 8px"}):{flex:1,padding:"0.35rem 0.3rem",borderRadius:"0.45rem",border:"1.5px solid "+(_ra?T.blue:T.border),background:_ra?T.bluePale:"transparent",color:_ra?T.blue:T.textMid,fontSize:"0.72rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
                     {_rl}
                   </button>
                 );
@@ -18532,8 +18578,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <div style={{marginBottom:"0.9rem"}}>
           <label style={lbl}>Category</label>
           <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem"}}>
-            <button type="button" onClick={()=>setF(p=>({...p,schoolType:null}))} style={{padding:"0.28rem 0.75rem",borderRadius:"50px",border:"1.5px solid "+(!f.schoolType?T.blue:T.border),background:!f.schoolType?T.bluePale:"transparent",color:!f.schoolType?T.blue:T.textMid,fontSize:"0.74rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>None</button>
-            <button type="button" onClick={()=>setF(p=>({...p,schoolType:p.schoolType||SCHOOL_EVENT_TYPES[0].id}))} style={{padding:"0.28rem 0.75rem",borderRadius:"50px",border:"1.5px solid "+(f.schoolType?T.blue:T.border),background:f.schoolType?T.bluePale:"transparent",color:f.schoolType?T.blue:T.textMid,fontSize:"0.74rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🏫 School</button>
+            <button type="button" onClick={()=>setF(p=>({...p,schoolType:null}))} style={REDESIGN?rdChip(!f.schoolType,RD_TONE.blue):{padding:"0.28rem 0.75rem",borderRadius:"50px",border:"1.5px solid "+(!f.schoolType?T.blue:T.border),background:!f.schoolType?T.bluePale:"transparent",color:!f.schoolType?T.blue:T.textMid,fontSize:"0.74rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>None</button>
+            <button type="button" onClick={()=>setF(p=>({...p,schoolType:p.schoolType||SCHOOL_EVENT_TYPES[0].id}))} style={REDESIGN?rdChip(!!f.schoolType,RD_TONE.sage):{padding:"0.28rem 0.75rem",borderRadius:"50px",border:"1.5px solid "+(f.schoolType?T.blue:T.border),background:f.schoolType?T.bluePale:"transparent",color:f.schoolType?T.blue:T.textMid,fontSize:"0.74rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🏫 School</button>
           </div>
           {f.schoolType&&(
             <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
@@ -18550,7 +18596,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           )}
         </div>
         {/* Inline reminder */}
-        <div style={{marginBottom:"0.9rem",background:T.bgAlt,border:"1px solid "+T.border,borderRadius:"0.8rem",padding:"0.75rem 0.9rem"}}>
+        <div style={REDESIGN?{marginBottom:"0.9rem",background:RD_TONE.sand.tint,border:"none",borderRadius:14,padding:"12px 14px"}:{marginBottom:"0.9rem",background:T.bgAlt,border:"1px solid "+T.border,borderRadius:"0.8rem",padding:"0.75rem 0.9rem"}}>
           <div style={{display:"flex",alignItems:"center",gap:"0.4rem",marginBottom:"0.55rem"}}>
             <Icon name="bell" size={13} color={T.sand}/>
             <span style={{fontSize:"0.7rem",fontWeight:800,color:T.sandDark,textTransform:"uppercase",letterSpacing:"0.06em"}}>Set Reminder (optional)</span>
@@ -18563,7 +18609,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <div style={{marginBottom:"0.9rem"}}>
           <label style={lbl}>Colour</label>
           <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap",marginBottom:"0.65rem"}}>
-            {CAL_COLOR_OPTIONS.map(({color,label})=>(
+            {(REDESIGN?CAL_COLOR_OPTIONS.filter(function(o){return RD_NO_CAL_COLORS.indexOf(o.color)===-1;}):CAL_COLOR_OPTIONS).map(({color,label})=>(
               <button key={color} onClick={()=>setF(p=>({...p,color,colorLabel:label,colorCustom:""}))} title={label} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.28rem",background:"none",border:"none",cursor:"pointer",padding:"0.2rem"}}>
                 <div style={{width:30,height:30,borderRadius:"50%",background:color,border:f.color===color?`3px solid ${T.textDark}`:`3px solid transparent`,transition:"border 0.15s"}}/>
                 <span style={{fontSize:"0.6rem",fontWeight:700,color:f.color===color?T.textDark:T.textSoft}}>{calColorLabels[color]||label}</span>
@@ -18580,7 +18626,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <label style={lbl}>Repeat</label>
           <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginBottom:"0.5rem"}}>
             {[{v:"",label:"None"},{v:"weekly",label:"Weekly"},{v:"biweekly",label:"Every 2 wks"},{v:"monthly",label:"Monthly"},{v:"yearly",label:"Yearly"},{v:"dates",label:"Specific dates"}].map(o=>(
-              <button key={o.v} onClick={()=>setF(p=>({...p,repeat:o.v,repeatDates:o.v==="dates"?(p.repeatDates||[]):[]}))} style={{padding:"0.25rem 0.7rem",borderRadius:"50px",border:"1.5px solid "+(f.repeat===o.v?T.blue:T.border),background:f.repeat===o.v?T.bluePale:"transparent",color:f.repeat===o.v?T.blue:T.textMid,fontSize:"0.72rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+              <button key={o.v} onClick={()=>setF(p=>({...p,repeat:o.v,repeatDates:o.v==="dates"?(p.repeatDates||[]):[]}))} style={REDESIGN?rdChip(f.repeat===o.v,RD_TONE.teal):{padding:"0.25rem 0.7rem",borderRadius:"50px",border:"1.5px solid "+(f.repeat===o.v?T.blue:T.border),background:f.repeat===o.v?T.bluePale:"transparent",color:f.repeat===o.v?T.blue:T.textMid,fontSize:"0.72rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
                 {o.label}
               </button>
             ))}
@@ -18750,9 +18796,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       {afDialog&&(
         <div data-modal-open="true" onClick={function(){ afDialogClose(afDialog.mode==="prompt"?null:false); }}
           style={{position:"fixed",inset:0,background:"rgba(26,39,68,0.45)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:10001,display:"flex",alignItems:"center",justifyContent:"center",padding:"env(safe-area-inset-top,1rem) 1.25rem env(safe-area-inset-bottom,1rem)"}}>
-          <div onClick={function(ev){ ev.stopPropagation(); }}
-            style={{background:"#faf8f4",borderRadius:"1rem",padding:"1.35rem 1.35rem 1.1rem",maxWidth:340,width:"100%",boxShadow:"0 12px 40px rgba(0,0,0,0.32)",fontFamily:"'DM Sans',sans-serif",animation:"slideDown 0.22s ease"}}>
-            <div style={{fontSize:"0.95rem",lineHeight:1.5,color:T.navy,fontWeight:500,whiteSpace:"pre-wrap"}}>{afDialog.message}</div>
+          <div onClick={function(ev){ ev.stopPropagation(); }} data-rd-dialog={REDESIGN ? "true" : undefined}
+            style={REDESIGN ? Object.assign({}, RD_DIALOG, {padding:"20px 18px 16px",maxWidth:360,width:"100%",animation:"slideDown 0.22s ease"}) : {background:"#faf8f4",borderRadius:"1rem",padding:"1.35rem 1.35rem 1.1rem",maxWidth:340,width:"100%",boxShadow:"0 12px 40px rgba(0,0,0,0.32)",fontFamily:"'DM Sans',sans-serif",animation:"slideDown 0.22s ease"}}>
+            <div style={REDESIGN ? {fontSize:15,lineHeight:1.5,color:"#1B2B44",fontWeight:500,whiteSpace:"pre-wrap",overflowWrap:"anywhere"} : {fontSize:"0.95rem",lineHeight:1.5,color:T.navy,fontWeight:500,whiteSpace:"pre-wrap"}}>{afDialog.message}</div>
             {afDialog.mode==="prompt"&&(
               <input
                 autoFocus
@@ -18760,14 +18806,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 placeholder={afDialog.placeholder||""}
                 onChange={function(e){ setAfDialogInput(e.target.value); }}
                 onKeyDown={function(e){ if(e.key==="Enter"){ afDialogClose(afDialogInput); } else if(e.key==="Escape"){ afDialogClose(null); } }}
-                style={{marginTop:"0.85rem",width:"100%",boxSizing:"border-box",padding:"0.6rem 0.7rem",borderRadius:"0.6rem",border:"1px solid rgba(26,39,68,0.2)",fontSize:"0.9rem",fontFamily:"inherit",color:T.navy,background:"#fff"}}
+                style={REDESIGN ? {marginTop:14,width:"100%",boxSizing:"border-box",padding:"10px 14px",borderRadius:12,border:"1px solid rgba(27,43,68,0.14)",fontSize:16,fontFamily:"inherit",color:"#1B2B44",background:"#fff"} : {marginTop:"0.85rem",width:"100%",boxSizing:"border-box",padding:"0.6rem 0.7rem",borderRadius:"0.6rem",border:"1px solid rgba(26,39,68,0.2)",fontSize:"0.9rem",fontFamily:"inherit",color:T.navy,background:"#fff"}}
               />
             )}
             <div style={{display:"flex",gap:"0.6rem",justifyContent:"flex-end",marginTop:"1.15rem"}}>
               <button onClick={function(){ afDialogClose(afDialog.mode==="prompt"?null:false); }}
-                style={{background:"transparent",border:"1px solid rgba(26,39,68,0.2)",borderRadius:"0.6rem",color:T.navy,fontSize:"0.82rem",fontWeight:600,padding:"0.5rem 1rem",cursor:"pointer",fontFamily:"inherit",minHeight:40}}>{afDialog.cancelText||"Cancel"}</button>
+                style={REDESIGN ? {background:"#FFFFFF",border:"1px solid rgba(27,43,68,0.14)",borderRadius:999,color:"#1B2B44",fontSize:14,fontWeight:600,padding:"0 18px",cursor:"pointer",fontFamily:"inherit",minHeight:42} : {background:"transparent",border:"1px solid rgba(26,39,68,0.2)",borderRadius:"0.6rem",color:T.navy,fontSize:"0.82rem",fontWeight:600,padding:"0.5rem 1rem",cursor:"pointer",fontFamily:"inherit",minHeight:40}}>{afDialog.cancelText||"Cancel"}</button>
               <button onClick={function(){ afDialogClose(afDialog.mode==="prompt"?afDialogInput:true); }}
-                style={{background:afDialog.danger?"#b87265":"#c8a97a",border:"none",borderRadius:"0.6rem",color:afDialog.danger?"#fff":"#1a2744",fontSize:"0.82rem",fontWeight:700,padding:"0.5rem 1.15rem",cursor:"pointer",fontFamily:"inherit",minHeight:40}}>{afDialog.confirmText||"Confirm"}</button>
+                style={REDESIGN ? {background:afDialog.danger?RD_DANGER:"#1B2B44",border:"none",borderRadius:999,color:"#FFFFFF",fontSize:14,fontWeight:700,padding:"0 20px",cursor:"pointer",fontFamily:"inherit",minHeight:42} : {background:afDialog.danger?"#b87265":"#c8a97a",border:"none",borderRadius:"0.6rem",color:afDialog.danger?"#fff":"#1a2744",fontSize:"0.82rem",fontWeight:700,padding:"0.5rem 1.15rem",cursor:"pointer",fontFamily:"inherit",minHeight:40}}>{afDialog.confirmText||"Confirm"}</button>
             </div>
           </div>
         </div>
@@ -19080,6 +19126,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       {shouldShowOnboarding&&<OnboardingWizard onComplete={()=>{setShowOnboardingWizard(false);buildDailyBriefing();}}/>}
       {showFirstVoyage&&!fvJoining&&<FirstVoyageWizard householdId={householdId} onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip}
         redesign={REDESIGN} welcome={REDESIGN} onJoinCode={handleFirstVoyageJoinCode} initialShowEmojis={showEmojis}/>}
+      {obPreview&&<FirstVoyageWizard redesign={true} welcome={true} householdId={householdId} initialShowEmojis={showEmojis}
+        onComplete={closeObPreview} onSkip={closeObPreview}/>}
+      {obPreview&&(
+        <div data-testid="onboarding-preview-bar" role="status" style={{position:"fixed",top:"calc(env(safe-area-inset-top, 0px) + 10px)",left:"50%",transform:"translateX(-50%)",zIndex:9600,display:"flex",alignItems:"center",gap:10,background:"#1B2B44",color:"#FFFFFF",borderRadius:999,padding:"6px 6px 6px 14px",boxShadow:"0 6px 20px rgba(27,43,68,0.25)",fontFamily:"'DM Sans',sans-serif",fontSize:12.5,fontWeight:600,whiteSpace:"nowrap",maxWidth:"calc(100vw - 24px)"}}>
+          <span style={{overflow:"hidden",textOverflow:"ellipsis"}}>Preview · nothing is saved</span>
+          <button type="button" onClick={closeObPreview} style={{background:"#FFFFFF",color:"#1B2B44",border:"none",borderRadius:999,padding:"5px 12px",fontFamily:"inherit",fontSize:12.5,fontWeight:700,cursor:"pointer",flexShrink:0}}>Close</button>
+        </div>
+      )}
       {showFirstVoyageRerun&&<FirstVoyageWizard
         redesign={REDESIGN} initialShowEmojis={showEmojis}
         initialPeople={people.map(function(p){ return {name:p.name, birthday:p.birthday||"", schoolType:p.schoolType||"", tidePoolEnabled:p.tidePoolEnabled}; })}

@@ -454,8 +454,52 @@ describe("App.jsx wiring", function () {
     expect(src).toContain("var _K=(props&&props.kit)||HF_KIT");
   });
 
+  it("shared popups and forms: new look only under REDESIGN, flag-off markup kept", function () {
+    // HomeFlow's form helpers
+    expect(src).toContain("const RD_FORM = REDESIGN ? rdFormKit(T) : null;");
+    expect(src).toMatch(/const inp {2}= RD_FORM \? RD_FORM\.inp : \(x=\{\}\) => \(\{width:"100%",background:T\.inputBg/);
+    expect(src).toMatch(/const btnP = RD_FORM \? RD_FORM\.btnP : \(bg,x=\{\}\) => \(\{background:bg\|\|T\.blue/);
+    // ModalBox: new-look branch first, legacy frame unchanged after it
+    var mb = closure("ModalBox", "PersonPill");
+    expect(mb.indexOf("if (REDESIGN) return (")).toBeGreaterThan(-1);
+    expect(mb.indexOf("background:T.modalOverlay")).toBeGreaterThan(mb.indexOf("if (REDESIGN) return ("));
+    expect(mb).toContain('borderRadius:"1.4rem",padding:"1.8rem"');
+    // Add/Edit Event reads the new-look palette, no Lavender/Pink swatches
+    var ev = closure("CalEventFormModal", "WhoAmIModal");
+    expect(ev).toContain("const T = REDESIGN ? RD_T : HF_KIT.T;");
+    expect(ev).toContain("RD_NO_CAL_COLORS.indexOf(o.color)===-1");
+    expect(src).toContain('const RD_NO_CAL_COLORS = ["#8878b8","#c878a8"];');
+    // in-app confirm / prompt
+    expect(src).toContain('data-rd-dialog={REDESIGN ? "true" : undefined}');
+    expect(src).toContain('background:afDialog.danger?RD_DANGER:"#1B2B44"');
+  });
+
+  it("Calendar and Meals legacy bodies switch to the new look only through K.rd (set on the redesign kit)", function () {
+    expect((src.match(/RDK\.rd = true;/g) || []).length).toBe(2); // Calendar, Meals
+    ["calWorkScheduleModal", "calYearView", "calMarkerPicker"].forEach(function (n) {
+      var a = src.indexOf("function " + n + "(K)"), body = src.slice(a, a + 20000);
+      expect(body).toContain("K.rd?");
+    });
+    expect(src).toContain("RDK.yearCats = CAL_YEAR_CATEGORIES.map(function(c){ return Object.assign({}, c, { color: rdYearCatTone(c.id).full }); });");
+    var mbd = closure("MealBankDrawer", "WeekTypePicker");
+    expect(mbd).toContain("style={REDESIGN?rdChip(open,MEALS_TONE");
+  });
+
+  it("Lighthouse inner styles all go through lhIn (identity when the flag is off)", function () {
+    var body = closure("LearningTab", "GoogleCalendarModal");
+    expect(body).toContain("function lhIn(st) { return lhInnerStyle(REDESIGN, st); }");
+    expect(body).not.toMatch(/style=\{\{/); // every inline style object is wrapped
+    expect((body.match(/style=\{lhIn\(/g) || []).length).toBeGreaterThan(300);
+  });
+
+  it("Flow tiles: labels stay on one line (Lighthouse no longer breaks at 390px)", function () {
+    var f = fs.readFileSync("src/redesign/RedesignFlow.jsx", "utf8");
+    expect(f).toContain('data-testid={"flowtab-label-" + t.id}');
+    expect(f).toMatch(/flowtab-label-[^\n]*whiteSpace: "nowrap"/);
+  });
+
   it("no new storage keys: the redesign files read and write nothing themselves", function () {
-    ["FullView.jsx", "fullViewKit.js", "fullViewData.js", "ShoppingFull.jsx", "TidePoolFull.jsx", "WavesFull.jsx", "CalendarFull.jsx", "MealsFull.jsx", "LighthouseFull.jsx"].forEach(function (f) {
+    ["FullView.jsx", "fullViewKit.js", "fullViewData.js", "mealsColors.js", "lighthouseColors.js", "ShoppingFull.jsx", "TidePoolFull.jsx", "WavesFull.jsx", "CalendarFull.jsx", "MealsFull.jsx", "LighthouseFull.jsx"].forEach(function (f) {
       var s = fs.readFileSync("src/redesign/" + f, "utf8");
       expect(s).not.toMatch(/localStorage|sessionStorage|supabase|useSaved/);
     });
