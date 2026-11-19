@@ -64,6 +64,8 @@ if (params.get("exhale") === "1") localStorage.setItem("af_exhale_buckets", JSON
   { id: "x7", text: "Plan a spring trip to the coast", notes: "", bucketIndex: 4, createdAt: FIXED_NOW, color: "#A99AC4" },
   { id: "x8", text: "Repaint the back fence", notes: "", bucketIndex: 4, createdAt: FIXED_NOW, color: "#A99AC4" },
 ] }));
+// seed={"trips":[...],"pets":[]} overrides af_<key> after the fixtures.
+try { var seed = JSON.parse(params.get("seed") || "null"); if (seed) Object.keys(seed).forEach(function (k) { localStorage.setItem("af_" + k, JSON.stringify(seed[k])); }); } catch { /* ignore */ }
 if (params.get("plus") === "1") localStorage.setItem("af_entitlement", JSON.stringify({ entitled: true, plan: "plus", status: "active" }));
 // Raw (non-JSON) strings, the way the app itself stores these.
 localStorage.setItem("af_choreResetDate", "2026-11-13");

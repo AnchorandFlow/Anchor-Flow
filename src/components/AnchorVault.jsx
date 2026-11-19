@@ -8,7 +8,14 @@ import SafeHarbor from "../shell/SafeHarbor"
 import { REDESIGN } from "../design/redesignFlag.js"
 import { gradient } from "../design/tokens.js"
 import VaultFull from "../redesign/VaultFull.jsx"
+import { useVaultChrome, VAULT_DESCRIPTIONS, formatTripRange, tripTiming } from "../redesign/vaultChrome.js"
 // CareerSection is defined inline below
+
+// af_redesign Vault: a drawn chevron in place of the tiny "▾" glyph, which
+// reads as a stray character on the new light cards.
+function RdChevron(props) {
+  return <svg aria-hidden="true" width={props.size || 14} height={props.size || 14} viewBox="0 0 16 16" style={{ display: "block", opacity: 0.7, flexShrink: 0 }}><path d="M4 6l4 4 4-4" fill="none" stroke={props.color || "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+}
 
 // ── Safe URL helper — prevents invalid URLs from crashing the PWA ─────────────
 function safeUrl(raw) {
@@ -472,6 +479,7 @@ function migrateInventory(saved) {
 }
 
 function InventorySection({ onAddToShopping }) {
+  const vc = useVaultChrome()
   const [items, setItems] = useState(function() {
     try {
       const saved = JSON.parse(localStorage.getItem("af_inventory") || "null")
@@ -649,7 +657,7 @@ function InventorySection({ onAddToShopping }) {
 
   return (
     <div>
-      <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#faf8f4", marginBottom: 4 }}>Inventory</div>
+      {!vc && <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#faf8f4", marginBottom: 4 }}>Inventory</div>}
 
       <div style={{ display: "flex", gap: 0, borderBottom: "0.5px solid rgba(250,242,229,0.1)", marginBottom: 16 }}>
         {[["inventory","📦 Inventory"],["favorites","⭐ Favorites"]].map(function(pair) {
@@ -830,13 +838,13 @@ function InventorySection({ onAddToShopping }) {
                 <div key={sub.id} style={{ marginBottom: 6 }}>
                   {/* Subcategory header */}
                   <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#f7f1e3", borderRadius: isCollapsed ? 8 : "8px 8px 0 0", border: "1px solid rgba(26,46,61,0.1)", borderBottom: isCollapsed ? "1px solid rgba(26,46,61,0.1)" : "1px solid rgba(26,46,61,0.08)", userSelect: "none" }}>
-                    <span onClick={function() { toggleSubcat(activeCat, sub.id) }} style={{ width: 28, height: 28, borderRadius: "50%", background: "#2b3d52", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0, cursor: "pointer" }}>{sub.icon}</span>
+                    {(!vc || vc.showEmojis) && <span onClick={function() { toggleSubcat(activeCat, sub.id) }} style={{ width: 28, height: 28, borderRadius: "50%", background: "#2b3d52", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0, cursor: "pointer" }}>{sub.icon}</span>}
                     <span onClick={function() { toggleSubcat(activeCat, sub.id) }} style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", letterSpacing: "0.02em", cursor: "pointer" }}>{sub.label}</span>
                     {lowCount > 0 && <span style={{ background: "rgba(160,92,16,0.15)", color: "#a05c10", fontSize: 8, borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>{lowCount} low</span>}
                     {subItems.length > 0 && isCollapsed && <span style={{ fontSize: 10, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{subItems.length} item{subItems.length !== 1 ? "s" : ""}</span>}
                     {/* Quick-add button per subcategory */}
                     <button onClick={function() { openInlineAdd(sub.id) }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#4a6275", padding: "0 2px", lineHeight: 1 }} title="Add item here">+</button>
-                    <span onClick={function() { toggleSubcat(activeCat, sub.id) }} style={{ fontSize: 10, color: "#4a6275", transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.2s", display: "inline-block", cursor: "pointer" }}>▾</span>
+                    <span onClick={function() { toggleSubcat(activeCat, sub.id) }} style={{ fontSize: 10, color: "#4a6275", transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.2s", display: vc ? "inline-flex" : "inline-block", cursor: "pointer" }}>{vc ? <RdChevron color="#1a2e3d" /> : "▾"}</span>
                   </div>
 
                   {/* Subcategory items + inline add */}
@@ -972,6 +980,7 @@ var CELEB_CARD_META = {
 }
 
 function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
+  const vc = useVaultChrome()
   calEvents = calEvents || []
   // af_recipeBook lives in HomeFlow/MealsTab (App.jsx) — read directly from
   // localStorage, same as af_celebrations/af_birthdays above. This section
@@ -1886,11 +1895,12 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
       </div>
 
       {celebTab === "celebrations" && (<>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#faf8f4" }}>Celebrations</div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: vc ? 10 : undefined, marginBottom: vc ? 16 : 4 }}>
+        {vc ? <div style={{ fontSize: 12, color: "rgba(250,248,244,0.6)", fontFamily: "DM Sans,sans-serif" }}>{upcoming.length} upcoming · {passedThisYear} passed this year</div>
+          : <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#faf8f4" }}>Celebrations</div>}
         <button onClick={function() { setAdding(function(p) { return !p }); setForm({ name: "", month: "", day: "", year: "", notes: "" }) }} style={{ background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add</button>
       </div>
-      <div style={{ fontSize: 12, color: "rgba(250,248,244,0.42)", fontFamily: "DM Sans,sans-serif", marginBottom: 16 }}>{upcoming.length} upcoming · {passedThisYear} passed this year</div>
+      {!vc && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.42)", fontFamily: "DM Sans,sans-serif", marginBottom: 16 }}>{upcoming.length} upcoming · {passedThisYear} passed this year</div>}
 
       {/* Featured "Next Up" panel (Celebrations redesign) */}
       {nextUp && (
@@ -1992,7 +2002,8 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
         <div style={{ marginTop: 20 }}>
           <div onClick={function() { setPastCollapsed(function(p) { return !p }) }} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", padding: "8px 0", borderTop: "0.5px solid rgba(250,242,229,0.08)" }}>
             <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: "rgba(250,248,244,0.5)", fontFamily: "DM Sans,sans-serif" }}>Past this year ({pastThisYearEntries.length})</span>
-            <span style={{ fontSize: 11, color: "rgba(250,248,244,0.4)", transform: pastCollapsed ? "rotate(0deg)" : "rotate(180deg)", transition: "transform 0.2s" }}>▾</span>
+            {vc ? <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(250,248,244,0.75)", fontFamily: "DM Sans,sans-serif" }}>{pastCollapsed ? "Show" : "Hide"}</span>
+              : <span style={{ fontSize: 11, color: "rgba(250,248,244,0.4)", transform: pastCollapsed ? "rotate(0deg)" : "rotate(180deg)", transition: "transform 0.2s" }}>▾</span>}
           </div>
           {!pastCollapsed && (
             <div className="af-card-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
@@ -2169,7 +2180,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                   var meta = CELEB_CARD_META[cardId]
                   return (
                     <div key={cardId} onClick={function() { setActiveCelebCard(cardId) }} style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding:A.cardPadding, cursor: "pointer" }}>
-                      <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#2b3d52", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, marginBottom: 8 }}>{meta.icon}</div>
+                      {(!vc || vc.showEmojis) && <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#2b3d52", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, marginBottom: 8 }}>{meta.icon}</div>}
                       <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", marginBottom: 3 }}>{meta.title}</div>
                       <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{celebCardPreview(detailCeleb, cardId)}</div>
                     </div>
@@ -2397,6 +2408,7 @@ const VACCINE_LIST = ["Rabies","DHPP/DA2PP","Bordetella","Leptospirosis","Lyme",
 const PET_TYPES = ["Dog","Cat","Bird","Rabbit","Fish","Reptile","Other"]
 
 function PetsSection() {
+  const vc = useVaultChrome()
   const [pets, setPets] = useState(function() {
     try { const _p = JSON.parse(localStorage.getItem("af_pets") || "[]"); return Array.isArray(_p) ? _p : []; } catch { return [] }
   })
@@ -2553,8 +2565,14 @@ function PetsSection() {
 
   if (!activePet) return (
     <div>
-      <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: warm, marginBottom: 4 }}>Pets</div>
-      <div style={{ fontSize: 12, color: muted, fontFamily: "DM Sans,sans-serif", marginBottom: 20 }}>Health records, vaccines, medications and tags — all in one place.</div>
+      {!vc && <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: warm, marginBottom: 4 }}>Pets</div>}
+      {!vc && <div style={{ fontSize: 12, color: muted, fontFamily: "DM Sans,sans-serif", marginBottom: 20 }}>Health records, vaccines, medications and tags — all in one place.</div>}
+      {vc && pets.length === 0 && !adding && (
+        <div data-testid="vault-empty-pets" style={{ textAlign: "center", padding: "28px 20px", background: cardBg, borderRadius: 8, marginBottom: 12 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", marginBottom: 6 }}>No pets yet</div>
+          <div style={{ fontSize: 13, color: "#4a6275", fontFamily: "DM Sans,sans-serif", lineHeight: 1.5 }}>{VAULT_DESCRIPTIONS.pets}</div>
+        </div>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
         {pets.map(function(pet) {
           const upcoming = (pet.vaccines||[]).filter(function(v) { return v.due && petDaysUntil(v.due) !== null && petDaysUntil(v.due) <= 30 && petDaysUntil(v.due) >= 0 })
@@ -2562,7 +2580,7 @@ function PetsSection() {
           return (
             <div key={pet.id} onClick={function() { setActivePetId(pet.id) }} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 14px", background: cardBg, border: "1px solid " + border, borderRadius: 8, cursor: "pointer" }}>
               <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(200,169,122,0.15)", border: "1.5px solid rgba(200,169,122,0.3)", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {pet.photo ? <img src={pet.photo} alt={pet.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 22 }}>{pet.type==="Cat"?"🐱":pet.type==="Bird"?"🐦":pet.type==="Rabbit"?"🐰":"🐾"}</span>}
+                {pet.photo ? <img src={pet.photo} alt={pet.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (vc && !vc.showEmojis) ? <span style={{ fontSize: 18, fontWeight: 700, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>{(pet.name || "?").charAt(0).toUpperCase()}</span> : <span style={{ fontSize: 22 }}>{pet.type==="Cat"?"🐱":pet.type==="Bird"?"🐦":pet.type==="Rabbit"?"🐰":"🐾"}</span>}
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>{pet.name}</div>
@@ -3897,6 +3915,9 @@ function TripCardTile(props) {
   )
 }
 
+// af_redesign trip cards + "Add trip" tile: every row of the grid is the
+// height of its tallest card (gridAutoRows 1fr), never shorter than this.
+var TRIP_TILE_H = 120
 var TRIP_STATUSES = ["Planning","Booked","Upcoming","In Progress","Completed","Cancelled"]
 // Same shape as CareerSection's STATUS_COLORS (~3680 as of Step 2's commit):
 // a plain object mapping a status string to an rgba color, reusing the same
@@ -3993,6 +4014,7 @@ var TRIP_DETAIL_SECTION_OF = {
 }
 
 function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
+  var vc = useVaultChrome()
   var warm = "#faf8f4"; var sand = "#c8a97a"; var navy = "#243A5A"
   var muted = "rgba(250,248,244,0.42)"; var border = "rgba(26,46,61,0.1)"; var cardBg = "#f7f1e3"
   var coastal = "#7EAEB4"
@@ -6043,8 +6065,8 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
         </div>
       ) : (
         <div>
-          <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:600, color:warm, marginBottom:4 }}>Travel</div>
-          <div style={{ fontSize:12, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:20 }}>Every trip you're planning or have taken — dates, destination, and status at a glance.</div>
+          {!vc && <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:600, color:warm, marginBottom:4 }}>Travel</div>}
+          {!vc && <div style={{ fontSize:12, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:20 }}>Every trip you're planning or have taken — dates, destination, and status at a glance.</div>}
 
           <TravelWalletCard />
 
@@ -6068,6 +6090,14 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
             // Richer empty state, matching HomeSystemsSection's tone (~5683): icon +
             // heading + one-line subtitle, not just the terser "No X added yet." used
             // by TravelProfileSection's smaller inline lists (ffPrograms/luggage/etc).
+            vc ? (
+            <div data-testid="vault-empty-trips" style={{ textAlign:"center", padding:"28px 20px", background:cardBg, borderRadius:8, fontFamily:"DM Sans,sans-serif" }}>
+              {vc.showEmojis && <div style={{ fontSize:32, marginBottom:10 }}>🧳</div>}
+              <div style={{ fontSize:15, fontWeight:700, color:"#1a2e3d", marginBottom:6 }}>No trips planned yet</div>
+              <div style={{ fontSize:13, color:"#4a6275", lineHeight:1.5, marginBottom:16 }}>{VAULT_DESCRIPTIONS.trips}</div>
+              <button onClick={openAdd} style={{ background:"rgba(200,169,122,0.18)", border:"1px solid rgba(200,169,122,0.45)", borderRadius:999, padding:"8px 16px", fontSize:13, color:"#7a5a2e", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:700 }}>+ Add a trip</button>
+            </div>
+            ) :
             <div style={{ textAlign:"center", padding:"40px 20px", color:muted, fontSize:13, fontFamily:"DM Sans,sans-serif" }}>
               <div style={{ fontSize:32, marginBottom:10 }}>🧳</div>
               <div>No trips planned yet.</div>
@@ -6091,6 +6121,28 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 // mutedStyle (past trips) no longer dims the whole card — TripCountdownBadge
                 // already renders "Past" as a text badge, which is the spec-correct way to
                 // carry status (badge/border only, never whole-card opacity).
+                if (vc) {
+                  // af_redesign: one same-height card per trip — status pill,
+                  // name, destination, dates. No status dot or expand chevron;
+                  // tapping the card opens the trip.
+                  var timing = tripTiming(trip)
+                  var range = formatTripRange(trip.startDate, trip.endDate)
+                  return (
+                    <div key={trip.id} data-testid={"trip-card-" + trip.id} role="button" tabIndex={0} onClick={function(){ openDetail(trip) }}
+                      onKeyDown={function(e){ if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDetail(trip) } }}
+                      style={{ background:cardBg, borderRadius:8, padding:"10px 12px", minHeight:TRIP_TILE_H, boxSizing:"border-box", display:"flex", flexDirection:"column", gap:3, cursor:"pointer", minWidth:0, overflow:"hidden" }}>
+                      <span data-testid="trip-status" style={{ alignSelf:"flex-start", fontSize:10, fontWeight:700, color: timing.past ? "#4a6275" : "#1a2e3d", fontFamily:"DM Sans,sans-serif", background:"#ddeaf4", borderRadius:999, padding:"2px 8px", marginBottom:3, whiteSpace:"nowrap" }}>{timing.label}</span>
+                      <span style={{ display:"flex", alignItems:"center", gap:6, minWidth:0 }}>
+                        {vc.showEmojis && <span aria-hidden="true" style={{ fontSize:15, flexShrink:0 }}>{trip.icon || "🧳"}</span>}
+                        <span style={{ flex:1, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", fontFamily:"Cormorant Garamond,serif", fontSize:16, fontWeight:700, color:"#1a2e3d" }}>{trip.name || "Untitled trip"}</span>
+                      </span>
+                      {trip.destination ? <span style={{ fontSize:12, color:"#4a6275", fontFamily:"DM Sans,sans-serif", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{trip.destination}</span> : null}
+                      {range
+                        ? <span data-testid="trip-dates" style={{ fontSize:11, color:"#4a6275", fontFamily:"DM Sans,sans-serif", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{range}{timing.away ? " · " + timing.away + "d away" : ""}</span>
+                        : <button type="button" data-testid="trip-add-dates" onClick={function(e){ e.stopPropagation(); openEdit(trip) }} style={{ alignSelf:"flex-start", background:"none", border:"none", padding:0, fontSize:11, color:"#4a6275", fontFamily:"DM Sans,sans-serif", textDecoration:"underline", cursor:"pointer" }}>Add dates</button>}
+                    </div>
+                  )
+                }
                 var isExpanded = !!expandedTripIds[trip.id]
                 function toggleExpand(e) { if (e) e.stopPropagation(); setExpandedTripIds(function(p){ return Object.assign({},p,{[trip.id]:!p[trip.id]}) }) }
 
@@ -6170,10 +6222,10 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
               }
               return (
                 <div>
-                  <div className="af-card-grid-2" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
+                  <div className="af-card-grid-2" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14, gridAutoRows: vc ? "1fr" : undefined }}>
                     {activeTrips.map(function(trip){ return renderTripCard(trip, false) })}
                     {/* Dashed add tile inside the grid — solid sand like its sibling trip cards, not the old near-transparent navy-glass tile */}
-                    <div onClick={openAdd} style={{ background:cardBg, border:"1px dashed rgba(200,169,122,0.35)", borderRadius:8, minHeight:100, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, cursor:"pointer" }}>
+                    <div onClick={openAdd} data-testid={vc ? "trip-add-tile" : undefined} style={{ background:cardBg, border:"1px dashed rgba(200,169,122,0.35)", borderRadius:8, minHeight: vc ? TRIP_TILE_H : 100, boxSizing: vc ? "border-box" : undefined, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, cursor:"pointer" }}>
                       <span style={{ fontSize:20, color:"#4a6275" }}>+</span>
                       <span style={{ fontSize:11, color:"#4a6275", fontFamily:"DM Sans,sans-serif" }}>Add trip</span>
                     </div>
@@ -6182,10 +6234,11 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                     <div>
                       <div onClick={function(){ setCollapsedPastAdventures(function(p){ return !p }) }} style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 0", borderTop:"1px solid "+border, cursor:"pointer" }}>
                         <span style={{ flex:1, fontSize:13, fontWeight:700, color:muted, fontFamily:"DM Sans,sans-serif" }}>Past Adventures ({pastTrips.length})</span>
-                        <span style={{ fontSize:11, color:muted, transform:collapsedPastAdventures?"rotate(0deg)":"rotate(180deg)", transition:"transform 0.2s" }}>▾</span>
+                        {vc ? <span style={{ fontSize:12, fontWeight:700, color:"rgba(250,248,244,0.75)", fontFamily:"DM Sans,sans-serif" }}>{collapsedPastAdventures ? "Show" : "Hide"}</span>
+                          : <span style={{ fontSize:11, color:muted, transform:collapsedPastAdventures?"rotate(0deg)":"rotate(180deg)", transition:"transform 0.2s" }}>▾</span>}
                       </div>
                       {!collapsedPastAdventures && (
-                        <div className="af-card-grid-2" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:10 }}>
+                        <div className="af-card-grid-2" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:10, gridAutoRows: vc ? "1fr" : undefined }}>
                           {pastTrips.map(function(trip){ return renderTripCard(trip, true) })}
                         </div>
                       )}
@@ -6348,9 +6401,10 @@ function CCard(props) {
   return React.createElement("div",{style:Object.assign({background:CAREER_SURF,border:CAREER_BORD,borderRadius:8,padding:"0.9rem 1.1rem"},props.style||{})},props.children)
 }
 function CHead(props) {
+  var vc=useVaultChrome();
   return React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.7rem"}},
     React.createElement("span",{style:{fontSize:13,fontWeight:600,color:CAREER_WHITE,display:"flex",alignItems:"center",gap:8}},
-      React.createElement("span",{style:{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}},props.icon), props.label),
+      (!vc||vc.showEmojis)&&React.createElement("span",{style:{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}},props.icon), props.label),
     props.onAdd&&React.createElement("button",{onClick:props.onAdd,style:{fontSize:12,color:CAREER_GOLD,background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:6,padding:"3px 10px",cursor:"pointer"}},"+ Add")
   )
 }
@@ -6959,6 +7013,7 @@ function CDocsTab({ pid, career, setCareer }) {
 
 // ── CareerSection (dashboard + drill-in) ─────────────────────────────────────
 function CareerSection() {
+  var vc=useVaultChrome();
   var s_people=useState(hLoadPeople()); var people=s_people[0]; var setPeople=s_people[1];
   var careerPair=useCareer(); var career=careerPair[0]; var setCareer=careerPair[1];
   // detail: null = dashboard, {pid, tab} = person detail
@@ -7007,11 +7062,11 @@ function CareerSection() {
   // ── Dashboard overview ────────────────────────────────────────────────────
   if(!detail) {
     return React.createElement("div",null,
-      React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
-        React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:CAREER_MODAL_TEXT}},"Career"),
+      React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:vc?"flex-end":"space-between",marginBottom:vc?14:4}},
+        !vc&&React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:CAREER_MODAL_TEXT}},"Career"),
         React.createElement("button",{onClick:function(){setAddingPerson(true);},style:{fontSize:12,color:CAREER_GOLD,background:"rgba(200,169,122,0.08)",border:"0.5px solid rgba(200,169,122,0.28)",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u002B Add person")
       ),
-      React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.4)",fontFamily:"DM Sans,sans-serif",marginBottom:18,marginTop:2}},"Tap a card to open"),
+      !vc&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.4)",fontFamily:"DM Sans,sans-serif",marginBottom:18,marginTop:2}},"Tap a card to open"),
       React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
         people.map(function(p,i){
           var stats=getStats(p.id);
@@ -7023,7 +7078,7 @@ function CareerSection() {
                 React.createElement("div",{style:{width:34,height:34,borderRadius:"50%",background:p.color||CAREER_GOLD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:600,color:CAREER_NAVY,flexShrink:0}},initials),
                 React.createElement("span",{style:{fontSize:14,fontWeight:500,color:CAREER_WHITE}},p.name)
               ),
-              React.createElement("span",{style:{fontSize:11,color:"#4a6275"}},">")
+              vc?React.createElement("span",{style:{display:"inline-flex",transform:"rotate(-90deg)",flexShrink:0}},React.createElement(RdChevron,{color:"#1a2e3d"})):React.createElement("span",{style:{fontSize:11,color:"#4a6275"}},">")
             ),
             // 4 stat grid
             React.createElement("div",{className:"af-card-grid-4",style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:stats.jobs.length||stats.goalList.length?12:0}},
@@ -7249,8 +7304,9 @@ function HBadge(props) { var b=HBADGE[props.type]||HBADGE.gray; return React.cre
 function HCondPill(props) { var p=HPILL[props.type]||HPILL.other; return React.createElement("span",{style:{fontSize:11,padding:"2px 9px",borderRadius:4,background:p.bg,color:p.color}},props.label); }
 function HCard(props) { return React.createElement("div",{style:Object.assign({background:HSURF,border:HBORD,borderRadius:8,padding:A.cardPadding},props.style||{})},props.children); }
 function HCardHead(props) {
+  var vc=useVaultChrome();
   return React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.7rem"}},
-    React.createElement("span",{style:{fontSize:13,fontWeight:500,color:HWHITE,display:"flex",alignItems:"center",gap:8}},React.createElement("span",{style:{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}},props.icon),props.label),
+    React.createElement("span",{style:{fontSize:13,fontWeight:500,color:HWHITE,display:"flex",alignItems:"center",gap:8}},(!vc||vc.showEmojis)&&React.createElement("span",{style:{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}},props.icon),props.label),
     props.onAdd&&React.createElement("button",{onClick:props.onAdd,style:{fontSize:12,color:HGOLD,background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:6,padding:"3px 10px",cursor:"pointer"}},"+ Add")
   );
 }
@@ -7726,6 +7782,7 @@ function HNotesTab(props) {
 
 // ── Health person card (used in dashboard overview) ───────────────────────────
 function HPersonCard(props) {
+  var vc=useVaultChrome();
   var p=props.person; var health=props.health; var onOpen=props.onOpen;
   var pid=p.id;
   var d=health[pid]||{};
@@ -7750,7 +7807,7 @@ function HPersonCard(props) {
         React.createElement("div",{style:{width:34,height:34,borderRadius:"50%",background:p.color||HGOLD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:600,color:HNAVY,flexShrink:0}},initials),
         React.createElement("span",{style:{fontSize:14,fontWeight:500,color:HWHITE}},p.name)
       ),
-      React.createElement("span",{style:{fontSize:11,color:"#4a6275"}},">")
+      vc?React.createElement("span",{style:{display:"inline-flex",transform:"rotate(-90deg)",flexShrink:0}},React.createElement(RdChevron,{color:"#1a2e3d"})):React.createElement("span",{style:{fontSize:11,color:"#4a6275"}},">")
     ),
     // 3 mini stats
     React.createElement("div",{className:"af-card-grid-3",style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}},
@@ -7886,6 +7943,7 @@ function HAppointmentsTab(props) {
 }
 
 function HealthSection() {
+  var vc=useVaultChrome();
   var s_people=useState(hLoadPeople()); var people=s_people[0]; var setPeople=s_people[1];
   var hPair=useHealth(); var health=hPair[0]; var setHealth=hPair[1];
   // "detail" view state: null = dashboard, {pid, tab} = person detail
@@ -7913,11 +7971,11 @@ function HealthSection() {
   if(!detail) {
     return React.createElement("div",null,
       // header
-      React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
-        React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:HMODAL_TEXT}},"Health"),
+      React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:vc?"flex-end":"space-between",marginBottom:vc?14:4}},
+        !vc&&React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:HMODAL_TEXT}},"Health"),
         React.createElement("button",{onClick:function(){setAddingPerson(true);},style:{fontSize:12,color:HGOLD,background:"rgba(200,169,122,0.08)",border:"0.5px solid rgba(200,169,122,0.28)",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u002B Add person")
       ),
-      React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.4)",fontFamily:"DM Sans,sans-serif",marginBottom:18,marginTop:2}},"Tap a card to view details"),
+      !vc&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.4)",fontFamily:"DM Sans,sans-serif",marginBottom:18,marginTop:2}},"Tap a card to view details"),
       // Responsive person card grid — single column on phones (was fixed 2-col and cut off on mobile)
       React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(240px, 1fr))",gap:12}},
         people.map(function(p){
@@ -8121,6 +8179,7 @@ var HF_FIELD_TEMPLATES = {
 }
 
 function HouseFileSection() {
+  var vc=useVaultChrome();
   var s_cards=useState(hfLoad); var cards=s_cards[0]; var setCards=s_cards[1];
   React.useEffect(function() {
     function onRefresh(e) {
@@ -8308,7 +8367,7 @@ function HouseFileSection() {
                     )
                   : React.createElement("p",{style:{fontSize:11,color:"rgba(250,248,244,0.3)",margin:0}},(filledFields>0?(filledFields+" field"+(filledFields===1?"":"s")+" filled"):"Tap to view"))
               ),
-              React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.25)",flexShrink:0}},">")
+              vc?React.createElement("span",{style:{display:"inline-flex",transform:"rotate(-90deg)",flexShrink:0}},React.createElement(RdChevron,{color:"#1a2e3d"})):React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.25)",flexShrink:0}},">")
             );
           })
         ),
@@ -8377,6 +8436,7 @@ function prodLoad() { try { var s=localStorage.getItem("af_ownedProducts"); retu
 function prodSave(v) { try { localStorage.setItem("af_ownedProducts", JSON.stringify(v)); } catch(e){} afVaultChanged("ownedProducts"); }
 
 function ProductsPanel() {
+  var vc=useVaultChrome();
   var s_cats=useState(prodLoad); var cats=s_cats[0]; var setCats=s_cats[1];
   var s_exp=useState(null); var expanded=s_exp[0]; var setExpanded=s_exp[1];
   var s_addCat=useState(false); var addingCat=s_addCat[0]; var setAddingCat=s_addCat[1];
@@ -8432,7 +8492,7 @@ function ProductsPanel() {
       if(sortAZ) items=items.slice().sort(function(a,b){return (a.name||"").localeCompare(b.name||"");});
       return React.createElement("div",{key:cat.id,style:{background:SURF,border:HBORD,borderRadius:8,marginBottom:10,overflow:"hidden"}},
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",cursor:"pointer"},onClick:function(){setExpanded(isOpen?null:cat.id);}},
-          React.createElement("span",{style:{fontSize:13,color:"#4a6275",transition:"transform 0.2s",display:"inline-block",transform:isOpen?"rotate(90deg)":"rotate(0deg)"}},"›"),
+          React.createElement("span",{style:{fontSize:13,color:"#4a6275",transition:"transform 0.2s",display:vc?"inline-flex":"inline-block",transform:vc?(isOpen?"rotate(0deg)":"rotate(-90deg)"):(isOpen?"rotate(90deg)":"rotate(0deg)")}},vc?React.createElement(RdChevron,{color:"#1a2e3d"}):"›"),
           React.createElement("div",{style:{flex:1,fontFamily:"Cormorant Garamond,serif",fontSize:17,fontWeight:700,color:"#1a2e3d"}},cat.name),
           React.createElement("span",{style:{fontSize:11,color:"#4a6275",fontFamily:"DM Sans,sans-serif"}},items.length+(items.length===1?" item":" items")),
           React.createElement("button",{onClick:function(e){e.stopPropagation();if(window.confirm("Delete category \""+cat.name+"\" and its items?"))deleteCategory(cat.id);},style:{background:"none",border:"none",cursor:"pointer",color:"rgba(226,75,74,0.7)",fontSize:15,padding:"0 2px"}},"✕")
@@ -8486,19 +8546,21 @@ function ProductsPanel() {
 }
 
 function HomeSystemsSection() {
+  var vc=useVaultChrome();
   var s_tab=useState("maintenance"); var sysTab=s_tab[0]; var setSysTab=s_tab[1];
   function tabBtn(id,label){
     var active=sysTab===id;
     return React.createElement("button",{onClick:function(){setSysTab(id);},style:{flex:1,background:active?"rgba(200,169,122,0.15)":"transparent",color:active?HGOLD:"rgba(250,248,244,0.5)",border:"0.5px solid "+(active?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.1)"),borderRadius:8,padding:"8px 0",fontSize:12.5,fontWeight:active?700:500,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},label);
   }
   return React.createElement("div",null,
-    React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:"#faf8f4",marginBottom:12}},"Maintenance"),
+    !vc&&React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:"#faf8f4",marginBottom:12}},"Maintenance"),
     React.createElement("div",{style:{display:"flex",gap:8,marginBottom:16}}, tabBtn("maintenance","Maintenance"), tabBtn("products","Products")),
     sysTab==="products" ? React.createElement(ProductsPanel,null) : React.createElement(MaintenancePanel,null)
   );
 }
 
 function MaintenancePanel() {
+  var vc=useVaultChrome();
   var s_sys=useState(sysLoadSystems); var systems=s_sys[0]; var setSystems=s_sys[1];
   var s_detail=useState(null); var detail=s_detail[0]; var setDetail=s_detail[1];
   var s_adding=useState(false); var adding=s_adding[0]; var setAdding=s_adding[1];
@@ -8544,17 +8606,17 @@ function MaintenancePanel() {
       React.createElement("div",null),
       React.createElement("button",{onClick:function(){setAdding(true);setEditIdx(null);setForm({name:"",type:"other",freq:"1y",lastDone:"",nextDue:"",notes:""});},style:{fontSize:12,color:HGOLD,background:"rgba(200,169,122,0.08)",border:"0.5px solid rgba(200,169,122,0.28)",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u002B Add system")
     ),
-    React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.35)",fontFamily:"DM Sans,sans-serif",marginBottom:16,marginTop:2}},"Track maintenance schedules for every part of your home"),
+    vc?React.createElement("div",{style:{height:12}}):React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.35)",fontFamily:"DM Sans,sans-serif",marginBottom:16,marginTop:2}},"Track maintenance schedules for every part of your home"),
 
     // alert banners
     overdue.length>0&&React.createElement("div",{style:{background:"rgba(160,92,16,0.1)",border:"0.5px solid rgba(160,92,16,0.25)",borderRadius:8,padding:"9px 13px",display:"flex",alignItems:"center",gap:9,fontSize:12,color:"#a05c10",marginBottom:10}},
-      React.createElement("span",{style:{fontSize:15}},"\u26a0\ufe0f"),
+      (!vc||vc.showEmojis)&&React.createElement("span",{style:{fontSize:15}},"\u26a0\ufe0f"),
       overdue.length===1
         ? (overdue[0].name+" is overdue")
         : (overdue.length+" systems are overdue")
     ),
     soon.length>0&&React.createElement("div",{style:{background:"rgba(26,46,61,0.08)",border:"1px solid rgba(26,46,61,0.12)",borderRadius:8,padding:"9px 13px",display:"flex",alignItems:"center",gap:9,fontSize:12,color:"#4a6275",marginBottom:10}},
-      React.createElement("span",{style:{fontSize:15}},"\u23f0"),
+      (!vc||vc.showEmojis)&&React.createElement("span",{style:{fontSize:15}},"\u23f0"),
       soon.length===1
         ? (soon[0].name+" due soon")
         : (soon.length+" systems due within 30 days")
@@ -8562,7 +8624,11 @@ function MaintenancePanel() {
 
     // system grid
     systems.length===0
-      ? React.createElement("div",{style:{textAlign:"center",padding:"40px 20px",color:"rgba(250,248,244,0.3)",fontSize:13,fontFamily:"DM Sans,sans-serif"}},
+      ? vc ? React.createElement("div",{"data-testid":"vault-empty-systems",style:{textAlign:"center",padding:"28px 20px",background:"#f7f1e3",borderRadius:8,fontFamily:"DM Sans,sans-serif"}},
+          React.createElement("div",{style:{fontSize:15,fontWeight:700,color:"#1a2e3d",marginBottom:6}},"No systems added yet"),
+          React.createElement("div",{style:{fontSize:13,color:"#4a6275",lineHeight:1.5}},VAULT_DESCRIPTIONS.systems)
+        )
+      : React.createElement("div",{style:{textAlign:"center",padding:"40px 20px",color:"rgba(250,248,244,0.3)",fontSize:13,fontFamily:"DM Sans,sans-serif"}},
           React.createElement("div",{style:{fontSize:32,marginBottom:10}},"🏠"),
           React.createElement("div",null,"No systems added yet."),
           React.createElement("div",{style:{marginTop:4,fontSize:12}},"Track HVAC filters, water heaters, and anything that needs regular maintenance.")
@@ -8576,7 +8642,7 @@ function MaintenancePanel() {
               onClick:function(){setDetail(i);}},
               React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between"}},
                 React.createElement("span",{style:{fontSize:20}},typeIcon),
-                React.createElement("span",{style:{width:8,height:8,borderRadius:"50%",background:statusColor,display:"inline-block",flexShrink:0,marginTop:3}})
+                !vc&&React.createElement("span",{style:{width:8,height:8,borderRadius:"50%",background:statusColor,display:"inline-block",flexShrink:0,marginTop:3}})
               ),
               React.createElement("p",{style:{fontSize:12,fontWeight:500,color:HWHITE,margin:0,lineHeight:1.3}},sys.name),
               React.createElement("p",{style:{fontSize:11,color:statusColor,margin:0}},sysStatusLabel(sys))
@@ -8763,6 +8829,7 @@ function nextDateLabel(days) {
 
 // ── Recurring Reminders Section ───────────────────────────────────────────────
 function RecurringRemindersSection() {
+  var vc=useVaultChrome();
   var NAVY="#243A5A"; var GOLD="#c8a97a"; var FAINT="rgba(250,248,244,0.35)"; var SOFT="rgba(250,248,244,0.65)"
 
   var [reminders, setReminders] = useState(function() {
@@ -8981,14 +9048,14 @@ function RecurringRemindersSection() {
   // ── Main list view ───────────────────────────────────────────────────────────
   return (
     <div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:vc?"flex-end":"space-between",marginBottom:vc?14:6}}>
+        {!vc&&<div style={{display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontSize:22}}>🔁</span>
           <div style={{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:700,color:"#faf8f4"}}>Recurring Reminders</div>
-        </div>
+        </div>}
         <button onClick={function(){openNew(null)}} style={{background:"rgba(200,169,122,0.12)",border:"1px solid rgba(200,169,122,0.3)",borderRadius:8,padding:"6px 12px",fontSize:12,color:GOLD,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600}}>+ Custom</button>
       </div>
-      <div style={{fontSize:12,color:FAINT,fontFamily:"DM Sans,sans-serif",marginBottom:16,lineHeight:1.5}}>Set it once, never forget it again.</div>
+      {!vc&&<div style={{fontSize:12,color:FAINT,fontFamily:"DM Sans,sans-serif",marginBottom:16,lineHeight:1.5}}>Set it once, never forget it again.</div>}
 
       {/* Built-in quick-adds */}
       {availableBuiltins.length>0&&(
@@ -9002,7 +9069,7 @@ function RecurringRemindersSection() {
               {availableBuiltins.map(function(b){
                 return(
                   <button key={b.id} onClick={function(){openNew(b)}} style={{display:"flex",alignItems:"center",gap:10,background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.1)",borderRadius:8,padding:A.cardPadding,cursor:"pointer",textAlign:"left"}}>
-                    <span style={{fontSize:20,flexShrink:0}}>{b.emoji}</span>
+                    {(!vc||vc.showEmojis)&&<span style={{fontSize:20,flexShrink:0}}>{b.emoji}</span>}
                     <div style={{flex:1}}>
                       <div style={{fontSize:13,fontWeight:600,color:"#1a2e3d",fontFamily:"DM Sans,sans-serif"}}>{b.label}</div>
                       <div style={{fontSize:11,color:"#4a6275",fontFamily:"DM Sans,sans-serif",marginTop:1}}>{b.hint}</div>
@@ -9019,8 +9086,9 @@ function RecurringRemindersSection() {
       {/* Empty state */}
       {sorted.length===0&&(
         <div style={{textAlign:"center",padding:"32px 20px",background:A.card,border:"1px dashed rgba(200,169,122,0.35)",borderRadius:A.radius}}>
-          <div style={{fontSize:32,marginBottom:10}}>🔁</div>
+          {(!vc||vc.showEmojis)&&<div style={{fontSize:32,marginBottom:10}}>🔁</div>}
           <div style={{fontFamily:"Cormorant Garamond,serif",fontSize:18,color:A.title,marginBottom:6}}>No reminders yet</div>
+          {vc&&<div data-testid="vault-empty-recurring" style={{fontSize:13,color:A.sub,fontFamily:"DM Sans,sans-serif",marginBottom:4,lineHeight:1.5}}>{VAULT_DESCRIPTIONS.recurring}</div>}
           <div style={{fontSize:12,color:A.sub,fontFamily:"DM Sans,sans-serif",marginBottom:18,lineHeight:1.6}}>Add trash day, HVAC filters, street sweeping — anything that repeats.</div>
           <button onClick={function(){setShowBuiltins(true);setTimeout(function(){document.querySelector("[data-builtin-list]")&&document.querySelector("[data-builtin-list]").scrollIntoView({behavior:"smooth"})},50)}} style={{background:GOLD,border:"none",borderRadius:10,padding:"10px 24px",fontSize:13,color:NAVY,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:700}}>Add from common reminders</button>
         </div>
@@ -9034,7 +9102,7 @@ function RecurringRemindersSection() {
         var overdue = days!=null&&days<0
         return(
           <div key={r.id} style={{background:A.card,border:"1px solid "+((alert||overdue)?"rgba(160,92,16,0.3)":A.border),borderRadius:A.radius,padding:A.cardPadding,marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
-            <span style={{fontSize:22,flexShrink:0}}>{r.emoji}</span>
+            {(!vc||vc.showEmojis)&&<span style={{fontSize:22,flexShrink:0}}>{r.emoji}</span>}
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:13,fontWeight:700,color:"#1a2e3d",fontFamily:"DM Sans,sans-serif"}}>{r.label}</div>
               <div style={{fontSize:11,color:"#4a6275",fontFamily:"DM Sans,sans-serif",marginTop:1}}>
@@ -9805,6 +9873,7 @@ function AnchorSettings() {
 
 // ── Subscriptions Section ─────────────────────────────────────────────────────
 function SubscriptionsSection() {
+  var vc=useVaultChrome();
   var GOLD = "#c8a97a"; var NAVY = "#243A5A"; var WHITE = "#faf8f4"
   var SURF = "#f7f1e3"; var BORD = "1px solid rgba(26,46,61,0.1)"
   var SAGE = "#7a9e8e"; var BLUE = "#7EAEB4"
@@ -9879,8 +9948,8 @@ function SubscriptionsSection() {
   var modalBg = { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }
   var modalBox = { background: "#2E486B", border: "0.5px solid rgba(200,169,122,0.2)", borderRadius: 16, padding: "20px", width: "100%", maxWidth: 380 }
   return React.createElement("div", { style: { paddingBottom: "2rem" } },
-    React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 } },
-      React.createElement("div", null,
+    (!vc || (tab==="subs" && subs.length>1)) && React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: vc ? "flex-end" : "space-between", marginBottom: vc ? 10 : 16 } },
+      !vc && React.createElement("div", null,
         React.createElement("div", { style: { fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 700, color: WHITE } }, "Subscriptions"),
         React.createElement("div", { style: { fontSize: 12, color: "rgba(250,248,244,0.5)", marginTop: 2 } }, "Track what you pay, save & earn")
       ),
@@ -9892,6 +9961,10 @@ function SubscriptionsSection() {
       React.createElement("button", { style: tabBtn("perks"), onClick: function() { setTab("perks") } }, "Perks & Discounts")
     ),
     tab === "subs" && React.createElement("div", null,
+      vc && subs.length === 0 && React.createElement("div", { "data-testid": "vault-empty-subs", style: { textAlign: "center", padding: "28px 20px", background: "#f7f1e3", borderRadius: 8, marginBottom: 10, fontFamily: "DM Sans,sans-serif" } },
+        React.createElement("div", { style: { fontSize: 15, fontWeight: 700, color: "#1a2e3d", marginBottom: 6 } }, "No subscriptions yet"),
+        React.createElement("div", { style: { fontSize: 13, color: "#4a6275", lineHeight: 1.5 } }, VAULT_DESCRIPTIONS.subs)
+      ),
       subs.length > 0 && React.createElement("div", { className: "af-card-grid-2", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 } },
         React.createElement("div", { style: { background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: "10px 12px" } },
           React.createElement("div", { style: { fontSize: 10, color: "#4a6275", marginBottom: 3, fontFamily: "DM Sans,sans-serif" } }, "Monthly total"),

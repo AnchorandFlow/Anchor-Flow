@@ -11,7 +11,8 @@
 //
 // Safe Harbor: SafeHarbor.jsx draws its own header and pills when given
 // `redesign`; this only supplies the navy page.
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { VaultChromeContext } from "./vaultChrome.js";
 import { AnchorPage, AnchorScreen, AnchorCard, AnchorBody, ARow, LockRow, AEmpty } from "./AnchorFullView.jsx";
 import { EmojiScope } from "./FullView.jsx";
 import { emo } from "./fullViewKit.js";
@@ -53,6 +54,7 @@ export default function VaultFull(props) {
     };
   }, []);
   var se = s.showEmojis === true;
+  var chrome = useMemo(function () { return { showEmojis: se }; }, [se]);
   var section = props.activeSection || "home";
 
   if (section === "safeharbor") {
@@ -94,7 +96,7 @@ export default function VaultFull(props) {
     <AnchorScreen overlay section="vault" testId="vault-full" title="Vault" emoji="🗝️" subtitle="Records for your home and family, kept in one place" showEmojis={se}
       onBack={props.onBack} tabs={pills} value={pillValue} onChange={props.onSection} testIdPrefix="vault-pill-" scrollRef={props.scrollRef}>
       {section === "home" ? overview() : (
-        <AnchorBody><EmojiScope showEmojis={se}>{props.body}</EmojiScope></AnchorBody>
+        <AnchorBody><EmojiScope showEmojis={se}><VaultChromeContext.Provider value={chrome}>{props.body}</VaultChromeContext.Provider></EmojiScope></AnchorBody>
       )}
     </AnchorScreen>
   );
