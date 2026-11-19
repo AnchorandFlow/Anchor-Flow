@@ -18,6 +18,7 @@ import { useState, useEffect, useRef } from "react";
 import { getDailyBriefing } from "../compass/compassEngine";
 import { SYNC_KEYS } from "../sync-core";
 import { gradient, font, radius, shadow } from "../design/tokens.js";
+import { currentMemberId, todayKey, getSunsetEntry, saveSunsetEntry } from "../lib/sunsetLog.js";
 
 var SERIF = "'Cormorant Garamond', serif";
 var SANS = "'DM Sans', sans-serif";
@@ -164,10 +165,26 @@ var DECISIONS = [
   { id: "remove", label: "Remove" },
 ];
 
+// Release choice -> what it did, for the reopened (already anchored) view.
+var CHOICE_DONE = { tomorrow: "Moved to tomorrow", later: "Moved to Someday", remove: "Let go" };
+
+// A small drawn check (no glyph), for the "Anchored" pill.
+export function AnchoredCheck(props) {
+  var c = props.color || "currentColor";
+  return <svg aria-hidden="true" width={props.size || 14} height={props.size || 14} viewBox="0 0 16 16" style={{ display: "block", flexShrink: 0 }}><path d="M3.5 8.5l3 3 6-7" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+
 export default function SunsetClose(props) {
   var rd = props.redesign === true;
   var th = rd ? THEMES.redesign : THEMES.legacy;
-  var [mood, setMood] = useState(null);
+  // af_redesign: tonight's saved Sunset (per member, household date). When it
+  // exists, this opens that reflection to view / edit instead of a new Sunset.
+  var memberId = rd ? currentMemberId() : null;
+  var dayKey = rd ? todayKey(props.now ? props.now() : new Date()) : null;
+  var [saved, setSaved] = useState(function () { return rd ? getSunsetEntry(memberId, dayKey) : null; });
+  var reopen = !!saved;
+  var [mood, setMood] = useState(function () { return saved && saved.mood ? saved.mood : null; });
+  var [sessionExhaled, setSessionExhaled] = useState([]);
   var [openSections, setOpenSections] = useState({ reflect: false, celebrate: false, release: false, prepare: false, exhale: false });
   function toggleSection(key) { setOpenSections(function (p) { return Object.assign({}, p, { [key]: !p[key] }); }); }
   var [anchored, setAnchored] = useState(false);
@@ -177,10 +194,10 @@ export default function SunsetClose(props) {
   var mm = now.getMinutes();
   var nowHHMM = (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm;
   var todayName = DAYS[now.getDay()];
-  var todayISO = now.toISOString().slice(0, 10);
+  var todayISO = rd ? dayKey : now.toISOString().slice(0, 10);
   var tomorrow = new Date(now.getTime() + 86400000);
   var tomorrowName = DAYS[tomorrow.getDay()];
-  var tomorrowISO = tomorrow.toISOString().slice(0, 10);
+  var tomorrowISO = rd ? todayKey(tomorrow) : tomorrow.toISOString().slice(0, 10);
   var preferredName = read("preferredName", "") || "there";
   var firstName = preferredName.split(" ")[0];
 
@@ -227,10 +244,10 @@ export default function SunsetClose(props) {
   var appliedRef = useRef(false);
   function decide(taskId, choice) { setDecisions(function (p) { return Object.assign({}, p, { [taskId]: choice }); }); }
   function applyCarryForwardDecisions() {
-    if (appliedRef.current) return;
+    if (appliedRef.current) return [];
     appliedRef.current = true;
     var ids = Object.keys(decisions);
-    if (ids.length === 0) return;
+    if (ids.length === 0) return [];
     var newItems = [];
     ids.forEach(function (id) {
       var choice = decisions[id];
@@ -248,6 +265,10 @@ export default function SunsetClose(props) {
       if (!latestBuckets || !Array.isArray(latestBuckets.items)) latestBuckets = exhaleBucketsInit;
       writeKey("exhale_buckets", Object.assign({}, latestBuckets, { items: latestBuckets.items.concat(newItems) }));
     }
+    return ids.map(function (id) {
+      var task = tasks.find(function (t) { return t.id === id; });
+      return { text: task ? (task.text || task.title || task.name || "") : "", choice: decisions[id] };
+    });
   }
 
   // ── Prepare — weather / schedule / dinner ──
@@ -267,6 +288,11 @@ export default function SunsetClose(props) {
     var item = { id: newId(), text: t, notes: "", bucketIndex: 0, createdAt: Date.now(), color: BUCKET_COLORS[0] };
     writeKey("exhale_buckets", Object.assign({}, latest, { items: latest.items.concat([item]) }));
     setSavedClearMind(true); setClearMindText("");
+    if (rd) {
+      setSessionExhaled(function (p) { return p.concat([t]); });
+      // Reopened: the thought is already in Exhale, so record it right away.
+      if (reopen) setSaved(saveSunsetEntry(memberId, dayKey, { exhaled: (saved.exhaled || []).concat([t]) }));
+    }
   }
 
   // "Anchor the day" — applies any Release decisions (same write as the old
@@ -277,7 +303,15 @@ export default function SunsetClose(props) {
   // would flip showEndOfDay to false on the very next parent render and
   // unmount this component before the completion screen ever painted.
   function handleAnchor() {
-    applyCarryForwardDecisions();
+    var released = applyCarryForwardDecisions();
+    if (rd && reopen) {
+      // Editing tonight's reflection: save it and close. Not a new Sunset —
+      // no completion screen, no second "closed the day".
+      saveSunsetEntry(memberId, dayKey, { mood: mood, released: (saved.released || []).concat(released) });
+      if (props.onClose) props.onClose();
+      return;
+    }
+    if (rd) saveSunsetEntry(memberId, dayKey, { mood: mood, released: released, exhaled: sessionExhaled });
     setAnchored(true);
     window.setTimeout(function () { if (props.onCloseDay) props.onCloseDay(); }, 3000);
   }
@@ -311,7 +345,14 @@ export default function SunsetClose(props) {
         <div data-testid={rd ? "sunset-head" : undefined} style={{ marginBottom: 16, paddingRight: 40 }}>
           {sectionLabel(th, "Sunset", rd ? { color: th.headLabel } : undefined)}
           <div style={{ fontFamily: th.serif, fontSize: "1.5rem", fontWeight: 600, color: th.headText }}>Good evening, {firstName}.</div>
-          <div style={{ fontSize: ".82rem", color: th.headSub, fontFamily: th.sans, marginTop: 4 }}>Let's close today with intention.</div>
+          {reopen ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
+              <span data-testid="sunset-anchored" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: th.pillBg, color: th.pillText, borderRadius: 999, padding: "6px 14px", fontSize: 13, fontWeight: 700, fontFamily: th.sans }}><AnchoredCheck color={th.pillText} />Anchored</span>
+              <span style={{ fontSize: ".82rem", color: th.headSub, fontFamily: th.sans }}>Tonight's reflection. Change anything and save.</span>
+            </div>
+          ) : (
+            <div style={{ fontSize: ".82rem", color: th.headSub, fontFamily: th.sans, marginTop: 4 }}>Let's close today with intention.</div>
+          )}
         </div>
 
         <AccordionCard th={th} label="Reflect" title="How did today feel?" open={openSections.reflect} onToggle={function () { toggleSection("reflect"); }}>
@@ -344,7 +385,19 @@ export default function SunsetClose(props) {
         </AccordionCard>
 
         <AccordionCard th={th} label="Release" title="What can wait?" open={openSections.release} onToggle={function () { toggleSection("release"); }}>
-          {unfinishedTasks.length === 0 ? emptyState(th, "All clear — nothing left behind.") : (
+          {reopen && (saved.released || []).length > 0 && (
+            <div data-testid="sunset-released" style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: unfinishedTasks.length ? 12 : 0 }}>
+              {saved.released.map(function (r, i) {
+                return (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "6px 0 6px 12px", borderLeft: "3px solid " + th.rowAccent }}>
+                    <span style={{ fontSize: ".84rem", color: th.text, fontFamily: th.sans, minWidth: 0, overflowWrap: "anywhere" }}>{r.text}</span>
+                    <span style={{ fontSize: ".75rem", color: th.text2, fontFamily: th.sans, flexShrink: 0 }}>{CHOICE_DONE[r.choice] || r.choice}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {unfinishedTasks.length === 0 ? (reopen && (saved.released || []).length > 0 ? null : emptyState(th, "All clear — nothing left behind.")) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {unfinishedTasks.map(function (t) {
                 var text = t.text || t.title || t.name || "";
@@ -400,7 +453,12 @@ export default function SunsetClose(props) {
         </AccordionCard>
 
         <AccordionCard th={th} label="Exhale" title="Anything still lingering?" open={openSections.exhale} onToggle={function () { toggleSection("exhale"); }}>
-          {savedClearMind ? (
+          {reopen && (saved.exhaled || []).length > 0 && (
+            <div data-testid="sunset-exhaled" style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
+              {saved.exhaled.map(function (x, i) { return <div key={i} style={{ fontSize: ".84rem", color: th.text, fontStyle: "italic", fontFamily: th.serif }}>{x}</div>; })}
+            </div>
+          )}
+          {savedClearMind && !reopen ? (
             <div style={{ fontSize: ".82rem", color: th.saved, fontStyle: "italic", fontFamily: th.serif }}>Saved to Exhale.</div>
           ) : (
             <div>
@@ -415,7 +473,7 @@ export default function SunsetClose(props) {
         {/* Redesign: the ivory pill sits near the bottom, over dusk indigo —
             sticky so it stays in reach while sections are open. */}
         <div data-testid={rd ? "sunset-anchor-bar" : undefined} style={rd ? { display: "flex", justifyContent: "center", marginTop: "auto", paddingTop: 18, paddingBottom: "max(24px, env(safe-area-inset-bottom))", position: "sticky", bottom: 0 } : { display: "flex", justifyContent: "center", marginTop: 18 }}>
-          <button type="button" onClick={handleAnchor} style={{ background: th.pillBg, color: th.pillText, border: "none", borderRadius: rd ? 999 : 24, padding: rd ? "13px 44px" : "10px 40px", fontSize: rd ? 15 : 14, fontWeight: rd ? 600 : 500, fontFamily: th.sans, cursor: "pointer", boxShadow: th.pillShadow }}>Anchor the day</button>
+          <button type="button" onClick={handleAnchor} style={{ background: th.pillBg, color: th.pillText, border: "none", borderRadius: rd ? 999 : 24, padding: rd ? "13px 44px" : "10px 40px", fontSize: rd ? 15 : 14, fontWeight: rd ? 600 : 500, fontFamily: th.sans, cursor: "pointer", boxShadow: th.pillShadow }}>{reopen ? "Save changes" : "Anchor the day"}</button>
         </div>
       </div>
     </div>

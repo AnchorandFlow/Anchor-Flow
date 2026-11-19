@@ -110,7 +110,7 @@ export async function captureAll(opts) {
 // will not size its window below ~500px).
 export async function screenshot(baseUrl, tab, file, opts) {
   var o = opts || {};
-  var q = "tab=" + encodeURIComponent(tab) + "&hh=" + (o.redesign ? "beta" : "other") + (o.emojis ? "&emojis=1" : "") + (o.anchor ? "&anchor=1" : "") + (o.seed ? "&seed=" + encodeURIComponent(JSON.stringify(o.seed)) : "") + "&shot=1&steps=" + encodeURIComponent(JSON.stringify(o.steps || [])) ;
+  var q = "tab=" + encodeURIComponent(tab) + "&hh=" + (o.redesign ? "beta" : "other") + (o.emojis ? "&emojis=1" : "") + (o.anchor ? "&anchor=1" : "") + (o.seed ? "&seed=" + encodeURIComponent(JSON.stringify(o.seed)) : "") + (o.hour != null ? "&hour=" + o.hour : "") + "&shot=1&steps=" + encodeURIComponent(JSON.stringify(o.steps || [])) ;
   var frameUrl = baseUrl + "?" + q;
   var wrapper = baseUrl.replace(/\/$/, "") + "/frame.html?src=" + encodeURIComponent(frameUrl) + "&w=" + (o.width || 390) + "&h=" + (o.height || 1600);
   await run(CHROME, chromeArgs(["--window-size=" + ((o.width || 390) + 40) + "," + (o.height || 1600), "--virtual-time-budget=30000", "--screenshot=" + file, wrapper]), 120000);

@@ -11,6 +11,8 @@ import { color, gradient, radius, shadow, font, shouldShowEmoji, tone, fullBleed
 import { buildHomeModel, daysLabel, EXHALED_BUCKET } from "./homeData.js";
 import { whoOf } from "./flowData.js";
 import { personIdOf } from "./exhaleModel.js";
+import { isAnchoredToday } from "../lib/sunsetLog.js";
+import { AnchoredCheck } from "../shell/SunsetClose.jsx";
 
 var IVORY = gradient.sunset.text;
 var NAVY = color.anchorNavy;
@@ -145,6 +147,9 @@ export default function RedesignHome(props) {
     celebrations: stores.celebrations, ripples: stores.ripples, traditions: stores.traditions,
   });
   var se = props.showEmojis === true;
+  // Sunset done tonight (this member, household date): "Anchored" until the
+  // household's midnight. Re-read every render (minute tick, data changes).
+  var anchored = isAnchoredToday(props.now ? props.now() : new Date());
 
   function toggle(id) { setOpenId(function (cur) { return cur === id ? null : id; }); }
 
@@ -241,14 +246,14 @@ export default function RedesignHome(props) {
         </Pillar>
 
         {/* Sunset — after 5 PM local, at the bottom just above the Exhale quick-add */}
-        {m.showSunset && (
-          <div data-testid="sunset-card" style={{ background: gradient.sunset.css, borderRadius: radius.lg, boxShadow: shadow.raised, padding: "20px 18px", color: IVORY, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        {(m.showSunset || anchored) && (
+          <div data-testid="sunset-card" data-anchored={anchored ? "true" : undefined} style={{ background: gradient.sunset.css, borderRadius: radius.lg, boxShadow: shadow.raised, padding: "20px 18px", color: IVORY, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <div style={Object.assign({ flex: "1 1 180px" }, wrapText)}>
               <div style={{ fontFamily: font.heading, fontSize: 22, fontWeight: 700 }}>Sunset</div>
-              <div style={{ fontSize: 13, opacity: 0.85, marginTop: 2 }}>Close the day gently.</div>
+              <div style={{ fontSize: 13, opacity: 0.85, marginTop: 2 }}>{anchored ? "Today is anchored. Tap to see tonight's reflection." : "Close the day gently."}</div>
             </div>
-            <button type="button" onClick={function () { try { window.dispatchEvent(new CustomEvent("af-open-sunset")); } catch { /* no window */ } }}
-              style={{ background: IVORY, color: "#26263F", border: "none", borderRadius: 999, padding: "10px 22px", fontFamily: font.body, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Begin</button>
+            <button type="button" data-testid="sunset-card-button" aria-label={anchored ? "Anchored. Open tonight's reflection" : undefined} onClick={function () { try { window.dispatchEvent(new CustomEvent("af-open-sunset")); } catch { /* no window */ } }}
+              style={{ background: IVORY, color: "#26263F", border: "none", borderRadius: 999, padding: "10px 22px", fontFamily: font.body, fontWeight: 700, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{anchored && <AnchoredCheck color="#26263F" />}{anchored ? "Anchored" : "Begin"}</button>
           </div>
         )}
 

@@ -99,7 +99,7 @@ export function Card(props) {
   return (
     <section data-testid={props.testId} data-tone-card="true" style={Object.assign({ background: tn.tint, borderRadius: radius.lg, boxShadow: shadow.card, padding: "12px 14px", minWidth: 0, boxSizing: "border-box" }, props.style || {})}>
       {(props.title || props.right) && (
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: props.title ? "space-between" : "flex-end", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
           {props.title && <h2 style={Object.assign({ margin: 0, fontFamily: font.heading, fontSize: 21, fontWeight: 700, color: NAVY }, wrapText)}>{props.title}</h2>}
           {props.right || null}
         </div>
@@ -201,4 +201,16 @@ export function EmojiScope(props) {
   // Keyed on the setting: turning showEmojis back on remounts the subtree, so
   // text React never re-renders (unchanged props) gets its emoji back.
   return <div ref={ref} key={on ? "strip" : "keep"} data-emoji-scope={on ? "off" : "on"} style={{ minWidth: 0 }}>{props.children}</div>;
+}
+
+// A drawn chevron (af_redesign) for disclosure rows, in place of the tiny
+// "▾" glyph that reads as a stray character on the new light cards.
+export function DrawnChevron(props) {
+  var size = props.size || 14;
+  return (
+    <svg aria-hidden="true" width={size} height={size} viewBox="0 0 16 16"
+      style={{ display: "block", flexShrink: 0, opacity: 0.75, transform: props.open ? "rotate(180deg)" : "none", transition: "transform .15s" }}>
+      <path d="M4 6l4 4 4-4" fill="none" stroke={props.color || "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }

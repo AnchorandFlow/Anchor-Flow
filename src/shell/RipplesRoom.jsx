@@ -390,19 +390,14 @@ export default function RipplesRoom(props) {
       </div>
     );
   }
-  function rdSectionHead(title, sub) {
-    return (
-      <div style={{ marginBottom: 4 }}>
-        <div style={{ fontFamily: font.heading, fontSize: 22, color: RD.ivory }}>{title}</div>
-        <div style={{ fontSize: 13, color: RD.ivory2 }}>{sub}</div>
-      </div>
-    );
-  }
-  function rdEmpty(emojiChar, title, body, action) {
+  // No section heading under the pills (the selected pill names the tab);
+  // each tab's one-line description lives in its empty state instead (desc).
+  function rdEmpty(emojiChar, title, body, action, desc) {
     return (
       <div style={rdCardStyle({ textAlign: "center", padding: "28px 20px" })}>
         {se && emojiChar && <div style={{ fontSize: "1.6rem", marginBottom: 8 }}>{emojiChar}</div>}
         <div style={{ fontFamily: font.heading, fontSize: 19, color: RD.ink, marginBottom: 6 }}>{title}</div>
+        {desc && <div data-testid="ripples-empty-desc" style={{ fontSize: 13, color: RD.ink2, fontWeight: 700, marginBottom: 4 }}>{desc}</div>}
         <div style={{ fontSize: 13, color: RD.ink2, lineHeight: 1.6 }}>{body}</div>
         {action}
       </div>
@@ -661,8 +656,7 @@ export default function RipplesRoom(props) {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 16, alignItems: "start" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {rdSectionHead("Memories & Milestones", "Newest first")}
-              {sorted.length === 0 ? rdEmpty("🌊", "The story starts here", "Capture first words, lost teeth, goals scored — anything worth remembering.") : sorted.slice(0, 30).map(function (r) {
+              {sorted.length === 0 ? rdEmpty("🌊", "The story starts here", "Capture first words, lost teeth, goals scored — anything worth remembering.", null, "Memories and milestones, newest first.") : sorted.slice(0, 30).map(function (r) {
                 var cs = catStyle(r.category);
                 var dot = RD_CAT[r.category] || RD_CAT.other;
                 return (
@@ -719,8 +713,7 @@ export default function RipplesRoom(props) {
       {/* ── REDESIGN: KID QUOTES ── */}
       {rd && tab === "quotes" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {rdSectionHead("Kid Quotes", "Things they said")}
-          {quoteRipples.length === 0 ? rdEmpty(null, "No quotes yet", "Tag a ripple \"Funny\" or wrap it in quotes to see it here.") : quoteRipples.map(function (r) {
+          {quoteRipples.length === 0 ? rdEmpty(null, "No quotes yet", "Tag a ripple \"Funny\" or wrap it in quotes to see it here.", null, "Things they said.") : quoteRipples.map(function (r) {
             return (
               <div key={r.id} data-testid="kid-quote-card" onClick={function () { openRippleEdit(r); }} style={rdCardStyle({ cursor: "pointer", padding: "16px 18px" })}>
                 <div data-testid="kid-quote-text" style={{ fontFamily: font.heading, fontSize: 21, fontStyle: "italic", color: RD.ink, lineHeight: 1.35, overflowWrap: "anywhere" }}>{r.name}</div>
@@ -737,10 +730,9 @@ export default function RipplesRoom(props) {
       {/* ── REDESIGN: TRADITIONS ── */}
       {rd && tab === "traditions" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {rdSectionHead("Traditions", "The things that make your family yours")}
           {editing && traditionEditor()}
           {!editing && sortedTrad.length === 0 && rdEmpty("🎃", "Your family's living traditions", "Pumpkin pancakes on the first snow. The Christmas Eve lights drive. The birthday breakfast plate. Capture the rituals that make you, you.",
-            <button type="button" onClick={openNew} style={{ marginTop: 14, padding: "9px 18px", borderRadius: 999, background: RD.teal, color: RD.ivory, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: font.body }}>+ Add your first tradition</button>)}
+            <button type="button" onClick={openNew} style={{ marginTop: 14, padding: "9px 18px", borderRadius: 999, background: RD.teal, color: RD.ivory, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: font.body }}>+ Add your first tradition</button>, "The things that make your family yours.")}
           {!editing && sortedTrad.map(function (t) {
             var days = daysUntil(t.when);
             var years = t.years || [];
@@ -790,8 +782,7 @@ export default function RipplesRoom(props) {
       {/* ── REDESIGN: RECAPS / YEARBOOK ── */}
       {rd && tab === "recaps" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {rdSectionHead("Monthly Recaps", "Your family's story, month by month")}
-          {props.recapSlot || rdEmpty("🧭", "Month recaps are coming soon", "Compass will gather each month's memories, milestones, and trips into a warm recap you can keep.")}
+          {props.recapSlot || rdEmpty("🧭", "Month recaps are coming soon", "Compass will gather each month's memories, milestones, and trips into a warm recap you can keep.", null, "Your family's story, month by month.")}
         </div>
       )}
       {rd && tab === "yearbook" && rdEmpty("📖", "Family Yearbook", "One day soon, Compass will weave a year of ripples into a keepsake book — photos, milestones, and quotes together.")}

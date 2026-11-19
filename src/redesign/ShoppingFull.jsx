@@ -207,7 +207,7 @@ export default function ShoppingFull(props) {
             {props.photoInput}
           </Card>
 
-          <Card testId="shop-list" title={emoPrefix(se, store.emoji) + store.label}
+          <Card testId="shop-list"
             right={storeDone.length > 0 ? <PillButton small variant="ghost" onClick={function () { props.onClearCompleted(store.label); }}>Clear done</PillButton> : null}>
             {listBody}
           </Card>

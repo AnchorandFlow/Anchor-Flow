@@ -12,6 +12,7 @@
 // has been deleted — this file is the single source of truth.
 
 import { mergeSafeHarbor } from "./shell/safe-harbor-migrate.js";
+import { mergeSunsetLog } from "./lib/sunsetLog.js";
 
 // ── Meal day order ─────────────────────────────────────────────────────────────
 // App.jsx line 514 (module scope). Three definitions exist in App.jsx; this is the
@@ -116,6 +117,11 @@ export const SYNC_KEYS = [
   "cal_markers","cal_marker_types","workDays",
   // Traditions (RipplesRoom)
   "traditions",
+  // sunset_log: Sunset completion per member per date (af_redesign) —
+  // { personId: { "YYYY-MM-DD": { completedAt, updatedAt, mood, released,
+  // exhaled } } }. Object map; merge-on-receive in applyHouseholdKey so two
+  // members closing the same night never clobber each other.
+  "sunset_log",
   // Meals month grid + next-week meal count (July 3 sync-gap audit).
   // F-17 fix: this entry was "af_nwMealCount" (double-prefixed — useSaved adds its
   // own "af_", so it round-tripped to the dead key af_af_nwMealCount, invisible to
@@ -286,7 +292,7 @@ const _SANITIZE_HANDLED = new Set([
   // Explicitly normalized
   "ripples",
   // Merge-on-receive (applyHouseholdKey handles the merge)
-  "safe_harbor",
+  "safe_harbor","sunset_log",
   // Object pass-through (LH-1; flag-gated, no merge hook yet)
   "lighthouse",
   // Onboarding completion state — explicit shape guard, see below.
@@ -536,6 +542,11 @@ export function sanitizeHouseholdData(data) {
         typeof data["safe_harbor"] === "object" && !Array.isArray(data["safe_harbor"])) {
       out["safe_harbor"] = data["safe_harbor"];
     }
+    // sunset_log: object map, merge-on-receive in applyHouseholdKey
+    if (data["sunset_log"] !== undefined && data["sunset_log"] !== null &&
+        typeof data["sunset_log"] === "object" && !Array.isArray(data["sunset_log"])) {
+      out["sunset_log"] = data["sunset_log"];
+    }
     // lighthouse: pass through as object (LH-1; flag-gated, no merge hook yet)
     if (data["lighthouse"] !== undefined && data["lighthouse"] !== null &&
         typeof data["lighthouse"] === "object" && !Array.isArray(data["lighthouse"])) {
@@ -591,6 +602,13 @@ export function coveListIsShared(list) {
   return list.category !== "personal";
 }
 
+// Keys whose applyHouseholdKey is a true merge that keeps local-only entries,
+// so a pull may apply them even while they have unpushed local edits (the
+// dirty-skip in the pull loops exists to protect wholesale-replace keys).
+// Without this, a dirty sunset_log skips the merge, and the next push sends
+// a log missing another member's entry for the same night.
+export var MERGE_WHILE_DIRTY = ["sunset_log"];
+
 // ── applyHouseholdKey ─────────────────────────────────────────────────────────
 // Per-key apply handler for SYNC_KEYS apply loops. Use this everywhere instead
 // of raw localStorage.setItem("af_" + k, ...) so that safe_harbor gets a merge
@@ -609,6 +627,12 @@ export function applyHouseholdKey(k, remoteVal) {
     try { var raw = localStorage.getItem("af_safe_harbor"); localObj = raw ? JSON.parse(raw) : null; } catch(_e) {}
     var merged = mergeSafeHarbor(localObj, remoteVal);
     try { localStorage.setItem("af_safe_harbor", JSON.stringify(merged)); } catch(_e) {}
+    return;
+  }
+  if (k === "sunset_log") {
+    var localSL = null;
+    try { var rawSL = localStorage.getItem("af_sunset_log"); localSL = rawSL ? JSON.parse(rawSL) : null; } catch { /* unreadable: treat as empty */ }
+    try { localStorage.setItem("af_sunset_log", JSON.stringify(mergeSunsetLog(localSL, remoteVal))); } catch { /* storage blocked */ }
     return;
   }
   if (k === "cove_lists_v1") {

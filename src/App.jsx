@@ -21,7 +21,7 @@ import Icon from "./components/Icon.jsx"
 import ScrollTabs from "./components/ScrollTabs.jsx"
 import Section from "./components/Section.jsx"
 import { SettingsPillContext } from "./components/settingsPillContext.js"
-import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey, resolveResponsibleParent, resolveForPerson, isLighthouseDirty, coveListIsShared } from "./sync-core.js"
+import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey, MERGE_WHILE_DIRTY, resolveResponsibleParent, resolveForPerson, isLighthouseDirty, coveListIsShared } from "./sync-core.js"
 import { classifyRefreshError } from "./auth/classifyRefreshError.js"
 import { BUILD_STAMP } from "./buildStamp.js"
 import { TIDEPOOL_V2, newEventId, getStoredHouseholdId, planTabChoreToggle, planSectionChoreToggle, planBonus, planClaim } from "./tidepool/ledger.js"
@@ -46,7 +46,7 @@ import { tone as RD_TONE_BASE, accentTone as RD_ACCENT, calendarTones as RD_CAL_
 import { rdLegacyKit, RD_T, goAnchor, rdFormKit, RD_OVERLAY, RD_DIALOG, RD_SHEET, RD_SHEET_TITLE, RD_CLOSE, RD_SECTION_LABEL, rdChip, rdPersonChip, RD_SEG_TRACK, rdSeg, rdLink, RD_DANGER, rdYearCatTone } from "./redesign/fullViewKit.js"
 import { HomeFull, PeopleFull, HorizonFull } from "./redesign/AnchorHubsFull.jsx"
 import { AnchorScreen, AnchorCard, AnchorBody } from "./redesign/AnchorFullView.jsx"
-import { EmojiScope } from "./redesign/FullView.jsx"
+import { EmojiScope, DrawnChevron } from "./redesign/FullView.jsx"
 import { sensitiveRecords } from "./redesign/anchorData.js"
 // Aliased to avoid colliding with the legacy inline OnboardingWizard still in
 // HomeFlow (~App.jsx:4924) — left untouched. It's fully dead: setShowOnboardingWizard
@@ -2461,7 +2461,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
               var key=entry[0];var th=entry[1];
               return(
                 <button key={key} onClick={()=>setThemeNameRaw(key)} style={{background:themeName===key?T.blue:T.white,color:themeName===key?"#fff":T.textDark,border:"2px solid "+(themeName===key?T.blue:T.border),borderRadius:"0.9rem",padding:"0.75rem 0.5rem",cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s",textAlign:"center"}}>
-                  <div style={{fontSize:"1.4rem",marginBottom:"0.25rem"}}>{th.emoji}</div>
+                  {(!REDESIGN||showEmojis===true)&&<div style={{fontSize:"1.4rem",marginBottom:"0.25rem"}}>{th.emoji}</div>}
                   <div style={{fontWeight:700,fontSize:"0.78rem"}}>{th.label}</div>
                 </button>
               );
@@ -2485,7 +2485,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
                   var on = notifSettings[n.key]!==false;
                   return(
                     <div key={n.key} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.62rem 0.9rem",borderBottom:i<NOTIF_LIST.length-1?"1px solid "+T.borderSoft:"none",background:on?"transparent":T.bgAlt+"60"}}>
-                      <span style={{fontSize:"1rem",flexShrink:0,opacity:on?1:0.4}}>{n.emoji}</span>
+                      {(!REDESIGN||showEmojis===true)&&<span style={{fontSize:"1rem",flexShrink:0,opacity:on?1:0.4}}>{n.emoji}</span>}
                       <div style={{flex:1}}>
                         <div style={{fontWeight:700,color:on?T.textDark:T.textFaint,fontSize:"0.82rem"}}>{n.label}</div>
                         <div style={{color:T.textSoft,fontSize:"0.7rem"}}>{n.desc} · <span style={{color:T.textFaint}}>{n.time}</span></div>
@@ -2533,11 +2533,11 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
           </div>
         ) : (
           <div>
-            <div style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.65rem 0.85rem",background:T.white,borderRadius:"0.75rem",marginBottom:"0.75rem",border:"1px solid "+T.borderSoft}}>
+            <div style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.65rem 0.85rem",background:T.white,borderRadius:"0.75rem",marginBottom:"0.75rem",border:"1px solid "+T.borderSoft,flexWrap:REDESIGN?"wrap":undefined}}>
               <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,"+T.blue+","+T.sage+")",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                 <span style={{color:"#fff",fontWeight:800,fontSize:"0.9rem"}}>{((authUser&&(authUser.displayName||authUser.email)||"?").charAt(0)).toUpperCase()}</span>
               </div>
-              <div style={{flex:1}}>
+              <div style={REDESIGN?{flex:"1 1 160px",minWidth:0,overflowWrap:"anywhere"}:{flex:1}}>
                 <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem"}}>{authUser&&(authUser.displayName||authUser.email)||"Signed in"}</div>
                 <div style={{color:T.textSoft,fontSize:"0.74rem"}}>{authUser&&authUser.email||""}</div>
               </div>
@@ -2556,7 +2556,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
                 a.download = "anchor-flow-backup-" + new Date().toISOString().slice(0,10) + ".json";
                 a.click();
                 URL.revokeObjectURL(url);
-              }} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.sage})}>Export Backup</button>
+              }} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.sage,whiteSpace:REDESIGN?"nowrap":undefined})}>Export Backup</button>
               <button onClick={function(){
                 var input = document.createElement("input");
                 input.type = "file";
@@ -2615,8 +2615,8 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
                   reader.readAsText(file);
                 };
                 input.click();
-              }} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.blue})}>Import Backup</button>
-              <button onClick={signOut} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.rose})}>Sign out</button>
+              }} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.blue,whiteSpace:REDESIGN?"nowrap":undefined})}>Import Backup</button>
+              <button onClick={signOut} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.rose,whiteSpace:REDESIGN?"nowrap":undefined})}>Sign out</button>
             </div>
             {/* Read-only sync-status indicator — derives entirely from existing
                 sync timestamps (af_lastHHSync) and the live authToken/syncStatus
@@ -3371,7 +3371,7 @@ function createLocalBackup() {
               SYNC_KEYS.forEach(k => {
                 if (clean[k] !== undefined) {
                   if (_AK1.includes(k) && !Array.isArray(clean[k])) return;
-                  if (_dirtyAtSignIn1.indexOf(k) !== -1) return;
+                  if (_dirtyAtSignIn1.indexOf(k) !== -1 && MERGE_WHILE_DIRTY.indexOf(k) === -1) return;
                   applyHouseholdKey(k, clean[k]);
                 }
               });
@@ -3403,7 +3403,7 @@ function createLocalBackup() {
                   SYNC_KEYS.forEach(k => {
                     if (clean[k] !== undefined) {
                       if (_AK2.includes(k) && !Array.isArray(clean[k])) return;
-                      if (_dirtyAtSignIn2.indexOf(k) !== -1) return;
+                      if (_dirtyAtSignIn2.indexOf(k) !== -1 && MERGE_WHILE_DIRTY.indexOf(k) === -1) return;
                       applyHouseholdKey(k, clean[k]);
                     }
                   });
@@ -3730,7 +3730,7 @@ function createLocalBackup() {
     SYNC_KEYS.forEach(function(k) {
       if (clean[k] === undefined) return;
       if (skip && skip(k)) return;
-      if (dirtyKeys.indexOf(k) !== -1) return; // local un-pushed edit wins until it syncs
+      if (dirtyKeys.indexOf(k) !== -1 && MERGE_WHILE_DIRTY.indexOf(k) === -1) return; // local un-pushed edit wins until it syncs (merge keys merge instead)
       if (arrayKeys && arrayKeys.indexOf(k) !== -1 && !Array.isArray(clean[k])) return;
       var before = null, after = null;
       try { before = localStorage.getItem("af_" + k); } catch (_e) {}
@@ -3854,7 +3854,7 @@ function createLocalBackup() {
         const _dirtyAtJoin = (() => { try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch { return []; } })();
         SYNC_KEYS.forEach(k => {
           if (clean2[k] !== undefined) {
-            if (_dirtyAtJoin.indexOf(k) !== -1) return;
+            if (_dirtyAtJoin.indexOf(k) !== -1 && MERGE_WHILE_DIRTY.indexOf(k) === -1) return;
             applyHouseholdKey(k, clean2[k]);
           }
         });
@@ -10224,8 +10224,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function mealsNextWeek(K){ var T=K.T, card=K.card, btnP=K.btnP, btnS=K.btnS, inp=K.inp; return (mealSubTab==="nextweek"&&(
           <div>
             <div style={K.rd?card({background:MEALS_TONE.tint,border:"none",boxShadow:"none",padding:"16px 18px",marginBottom:"0.85rem"}):{...card({background:`linear-gradient(135deg,${T.bluePale},${T.lavPale})`,border:`2px solid ${T.blue}55`,padding:"1rem 1.1rem",marginBottom:"0.85rem"})}}>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:K.rd?"1.35rem":"1.2rem",fontWeight:700,color:K.rd?MEALS_TONE.ink:T.textDark,marginBottom:"0.35rem"}}>🗓️ Plan Next Week</div>
-              <p style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.75rem",lineHeight:1.55}}>Fill in your meals ahead of time. Hit "Apply" when ready to load them into This Week.</p>
+              {!K.rd&&<div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:K.rd?"1.35rem":"1.2rem",fontWeight:700,color:K.rd?MEALS_TONE.ink:T.textDark,marginBottom:"0.35rem"}}>🗓️ Plan Next Week</div>}
+              {!K.rd&&<p style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.75rem",lineHeight:1.55}}>Fill in your meals ahead of time. Hit "Apply" when ready to load them into This Week.</p>}
               <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginBottom:"0.7rem"}}>
                 {[{v:1,label:"Dinner Only"},{v:2,label:"Lunch + Dinner"},{v:3,label:"All 3 Meals"}].map(o=>(
                   <button key={o.v} onClick={()=>setNextWeekMealCount(o.v)} style={K.rd?rdChip(nextWeekMealCount===o.v,MEALS_TONE,{background:nextWeekMealCount===o.v?MEALS_TONE.full:"#FFFFFF"}):{background:nextWeekMealCount===o.v?T.blue:T.white,color:nextWeekMealCount===o.v?"#fff":T.textMid,border:`2px solid ${nextWeekMealCount===o.v?T.blue:T.border}`,borderRadius:"2rem",padding:"0.28rem 0.82rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{o.label}</button>
@@ -10292,10 +10292,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           var monthMeals=getMonthMeals();
           return(
             <div>
-              <div style={K.rd?card({background:MEALS_TONE.tint,border:"none",boxShadow:"none",padding:"16px 18px",marginBottom:"0.85rem"}):{...card({background:"linear-gradient(135deg,"+T.lavPale||T.bluePale+","+T.surface+")",border:"2px solid "+T.blue+"40",padding:"1rem 1.1rem",marginBottom:"0.85rem"})}}>
+              {!K.rd&&<div style={K.rd?card({background:MEALS_TONE.tint,border:"none",boxShadow:"none",padding:"16px 18px",marginBottom:"0.85rem"}):{...card({background:"linear-gradient(135deg,"+T.lavPale||T.bluePale+","+T.surface+")",border:"2px solid "+T.blue+"40",padding:"1rem 1.1rem",marginBottom:"0.85rem"})}}>
                 <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:K.rd?"1.35rem":"1.2rem",fontWeight:700,color:K.rd?MEALS_TONE.ink:T.textDark,marginBottom:"0.2rem"}}>📅 Monthly Meal Plan</div>
                 <p style={{color:T.textSoft,fontSize:"0.8rem",lineHeight:1.5,margin:0}}>Plan dinners across four weeks. Hit Load Week to pull any week into your current plan.</p>
-              </div>
+              </div>}
               {WEEK_LABELS.map(function(wLabel,wi){
                 return(
                   <div key={wi} style={{marginBottom:"1rem"}}>
@@ -10575,9 +10575,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           return(
             <div>
               <div style={{...card({background:`linear-gradient(135deg,${T.sagePale},${T.bluePale})`,border:`2px solid ${T.sage}55`,padding:"1.2rem",textAlign:"center"})}}>
-                <div style={{fontSize:"2rem",marginBottom:"0.4rem"}}>🫙</div>
-                <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,margin:"0 0 0.35rem"}}>This Week's Prep</h2>
-                <p style={{color:T.textMid,fontSize:"0.83rem",lineHeight:1.6,maxWidth:280,margin:"0 auto 0.75rem"}}>20 minutes on Sunday changes everything.</p>
+                {!K.rd&&<div style={{fontSize:"2rem",marginBottom:"0.4rem"}}>🫙</div>}
+                {!K.rd&&<h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,margin:"0 0 0.35rem"}}>This Week's Prep</h2>}
+                {!K.rd&&<p style={{color:T.textMid,fontSize:"0.83rem",lineHeight:1.6,maxWidth:280,margin:"0 auto 0.75rem"}}>20 minutes on Sunday changes everything.</p>}
                 <button onClick={loadAiPrepTips} disabled={prepAiLoading} style={{...btnP(T.sage,{fontSize:"0.8rem",padding:"0.45rem 1.1rem",display:"inline-flex",alignItems:"center",gap:"0.4rem",opacity:prepAiLoading?0.6:1})}}>
                   {prepAiLoading?"✨ Analyzing meals…":"✨ Get smart prep tips"}
                 </button>
@@ -11164,8 +11164,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     return (
       <div>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem",flexWrap:"wrap",gap:"0.4rem"}}>
-          <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>My Recipes</span>
+        <div style={{display:"flex",justifyContent:REDESIGN?"flex-end":"space-between",alignItems:"center",marginBottom:"0.85rem",flexWrap:"wrap",gap:"0.4rem"}}>
+          {!REDESIGN&&<span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>My Recipes</span>}
           <div style={{display:"flex",gap:"0.4rem"}}>
             <button onClick={()=>{setImportOpen(function(v){return !v;});setImportError("");}} style={btnS({fontSize:"0.74rem",padding:"0.32rem 0.75rem"})}>Import from URL</button>
             <button onClick={()=>setAddingType(function(v){return !v;})} style={btnP(T.sage,{fontSize:"0.74rem",padding:"0.32rem 0.75rem"})}>+ Add Recipe</button>
@@ -11222,7 +11222,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   <div key={r.id} onClick={()=>setDetailId(r.id)} style={{...card({padding:"0.85rem 1rem",cursor:"pointer",maxWidth:280})}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                       <div>
-                        <div style={{fontWeight:700,color:T.textDark,fontSize:"0.92rem"}}>{r.title}</div>
+                        <div style={{fontWeight:700,color:T.textDark,fontSize:"0.92rem"}}>{REDESIGN?(r.title||r.name||"Untitled recipe"):r.title}</div>
                         <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",marginTop:"0.35rem"}}>
                           <Pill label={r.type==="full"?"Full recipe":"Simple dish"} color={r.type==="full"?T.sage:T.sand} tiny/>
                           {(r.occasions||[]).map(function(occ){return <Pill key={occ} label={occ} color={T.blue} tiny/>})}
@@ -14380,13 +14380,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var _listDetailEl = (
         <div style={{paddingBottom:"3rem"}}>
           {/* Header */}
-          <div style={{padding:"14px 16px 10px",display:"flex",alignItems:"flex-start",gap:8}}>
+          <div style={{padding:"14px 16px 10px",display:"flex",alignItems:"flex-start",gap:8,flexWrap:REDESIGN?"wrap":undefined}}>
             {/* Icon name="arrow-left" is not registered in Icon.jsx (returns null) — was rendering
                 an invisible-but-clickable button. Using a visible text label instead, matching the
                 established "← Back" pill pattern used elsewhere in this file (~11584), rather than
                 depending on the broken icon. */}
             <button onClick={function(){ setView("list"); }} style={{background:"none",border:"1px solid "+T.border,borderRadius:"2rem",cursor:"pointer",color:T.textMid,fontSize:"0.72rem",fontWeight:600,fontFamily:"inherit",padding:"0.3rem 0.75rem",display:"flex",alignItems:"center",flexShrink:0,marginTop:2}}>← Back to lists</button>
-            <div style={{flex:1,minWidth:0}}>
+            {/* af_redesign: back / shared / delete on one row, the title on its
+                own full-width row below (side by side it was cut to "Campi" at 390px). */}
+            <div style={REDESIGN?{flex:"1 1 100%",minWidth:0,order:3}:{flex:1,minWidth:0}}>
               <CoveTitleInput
                 key={activeList.id}
                 value={activeList.title}
@@ -14399,7 +14401,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
             <button onClick={function(){setCoveLists(function(p){return p.map(function(l){return l.id===activeList.id?Object.assign({},l,{isShared:!coveListIsShared(l)}):l;});});}}
               title={coveListIsShared(activeList)?"Shared — syncs to your household. Tap to make private.":"Private — stays on this device. Tap to share with your household."}
-              style={{background:coveListIsShared(activeList)?T.bluePale:T.sandPale,border:"1px solid "+(coveListIsShared(activeList)?T.blue:T.sand)+"55",borderRadius:999,padding:"3px 8px",fontSize:"0.66rem",fontWeight:700,color:coveListIsShared(activeList)?T.blueDark:T.sandDark,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap",fontFamily:"inherit",marginTop:2}}>
+              style={{background:coveListIsShared(activeList)?T.bluePale:T.sandPale,border:"1px solid "+(coveListIsShared(activeList)?T.blue:T.sand)+"55",borderRadius:999,padding:"3px 8px",fontSize:"0.66rem",fontWeight:700,color:coveListIsShared(activeList)?T.blueDark:T.sandDark,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap",marginLeft:REDESIGN?"auto":undefined,fontFamily:"inherit",marginTop:2}}>
               {coveListIsShared(activeList)?"👥 Shared":"🔒 Private"}
             </button>
             <button onClick={function(){ deleteList(activeList.id); }} style={{background:"none",border:"none",cursor:"pointer",opacity:0.3,padding:4,display:"flex",flexShrink:0,marginTop:2}}>
@@ -14848,7 +14850,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
     // Chevron used by both DashCard and SectionShell — same rotate-180° pattern
     // already established elsewhere in the app (Flow page / Today tab cards).
+    var LH_INK = "#1B2B44";
     function Chevron(open) {
+      if (REDESIGN) return <DrawnChevron open={open} color={LH_INK} />;
       return <span style={lhIn({ color:"#9a9488", fontSize:"0.7rem", display:"inline-block", transform:open?"rotate(180deg)":"none", transition:"transform .15s", flexShrink:0 })}>▾</span>;
     }
     // Big section-card shell used by Plan/Records/Growth/Library. tabName+sectionName
@@ -15866,7 +15870,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     <div onClick={function(){ setExpandedWeekDays(function(p){ return Object.assign({},p,{[day]:!p[day]}); }); }} style={lhIn({ display:"flex", alignItems:"center", gap:"0.5rem", cursor:"pointer" })}>
                       <span style={lhIn({ flex:1, fontSize:"0.82rem", fontWeight:700, color:"#3a3a34" })}>{day}</span>
                       <span style={lhIn({ fontSize:"0.7rem", color:"#9a9488" })}>{subjects.length} subject{subjects.length===1?"":"s"}</span>
-                      {subjects.length>0 && <span style={lhIn({ fontSize:"0.7rem", color:"#9a9488", transform:isExpanded?"rotate(180deg)":"none", transition:"transform 0.2s" })}>▾</span>}
+                      {subjects.length>0 && (REDESIGN ? <DrawnChevron open={isExpanded} color={LH_INK} /> : <span style={lhIn({ fontSize:"0.7rem", color:"#9a9488", transform:isExpanded?"rotate(180deg)":"none", transition:"transform 0.2s" })}>▾</span>)}
                     </div>
                     {subjects.length===0
                       ? <div style={lhIn({ color:"#9a9488", fontSize:"0.78rem", fontStyle:"italic", marginTop:"0.25rem" })}>No subjects planned</div>

@@ -3869,21 +3869,23 @@ function TravelProfileSection() {
 // so a caller only needs to supply icon/title/accent/children — same
 // self-contained-prop-driven shape as MaskedField (Step 1).
 function TripCard(props) {
+  var vc = useVaultChrome()
   var s = useState(props.defaultOpen !== false); var open = s[0]; var setOpen = s[1]
   var accent = props.accent || "#c8a97a"
   return (
-    <div style={{ background:"#f7f1e3", border:"1px solid "+accent+"33", borderRadius:8, marginBottom:12, overflow:"hidden" }}>
+    <div style={{ background:"#f7f1e3", border:"1px solid "+accent+"33", borderRadius:8, marginBottom:vc ? 0 : 12, overflow:"hidden" }}>
       <div onClick={function(){ setOpen(function(o){ return !o }) }} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 14px", cursor:"pointer" }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           {/* Circular icon badge — same shape/sizing convention as Health's HPersonCard avatar (~5921), tinted from this card's own accent instead of a solid person-color */}
-          <div style={{ width:30, height:30, borderRadius:"50%", background:accent, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, flexShrink:0 }}>{props.icon}</div>
+          {(!vc || vc.showEmojis) && <div style={{ width:30, height:30, borderRadius:"50%", background:accent, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, flexShrink:0 }}>{props.icon}</div>}
           <div>
             <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:15, fontWeight:500, color:"#1a2e3d", lineHeight:1.2 }}>{props.title}</div>
             {/* Always-visible content preview, even collapsed — same stat/status-text convention as HPersonCard's preview rows (~5942) */}
             {props.preview && <div style={{ fontSize:11, color:props.previewColor||"#4a6275", fontFamily:"DM Sans,sans-serif", marginTop:2 }}>{props.preview}</div>}
           </div>
         </div>
-        <span style={{ fontSize:10, color:"#4a6275", display:"inline-block", transform:open?"rotate(180deg)":"rotate(0deg)", transition:"transform 0.2s", flexShrink:0 }}>▾</span>
+        {vc ? <span style={{ display:"inline-flex", transform:open?"rotate(180deg)":"none", transition:"transform 0.2s", flexShrink:0 }}><RdChevron color="#1a2e3d" /></span>
+          : <span style={{ fontSize:10, color:"#4a6275", display:"inline-block", transform:open?"rotate(180deg)":"rotate(0deg)", transition:"transform 0.2s", flexShrink:0 }}>▾</span>}
       </div>
       {open && <div style={{ padding:"0 14px 14px", borderTop:"1px solid rgba(26,46,61,0.08)" }}>{props.children}</div>}
     </div>
@@ -3898,19 +3900,20 @@ function TripCard(props) {
 // (packing, itinerary) — other CARD_RENDERERS entries still return a plain
 // TripCard, untouched, until their own turn.
 function TripCardTile(props) {
+  var vc = useVaultChrome()
   var accent = props.accent || "#c8a97a"
   // Bug 2 fix: bg lets callers pass the category's pastel color (TRIP_MINI_CARD_COLORS)
   // to match the landing-page mini-grid; falls back to the original sand card for any
   // TripCardTile caller that doesn't pass one (dining, emergencyInfo — not in that palette).
   var bg = props.bg || "#f7f1e3"
   return (
-    <div onClick={props.onClick} style={{ background:bg, border:"1px solid "+accent+"33", borderRadius:8, marginBottom:12, overflow:"hidden", padding:A.cardPadding, cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
-      <div style={{ width:30, height:30, borderRadius:"50%", background:accent, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, flexShrink:0 }}>{props.icon}</div>
+    <div onClick={props.onClick} style={{ background:bg, border:"1px solid "+accent+"33", borderRadius:8, marginBottom:vc ? 0 : 12, overflow:"hidden", padding:A.cardPadding, cursor:"pointer", display:"flex", alignItems:"center", gap:10, height: vc ? "100%" : undefined, boxSizing: vc ? "border-box" : undefined }}>
+      {(!vc || vc.showEmojis) && <div style={{ width:30, height:30, borderRadius:"50%", background:accent, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, flexShrink:0 }}>{props.icon}</div>}
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:15, fontWeight:500, color:"#1a2e3d", lineHeight:1.2 }}>{props.title}</div>
-        {props.preview && <div style={{ fontSize:11, color:"#4a6275", fontFamily:"DM Sans,sans-serif", marginTop:2 }}>{props.preview}</div>}
+        <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:15, fontWeight:500, color:"#1a2e3d", lineHeight:1.2, overflowWrap: vc ? "normal" : undefined, wordBreak: vc ? "normal" : undefined }}>{props.title}</div>
+        {props.preview && <div style={{ fontSize:11, color:"#4a6275", fontFamily:"DM Sans,sans-serif", marginTop:2, overflowWrap: vc ? "normal" : undefined, wordBreak: vc ? "normal" : undefined }}>{props.preview}</div>}
       </div>
-      <span style={{ fontSize:16, color:"#4a6275", flexShrink:0 }}>›</span>
+      {vc ? <span style={{ display:"inline-flex", transform:"rotate(-90deg)", flexShrink:0 }}><RdChevron color="#1a2e3d" /></span> : <span style={{ fontSize:16, color:"#4a6275", flexShrink:0 }}>›</span>}
     </div>
   )
 }
@@ -5332,7 +5335,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
             <div>
               <button onClick={function(){ setActiveTripCard(null) }} style={{ background:"none", border:"none", color:"rgba(200,169,122,0.7)", cursor:"pointer", fontSize:13, fontFamily:"DM Sans,sans-serif", padding:"0 0 16px 0", display:"flex", alignItems:"center", gap:5 }}>← Back to {detailTrip.name || "trip"}</button>
               <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:18 }}>
-                <div style={{ width:36, height:36, borderRadius:"50%", background:(CARD_META[activeTripCard]||{}).accent||sand, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>{(CARD_META[activeTripCard]||{}).icon}</div>
+                {(!vc || vc.showEmojis) && <div style={{ width:36, height:36, borderRadius:"50%", background:(CARD_META[activeTripCard]||{}).accent||sand, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>{(CARD_META[activeTripCard]||{}).icon}</div>}
                 <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:700, color:warm }}>{(CARD_META[activeTripCard]||{}).title}</div>
               </div>
 
@@ -5971,13 +5974,13 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
               icon-only ⋮ button — no longer co-equal with the primary actions. */}
           <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:6 }}>
             <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0 }}>
-              <span style={{ fontSize:26, flexShrink:0 }}>{detailTrip.icon || "🧳"}</span>
+              {(!vc || vc.showEmojis) && <span style={{ fontSize:26, flexShrink:0 }}>{detailTrip.icon || "🧳"}</span>}
               <div style={{ minWidth:0 }}>
                 <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:700, color:warm, lineHeight:1.2 }}>{detailTrip.name || "Untitled trip"}</div>
                 {detailTrip.destination && <div style={{ fontSize:13, color:muted, fontFamily:"DM Sans,sans-serif", marginTop:2 }}>{detailTrip.destination}</div>}
               </div>
             </div>
-            <button onClick={function(){ setManageOpen(true) }} title="Customize cards" style={{ background:"rgba(250,242,229,0.06)", border:"1px solid rgba(250,242,229,0.15)", borderRadius:8, padding:"6px 10px", fontSize:14, color:"#1a2e3d", cursor:"pointer", flexShrink:0 }}>⋮</button>
+            <button onClick={function(){ setManageOpen(true) }} title="Customize cards" data-testid={vc ? "trip-customize" : undefined} style={vc ? { background:"transparent", border:"1px solid rgba(242,234,216,0.35)", borderRadius:999, padding:"6px 12px", fontSize:12, fontWeight:700, color:"#F2EAD8", fontFamily:"DM Sans,sans-serif", cursor:"pointer", flexShrink:0, whiteSpace:"nowrap" } : { background:"rgba(250,242,229,0.06)", border:"1px solid rgba(250,242,229,0.15)", borderRadius:8, padding:"6px 10px", fontSize:14, color:"#1a2e3d", cursor:"pointer", flexShrink:0 }}>{vc ? "Customize" : "⋮"}</button>
           </div>
           <div style={{ display:"flex", alignItems:"center", flexWrap:"wrap", gap:8, marginBottom:12 }}>
             {(detailTrip.startDate || detailTrip.endDate) && (
@@ -5986,7 +5989,10 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 {tripLengthDays(detailTrip) ? " · "+tripLengthDays(detailTrip)+" day"+(tripLengthDays(detailTrip)===1?"":"s") : ""}
               </span>
             )}
-            {detailTrip.status && (
+            {detailTrip.status && vc && (
+              <span data-testid="trip-detail-status" style={{ fontSize:11, fontWeight:700, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif", background:"#ddeaf4", borderRadius:999, padding:"2px 9px", whiteSpace:"nowrap" }}>{detailTrip.status}</span>
+            )}
+            {detailTrip.status && !vc && (
               <span style={{ display:"flex", alignItems:"center", gap:5 }}>
                 <span style={{ width:7, height:7, borderRadius:"50%", background:TRIP_STATUS_COLORS[detailTrip.status]||sand, display:"inline-block", flexShrink:0 }}/>
                 <span style={{ fontSize:12, color:TRIP_STATUS_COLORS[detailTrip.status]||sand, fontFamily:"DM Sans,sans-serif" }}>{detailTrip.status}</span>
@@ -6052,7 +6058,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 <div style={{ padding:"0 0 8px" }}>
                   <span style={{ fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", color:"#4a6275", fontFamily:"DM Sans,sans-serif" }}>{TRIP_DETAIL_SECTION_LABELS[sec]}</span>
                 </div>
-                <div className="af-trip-detail-grid" style={{ display:"grid", gap:12 }}>
+                <div className={vc ? "af-trip-detail-grid-rd" : "af-trip-detail-grid"} style={vc ? { display:"grid", gap:12, gridTemplateColumns:"repeat(auto-fill, minmax(min(100%, 220px), 1fr))", gridAutoRows:"1fr" } : { display:"grid", gap:12 }}>
                   {idsInSection.map(function(id) {
                     return CARD_RENDERERS[id] ? CARD_RENDERERS[id]() : null
                   })}

@@ -11,6 +11,11 @@ import { useState } from "react";
 import { AnchorScreen, AnchorCard, ARow, ALabel, AEmpty, APill, ACheck, LockRow } from "./AnchorFullView.jsx";
 import { INK_SOFT, CARD_LINE } from "./anchorKit.js";
 import { emo, goAnchor } from "./fullViewKit.js";
+import { formatTripRange } from "./vaultChrome.js";
+
+// Each pill's card carries no title of its own: the selected pill already
+// names it (only extra cards on the same pill, like Sensitive or Zones, keep
+// a title).
 
 function useReveal() {
   var [revealed, setRevealed] = useState({});
@@ -53,7 +58,7 @@ export function HomeFull(props) {
     if (tab === "info") {
       var cats = p.infoCategories.filter(function (c) { return p.homeInfo.some(function (i) { return (i.category || "General") === c; }); });
       return (
-        <AnchorCard title="Household Info" testId="home-info" right={<APill small testId="home-info-add" onClick={p.onAddInfo}>+ Add</APill>}>
+        <AnchorCard testId="home-info" right={<APill small testId="home-info-add" onClick={p.onAddInfo}>+ Add</APill>}>
           {p.homeInfo.length === 0 && <AEmpty>No home info saved yet. Wi-Fi password, utilities, vendor and emergency contacts.</AEmpty>}
           {cats.map(function (cat, ci) {
             return (
@@ -115,7 +120,7 @@ export function HomeFull(props) {
     if (tab === "maintenance") {
       var m = p.maintenanceDueSoon;
       return (
-        <AnchorCard title="Maintenance" testId="home-maintenance">
+        <AnchorCard testId="home-maintenance">
           {p.maintenanceCount === 0 ? <AEmpty>No maintenance items yet. Add your first in Maintenance.</AEmpty> : (
             m.length === 0 ? <AEmpty>All clear.</AEmpty> : (
               <>
@@ -132,7 +137,7 @@ export function HomeFull(props) {
     }
     if (tab === "inventory") {
       return (
-        <AnchorCard title="Inventory" testId="home-inventory" right={<span style={{ fontSize: 13.5, color: INK_SOFT, fontWeight: 700 }}>{p.inventoryCount + " tracked"}</span>}>
+        <AnchorCard testId="home-inventory" right={<span style={{ fontSize: 13.5, color: INK_SOFT, fontWeight: 700 }}>{p.inventoryCount + " tracked"}</span>}>
           <ALabel first>Running low</ALabel>
           {p.inventoryLow.length === 0 ? <AEmpty>All stocked.</AEmpty>
             : p.inventoryLow.map(function (it, i) { return <ARow key={it.id || i} first={i === 0} icon={emo(se, "⚠️")} label={it.name} testId={"low-" + (it.id || i)} />; })}
@@ -142,7 +147,7 @@ export function HomeFull(props) {
     }
     if (tab === "reminders") {
       return (
-        <AnchorCard title="Reminders" testId="home-reminders">
+        <AnchorCard testId="home-reminders">
           {p.reminders.length === 0 ? <AEmpty>No reminders yet. Add your first in Reminders.</AEmpty>
             : p.reminders.slice(0, 6).map(function (r, i) { return <ARow key={r.id} first={i === 0} icon={emo(se, r.emoji || "🔁")} label={r.label} value={p.reminderLabel(r)} testId={"reminder-" + r.id} />; })}
           <OpenLink testId="open-recurring" onClick={function () { p.openVault("recurring"); }}>Open Reminders</OpenLink>
@@ -150,7 +155,7 @@ export function HomeFull(props) {
       );
     }
     return (
-      <AnchorCard title="Subscriptions" testId="home-subs">
+      <AnchorCard testId="home-subs">
         {p.subs.length === 0 ? <AEmpty>No subscriptions tracked yet. Add your first in Subscriptions.</AEmpty>
           : p.subs.map(function (s, i) { return <ARow key={s.id || i} first={i === 0} label={s.name} value={s.amount ? ("$" + s.amount + " / " + s.cycle) : s.cycle} testId={"sub-" + (s.id || i)} />; })}
         <OpenLink testId="open-subs" onClick={function () { p.openVault("subs"); }}>Open Subscriptions</OpenLink>
@@ -186,7 +191,7 @@ export function PeopleFull(props) {
     if (tab === "health") {
       return (
         <>
-          <AnchorCard title="Health" testId="people-health">
+          <AnchorCard testId="people-health">
             {p.healthRows.length === 0 ? <AEmpty>No household members yet. Add people in Settings.</AEmpty>
               : p.healthRows.map(function (r, i) { return <ARow key={r.id} first={i === 0} dot={r.color || "#4A7FA8"} label={r.name} value={r.status} testId={"health-" + r.id} />; })}
             <OpenLink testId="open-health" onClick={function () { p.openVault("health"); }}>Open Health</OpenLink>
@@ -197,7 +202,7 @@ export function PeopleFull(props) {
     }
     if (tab === "career") {
       return (
-        <AnchorCard title="Career" testId="people-career">
+        <AnchorCard testId="people-career">
           {p.careerRows.length === 0 ? <AEmpty>No household members yet. Add people in Settings.</AEmpty>
             : p.careerRows.map(function (r, i) { return <ARow key={r.id} first={i === 0} dot={r.color || "#4A7FA8"} label={r.name} value={r.status} testId={"career-" + r.id} />; })}
           <OpenLink testId="open-career" onClick={function () { p.openVault("career"); }}>Open Career</OpenLink>
@@ -205,7 +210,7 @@ export function PeopleFull(props) {
       );
     }
     return (
-      <AnchorCard title="Pets" testId="people-pets">
+      <AnchorCard testId="people-pets">
         {p.pets.length === 0 ? <AEmpty>No pets yet. Add your first in Pets.</AEmpty>
           : p.pets.map(function (x, i) { return <ARow key={x.id} first={i === 0} icon={emo(se, "🐾")} label={x.name + (x.type ? " · " + x.type : "")} value={x.next ? x.next.name + " in " + x.next.days + "d" : "Up to date"} testId={"pet-" + x.id} />; })}
         <OpenLink testId="open-pets" onClick={function () { p.openVault("pets"); }}>Open Pets</OpenLink>
@@ -240,7 +245,7 @@ export function HorizonFull(props) {
         <>
           <AnchorCard title="Upcoming trips" testId="horizon-travel">
             {p.trips.length === 0 ? <AEmpty>No upcoming trips. Add your first in Travel.</AEmpty>
-              : p.trips.slice(0, 6).map(function (x, i) { return <ARow key={x.trip.id || x.trip.name} first={i === 0} icon={emo(se, "🧳")} label={x.trip.name} sub={x.trip.startDate} value={x.days + "d"} testId={"trip-" + (x.trip.id || i)} />; })}
+              : p.trips.slice(0, 6).map(function (x, i) { return <ARow key={x.trip.id || x.trip.name} first={i === 0} icon={emo(se, "🧳")} label={x.trip.name} sub={formatTripRange(x.trip.startDate, x.trip.endDate) || "Add dates"} value={x.days + "d"} testId={"trip-" + (x.trip.id || i)} />; })}
             <OpenLink testId="open-trips" onClick={function () { p.openVault("trips"); }}>Open Travel</OpenLink>
           </AnchorCard>
           <SensitiveList records={p.sensitive} revealed={revealed} onToggle={toggle} openVault={p.openVault} />
@@ -249,7 +254,7 @@ export function HorizonFull(props) {
     }
     if (tab === "celebrations") {
       return (
-        <AnchorCard title="Celebrations" testId="horizon-celebrations">
+        <AnchorCard testId="horizon-celebrations">
           {p.celebrations.length === 0 ? <AEmpty>No celebrations yet. Add your first in Celebrations.</AEmpty>
             : p.celebrations.slice(0, 6).map(function (c, i) { return <ARow key={c.id} first={i === 0} icon={emo(se, "🎉")} label={c.name} value={c.dateLabel + " · " + c.diff + "d"} testId={"celeb-" + c.id} />; })}
           <OpenLink testId="open-gifts" onClick={function () { p.openVault("gifts"); }}>Open Celebrations</OpenLink>
@@ -257,10 +262,10 @@ export function HorizonFull(props) {
       );
     }
     return (
-      <AnchorCard title="Safe Harbor" testId="horizon-safeharbor">
+      <AnchorCard testId="horizon-safeharbor">
         <ARow first label="Grab items" value={String(p.grabItemCount)} />
         <ARow label="Local plans" value={String(p.hazardCount)} />
-        <ARow label="Last reviewed" value={p.lastReviewed || "Never"} />
+        <ARow label="Last reviewed" value={p.lastReviewed ? (formatTripRange(p.lastReviewed, p.lastReviewed) || p.lastReviewed) : "Never"} />
         <OpenLink testId="open-safeharbor" onClick={function () { p.openVault("safeharbor"); }}>Open Safe Harbor</OpenLink>
       </AnchorCard>
     );

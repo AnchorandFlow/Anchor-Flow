@@ -4,6 +4,7 @@ import { DEFAULT_GRAB_ITEMS, DEFAULT_DATA, migrateToV2 } from "./safe-harbor-mig
 import { font } from "../design/tokens.js"
 import { AnchorHeader, AnchorPills, AnchorBody } from "../redesign/AnchorFullView.jsx"
 import { EmojiScope } from "../redesign/FullView.jsx"
+import { formatTripRange } from "../redesign/vaultChrome.js"
 
 // SAFE_HARBOR_V2 — opt-in (default OFF). Matches the Shopping V2 opt-in pattern.
 // Read once at module scope; toggling requires a full page reload to take effect.
@@ -569,7 +570,7 @@ export default function SafeHarbor(props) {
       {rd ? (
         <div className="af-sh-no-print">
           <AnchorHeader title="Safe Harbor" emoji="⚓" showEmojis={rdEmojis} onBack={props.onBack}
-            subtitle={"Your family's quiet plan for when life gets loud." + (data.lastReviewed ? " Last reviewed " + data.lastReviewed + "." : "")} />
+            subtitle={"Your family's quiet plan for when life gets loud." + (data.lastReviewed ? " Last reviewed " + (formatTripRange(data.lastReviewed, data.lastReviewed) || data.lastReviewed) + "." : "")} />
         </div>
       ) : (
       <div style={{ marginBottom:16, paddingBottom:14, borderBottom:"1px solid rgba(200,169,110,0.15)" }}>
@@ -624,14 +625,14 @@ export default function SafeHarbor(props) {
           )}
 
           {/* Summary row */}
-          <div className="af-sh-grid-3" style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:9, marginBottom:16 }}>
+          <div className="af-sh-grid-3" style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:9, marginBottom:16, gridAutoRows: rd ? "1fr" : undefined }}>
             {[
               { n:String(t3Count), l:"Grab items" },
               { n:String((data.hazards||[]).length), l:"Local plans" },
-              { n:data.lastReviewed ? data.lastReviewed.slice(5).replace("-","/") : "Never", l:"Reviewed" },
+              { n:data.lastReviewed ? (rd ? (formatTripRange(data.lastReviewed, data.lastReviewed) || data.lastReviewed).replace(/, \d{4}$/, "") : data.lastReviewed.slice(5).replace("-","/")) : "Never", l:"Reviewed" },
             ].map(function(s,i) {
               return (
-                <div key={i} style={card({ padding:"12px 10px", marginBottom:0, textAlign:"center" })}>
+                <div key={i} style={card(rd ? { padding:"12px 10px", marginBottom:0, textAlign:"center", display:"flex", flexDirection:"column", justifyContent:"center" } : { padding:"12px 10px", marginBottom:0, textAlign:"center" })}>
                   <div style={{ fontFamily:SERIF, fontSize:i===2?14:20, color:G.gold, lineHeight:1, marginBottom:4 }}>{s.n}</div>
                   <div style={{ fontSize:10, color:"#4a6275", lineHeight:1.3 }}>{s.l}</div>
                   {i === 2 && <div onClick={markReviewed} style={{ fontSize:9, color:G.sea, cursor:"pointer", marginTop:5 }}>Mark reviewed →</div>}
@@ -747,7 +748,7 @@ export default function SafeHarbor(props) {
                   <div style={{ width:32, height:32, borderRadius:"50%",
                     background:m.role==="Child"?G.seaPale:m.role==="Pet"?G.goldPale:"rgba(100,140,180,0.2)",
                     display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, flexShrink:0 }}>
-                    {m.role==="Child"?"🧒":m.role==="Pet"?"🐾":"👤"}
+                    {(rd && !rdEmojis) ? <span style={{ fontSize:13, fontWeight:700, color:"#1a2e3d" }}>{(m.name || "?").charAt(0).toUpperCase()}</span> : (m.role==="Child"?"🧒":m.role==="Pet"?"🐾":"👤")}
                   </div>
                   <div style={{ flex:1 }}>
                     <div style={{ fontSize:13, fontWeight:700, color:"#1a2e3d" }}>{m.name}</div>
@@ -889,7 +890,7 @@ export default function SafeHarbor(props) {
                       {/* Checkbox — V2: reflects sessionChecked overlay during sessions,
                           persistent item.checked otherwise. V1: always item.checked. */}
                       <div style={{ width:18, height:18, borderRadius:5, flexShrink:0, marginTop:2, transition:"all .15s",
-                        border:"1.5px solid "+(getChecked(item)?G.sea:"rgba(250,248,244,0.25)"),
+                        border:"1.5px solid "+(getChecked(item)?G.sea:(rd?"rgba(26,46,61,0.35)":"rgba(250,248,244,0.25)")),
                         background:getChecked(item)?G.sea:"transparent",
                         display:"flex", alignItems:"center", justifyContent:"center" }}>
                         {getChecked(item) && <span style={{ color:"#fff", fontSize:10 }}>✓</span>}
@@ -910,9 +911,9 @@ export default function SafeHarbor(props) {
                       {/* Remove button — all items */}
                       <button onClick={function(e) { e.stopPropagation(); removeItem(item) }}
                         aria-label={"Remove " + item.name + " from " + TIER_META[item.tier-1].sub + " list"}
-                        style={{ background:"none", border:"none", color:"rgba(250,248,244,0.18)", cursor:"pointer", fontSize:15, flexShrink:0, padding:"0 6px", lineHeight:1, marginTop:0, transition:"color .15s", minWidth:44, minHeight:44, display:"flex", alignItems:"center", justifyContent:"center" }}
+                        style={{ background:"none", border:"none", color:rd?"rgba(26,46,61,0.45)":"rgba(250,248,244,0.18)", cursor:"pointer", fontSize:15, flexShrink:0, padding:"0 6px", lineHeight:1, marginTop:0, transition:"color .15s", minWidth:44, minHeight:44, display:"flex", alignItems:"center", justifyContent:"center" }}
                         onMouseEnter={function(e) { e.currentTarget.style.color="rgba(208,128,96,0.7)" }}
-                        onMouseLeave={function(e) { e.currentTarget.style.color="rgba(250,248,244,0.18)" }}>
+                        onMouseLeave={function(e) { e.currentTarget.style.color=rd?"rgba(26,46,61,0.45)":"rgba(250,248,244,0.18)" }}>
                         ✕
                       </button>
                     </div>

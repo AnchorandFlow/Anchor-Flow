@@ -121,6 +121,7 @@ const PLAUSIBLE = {
   cal_marker_types:   [{ id:"cm1", emoji:"⭐", label:"Star" }],
   workDays:           ["Monday","Tuesday","Wednesday","Thursday","Friday"],
   traditions:         [{ id:"tr1", title:"Christmas Eve Drive", when:"12-24" }],
+  sunset_log:         { p_lin:{ "2026-11-13":{ completedAt:"2026-11-14T03:10:00.000Z", updatedAt:"2026-11-14T03:10:00.000Z", mood:"calm", released:[{ text:"Fold laundry", choice:"tomorrow" }], exhaled:["Call the dentist"] } } },
   monthMeals:         { "2026-06":{ "2026-06-01":"pasta","2026-06-02":"tacos" } },
   nwMealCount:        2,
   safe_harbor:        { version:2, lastReviewed:"2026-01-01", contacts:{}, members:[], grabItems:[], hazards:[], reviewDue:false, removedDefaultIds:[], sixPs:null, familyPlan:null, review:{ lastReviewedAt:null, cadence:"yearly", remindDismissedAt:null } },

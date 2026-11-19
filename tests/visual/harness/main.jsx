@@ -21,7 +21,10 @@ var params = new URLSearchParams(location.search);
 // ── Pinned clock: FIXED_NOW plus elapsed page time ─────────────────────────
 var RealDate = Date;
 var t0 = performance.now();
-function nowMs() { return FIXED_NOW + Math.floor(performance.now() - t0); }
+// hour=<0-23> moves the pinned clock to that hour on the same day (e.g. 19
+// for the evening Sunset card); default 09:00.
+var hourShift = params.get("hour") ? (parseInt(params.get("hour"), 10) - 9) * 3600000 : 0;
+function nowMs() { return FIXED_NOW + hourShift + Math.floor(performance.now() - t0); }
 function FakeDate(...args) {
   if (!new.target) return new RealDate(nowMs()).toString();
   return args.length ? new RealDate(...args) : new RealDate(nowMs());
@@ -87,7 +90,9 @@ function root() { return document.getElementById("root"); }
 
 // The visible HomeFlow tab panel (display:block among the tab panels), or the
 // whole root when it can't be found.
+var panelOverride = null;
 function panel() {
+  if (panelOverride) return panelOverride;
   if (vaultSection) return document.querySelector('.af-vault, [data-testid="redesign-anchor"]') || root();
   var tab = params.get("tab");
   var el = document.querySelector('[data-harness-tab="' + tab + '"]');
@@ -101,6 +106,9 @@ function panel() {
 }
 
 function findClickable(label) {
+  // "^#id" / "^Text": look in the whole page (overlays such as Sunset sit
+  // outside the tab panel).
+  if (label.charAt(0) === "^") { var saved = panelOverride; panelOverride = root(); try { return findClickable(label.slice(1)); } finally { panelOverride = saved; } }
   if (label.charAt(0) === "#") return panel().querySelector('[data-testid="' + label.slice(1) + '"]');
   var tagged = /^@([a-z0-9]+):(.*)$/.exec(label);
   if (tagged) {

@@ -125,7 +125,7 @@ export function AnchorCard(props) {
     <section data-testid={props.testId} data-anchor-card="true"
       style={Object.assign({ background: tn.tint, color: INK, borderRadius: radius.lg, boxShadow: shadow.raised, padding: "12px 14px", minWidth: 0, boxSizing: "border-box", fontFamily: BODY, fontSize: ROW }, props.style || {})}>
       {(props.title || props.right) && (
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: props.title ? "space-between" : "flex-end", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
           {props.title && <h2 style={Object.assign({ margin: 0, fontFamily: HEAD, fontSize: 20, fontWeight: 700, color: INK }, wrapText)}>{props.title}</h2>}
           {props.right || null}
         </div>
