@@ -31,7 +31,9 @@ function summary() { return q('[data-testid="anchor-summary"]').textContent; }
 // ── Flag OFF ────────────────────────────────────────────────────────────────
 describe("af_redesign off — Anchor stays exactly as it is", function () {
   var src = fs.readFileSync("src/App.jsx", "utf8");
-  var start = src.indexOf('{showAnchor && <SectionErrorBoundary label="Anchor Vault">');
+  // The flag-off render path (FlowWrapper's original return; the af_redesign
+  // top-nav branch above it has its own copy).
+  var start = src.indexOf('{showAnchor && <SectionErrorBoundary label="Anchor Vault"><HomeSwitch redesignOn={REDESIGN &&');
   var site = src.slice(start, src.indexOf("<div style={{ pointerEvents: showAnchor", start));
 
   it("overlay is behind HomeSwitch, redesign only for REDESIGN + the dashboard section", function () {

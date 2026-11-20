@@ -19,6 +19,7 @@
 import { createContext, useContext } from "react";
 import { radius, shadow, toneFor, fullBleed } from "../design/tokens.js";
 import { IVORY, wrapText, isAlwaysShownGlyph, emo } from "./fullViewKit.js";
+import AppFooter from "../shell/AppFooter.jsx";
 import { NAVY, CARD, INK, INK_SOFT, IVORY_SOFT, IVORY_LINE, CARD_LINE, HEAD, BODY, ROW, ANCHOR_CSS } from "./anchorKit.js";
 
 
@@ -46,9 +47,10 @@ export function AnchorPage(props) {
     return (
       <ToneContext.Provider value={tn}>
         <div className="af-vault" ref={props.scrollRef} data-testid={props.testId} data-redesign="full-view" data-anchor-room="true" data-section={props.section}
-          style={Object.assign(base, { position: "fixed", top: 0, left: 68, right: 0, bottom: 0, zIndex: 150, overflowY: "auto" })}>
+          style={Object.assign(base, { position: "fixed", top: "var(--af-nav-h, 0px)", left: 0, right: 0, bottom: 0, zIndex: 150, overflowY: "auto" })}>
           <style>{ANCHOR_CSS}</style>
-          <div style={{ padding: "calc(12px + env(safe-area-inset-top, 0px)) 14px calc(28px + env(safe-area-inset-bottom, 0px))", boxSizing: "border-box", minWidth: 0 }}>{inner}</div>
+          <div style={{ padding: "12px 14px 28px", boxSizing: "border-box", minWidth: 0 }}>{inner}</div>
+          <AppFooter dark />
         </div>
       </ToneContext.Provider>
     );

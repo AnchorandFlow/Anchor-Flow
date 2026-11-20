@@ -14,6 +14,7 @@ import { isPersonMinor } from "../compass/compassEngine";
 import { visibleAnchorTabs, vaultSections, sensitiveRecords, safeHarborModel, todayZone, nextMaintenance, peopleCards, coveSummary, horizonEvents } from "./anchorData.js";
 import { daysLabel } from "./homeData.js";
 import { readAnchorStores } from "./anchorStores.js";
+import AppFooter from "../shell/AppFooter.jsx";
 
 var NAVY = color.anchorNavy;
 var IVORY = gradient.sunset.text;
@@ -263,8 +264,8 @@ export default function RedesignAnchor(props) {
 
   return (
     <div data-testid="redesign-anchor"
-      style={{ position: "fixed", top: 0, left: 68, right: 0, bottom: 0, zIndex: 150, overflowY: "auto", overflowX: "hidden", background: NAVY, color: IVORY, fontFamily: font.body }}>
-      <div style={{ maxWidth: 640, margin: "0 auto", padding: "calc(16px + env(safe-area-inset-top, 0px)) 16px calc(28px + env(safe-area-inset-bottom, 0px))", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 10 }}>
+      style={{ position: "fixed", top: "var(--af-nav-h, 0px)", left: 0, right: 0, bottom: 0, zIndex: 150, overflowY: "auto", overflowX: "hidden", background: NAVY, color: IVORY, fontFamily: font.body }}>
+      <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px 16px 28px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button type="button" onClick={props.onBack} aria-label="Back to Home" style={Object.assign({}, pillBtn, { padding: "7px 14px 7px 12px", fontSize: 13, fontWeight: 600, gap: 6 })}>
             <span aria-hidden="true" style={{ width: 7, height: 7, borderLeft: "2px solid " + IVORY, borderBottom: "2px solid " + IVORY, transform: "rotate(45deg)", display: "inline-block" }} />Home
@@ -304,6 +305,7 @@ export default function RedesignAnchor(props) {
           {body()}
         </section>
       </div>
+      <AppFooter dark />
     </div>
   );
 }

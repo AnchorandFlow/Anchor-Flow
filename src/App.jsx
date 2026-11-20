@@ -6,6 +6,10 @@ import UndoToast from './components/UndoToast.jsx';
 import { askFamily, ageBracket, isPersonMinor, buildCompassContext, getDailyBriefing } from "./compass/compassEngine";
 import TodayBriefing from "./shell/TodayBriefing";
 import CompassFab from "./shell/CompassFab";
+import TopNav from "./shell/TopNav.jsx";
+import CompassPanel from "./shell/CompassPanel.jsx";
+import AppFooter from "./shell/AppFooter.jsx";
+import { navCurrent, navScreenName, RD_NAVY_TABS } from "./shell/navModel.js";
 import NudgeStrip from "./shell/NudgeStrip";
 import WeeklyReviewCard from "./shell/WeeklyReviewCard";
 import PrepCard from "./shell/PrepCard";
@@ -42,7 +46,7 @@ import LighthouseFull from "./redesign/LighthouseFull.jsx"
 import { LH_AREA_TONE, LH_DASH_TONE, lhAreaTone, lhChipStyle, lhRowStyle, lhTextStyle, lhSectionCard, lhSectionHead, lhDashCard, lhInnerStyle } from "./redesign/lighthouseColors.js"
 import { personColor as rdPersonColor } from "./redesign/flowData.js"
 import { MEALS_TONE, mealTagTone } from "./redesign/mealsColors.js"
-import { tone as RD_TONE_BASE, accentTone as RD_ACCENT, calendarTones as RD_CAL_TONES } from "./design/tokens.js"
+import { tone as RD_TONE_BASE, accentTone as RD_ACCENT, calendarTones as RD_CAL_TONES, gradient } from "./design/tokens.js"
 import { rdLegacyKit, RD_T, goAnchor, rdFormKit, RD_OVERLAY, RD_DIALOG, RD_SHEET, RD_SHEET_TITLE, RD_CLOSE, RD_SECTION_LABEL, rdChip, rdPersonChip, RD_SEG_TRACK, rdSeg, rdLink, RD_DANGER, rdYearCatTone } from "./redesign/fullViewKit.js"
 import { HomeFull, PeopleFull, HorizonFull } from "./redesign/AnchorHubsFull.jsx"
 import { AnchorScreen, AnchorCard, AnchorBody } from "./redesign/AnchorFullView.jsx"
@@ -4430,6 +4434,9 @@ function createLocalBackup() {
     }));
   }
   React.useLayoutEffect(() => { homeFlowRef.tab = tab; homeFlowRef.goTab = goTab; });
+  // af_redesign: the top nav (FlowWrapper) highlights the section of the tab
+  // actually showing, including tabs opened from inside a screen.
+  React.useEffect(() => { if (REDESIGN) { try { window.dispatchEvent(new CustomEvent("af-tab-changed", { detail: tab })); } catch { /* no window */ } } }, [tab]);
   var __roomKey = (tab==="flowhome"||tab==="calendar"||tab==="brain"||tab==="waves"||tab==="tidepool"||tab==="lighthouse") ? "Flow"
     : (tab==="meals"||tab==="shop"||tab==="cove"||tab==="home") ? "Anchor"
     : (tab==="settings") ? null : "Today";
@@ -8639,7 +8646,7 @@ Respond ONLY in valid JSON:
             var monthName=new Date(yr,m,1).toLocaleDateString("en-US",{month:"long"});
             return (
               <div key={m} style={K.rd?{background:"#FFFFFF",border:"none",borderRadius:16,boxShadow:"0 1px 2px rgba(27,43,68,0.04), 0 4px 14px rgba(27,43,68,0.06)",overflow:"hidden",marginBottom:calYearMode==="list"?"1rem":0,minWidth:0}:{background:T.surface,border:`1px solid ${T.borderSoft}`,borderRadius:"0.7rem",overflow:"hidden",marginBottom:calYearMode==="list"?"1rem":0}}>
-                <div style={K.rd?{position:calYearMode==="list"?"sticky":"static",top:0,zIndex:2,background:RD_CAL_TONES[m%RD_CAL_TONES.length].tint,padding:"0.45rem 0.55rem",textAlign:"center"}:{position:calYearMode==="list"?"sticky":"static",top:0,zIndex:2,background:T.bgAlt,borderBottom:`1px solid ${T.borderSoft}`,padding:"0.4rem 0.55rem",textAlign:"center"}}>
+                <div style={K.rd?{position:calYearMode==="list"?"sticky":"static",top:"var(--af-nav-h, 0px)",zIndex:2,background:RD_CAL_TONES[m%RD_CAL_TONES.length].tint,padding:"0.45rem 0.55rem",textAlign:"center"}:{position:calYearMode==="list"?"sticky":"static",top:0,zIndex:2,background:T.bgAlt,borderBottom:`1px solid ${T.borderSoft}`,padding:"0.4rem 0.55rem",textAlign:"center"}}>
                   <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:calYearMode==="list"?(K.rd?"1.1rem":"1rem"):(K.rd?"0.85rem":"0.8rem"),color:K.rd?RD_CAL_TONES[m%RD_CAL_TONES.length].ink:T.textDark}}>{monthName}{calYearMode==="list"?` ${yr}`:""}</span>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:K.rd?"repeat(7,minmax(0,1fr))":"repeat(7,1fr)",padding:"0.2rem"}}>
@@ -18895,7 +18902,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             Settings) shares this one wrapper, so a per-tab cap left them all narrower
             than Flow and the Anchor vault (already 1100px) for no product reason.
             Universal 1100 matches both; max-width only caps, so mobile is unaffected. */}
-        <div style={{maxWidth:1100,margin:"0 auto",padding:"1.1rem 0.9rem 0.5rem"}}>
+        <div style={{maxWidth:REDESIGN?1200:1100,margin:"0 auto",padding:"1.1rem 0.9rem 0.5rem"}}>
           {/* Only render tabs that have been visited — avoids mounting all 9 on load */}
           {["anchor","flowhome","calendar","waves","meals","shop","tidepool","cove","home","people","horizon","brain","lighthouse","settings"].map(t=>{
             if(!visitedTabs.current.has(t)) return null;
@@ -18912,6 +18919,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     /* Same cached call the current Home makes (AnchorTab briefing strip):
                        one Compass request per day per mode, shared cache. */
                     loadCompassLine={function(){ var st=readHouseholdState(); st.flowMode=flowMode; st.myPersonId=myPersonId; st.compassCache=compassCache; return getDailyBriefing(st, setCompassCache).then(function(d){ return d && d.notice ? d.notice : null; }); }}
+                    loadCompassBrief={function(){ var st=readHouseholdState(); st.flowMode=flowMode; st.myPersonId=myPersonId; st.compassCache=compassCache; return getDailyBriefing(st, setCompassCache).then(function(d){ return d ? { notice: d.notice || "", connection: d.connection || "" } : null; }); }}
                     vaultGated={BILLING_V1 && !sub.isPremium} onVaultGated={function(){ setPlusModalFeature("Home"); }}
                   />; }}
                 /></SectionErrorBoundary>}
@@ -19074,7 +19082,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
         )}
 
-        <div style={{position:"fixed",bottom:0,left:0,right:0,background:T.navBg,borderTop:`2px solid ${T.border}`,display:"flex",justifyContent:"space-around",padding:"0.5rem 0 max(0.75rem, env(safe-area-inset-bottom))",zIndex:100,boxShadow:`0 -2px 14px ${T.cardShadow}`}}>
+        {!REDESIGN&&<div style={{position:"fixed",bottom:0,left:0,right:0,background:T.navBg,borderTop:`2px solid ${T.border}`,display:"flex",justifyContent:"space-around",padding:"0.5rem 0 max(0.75rem, env(safe-area-inset-bottom))",zIndex:100,boxShadow:`0 -2px 14px ${T.cardShadow}`}}>
           {primaryVisible.map(t=>(
             <button key={t.id} onClick={()=>{goTab(t.id);setMoreDrawerOpen(false);}} aria-label={t.label} style={{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"3px",padding:"0.6rem 0.4rem",minWidth:48,flex:1,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
               <span style={{fontSize:"1.25rem",filter:tab===t.id?"none":"grayscale(0.3)",opacity:tab===t.id?1:0.6,transition:"all 0.15s"}}>{t.emoji}</span>
@@ -19091,7 +19099,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </span>
             {activeInMore&&<div style={{width:18,height:2.5,borderRadius:2,background:T.blue,marginTop:1}}/>}
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* AI accessible from header button */}
@@ -19514,6 +19522,96 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
       _setActiveTab("anchor")
     }
   }, [sections, activeTab])
+
+  // ── af_redesign: top nav + Compass panel + footer (no side rail) ──────────
+  const [compassOpen, setCompassOpen] = React.useState(false);
+  const [compassQ, setCompassQ] = React.useState(null);
+  function openCompass(q) {
+    // Same Plus gate the floating "Ask Compass" button always had.
+    if (BILLING_V1 && !sub.isPremium) { setPlusModalFeature("Ask Compass"); return; }
+    setCompassQ(q || null); setCompassOpen(true);
+  }
+  function goSection(id) {
+    if (id === "today") { setNavSel("today-pillar"); setShowAnchor(false); setOpenGroup(null); _setActiveTab("anchor"); }
+    else if (id === "flow") { setOpenGroup("Flow"); setNavSel("flowhome"); setShowAnchor(false); _setActiveTab("flowhome"); }
+    else if (id === "anchor") {
+      setOpenGroup("Anchor");
+      if (BILLING_V1 && !sub.isPremium) { setPlusModalFeature("Home"); return; }
+      setNavSel("v-home"); setShowAnchor(true); setVaultSection("home"); setVaultReturnTo(null); setAnchorFullVault(false);
+    }
+    else if (id === "ripples") { setNavSel("v-ripples"); setShowAnchor(true); setVaultSection("ripples"); setVaultReturnTo(null); }
+    try { window.scrollTo(0, 0); } catch { /* no window */ }
+  }
+  React.useEffect(function() {
+    if (!REDESIGN) return undefined;
+    function onTab(e) { if (e && e.detail) setActiveTabLocal(e.detail); }
+    function onSettings() { setShowAnchor(false); _setActiveTab("settings"); try { window.scrollTo(0, 0); } catch { /* no window */ } }
+    // HomeFlow's feedback form can't be used under an Anchor overlay, so
+    // Help closes the overlay first (HomeFlow opens the form itself).
+    function onFeedback() { setShowAnchor(false); }
+    function onCompassEv(e) { openCompass(e && e.detail && e.detail.question); }
+    window.addEventListener("af-tab-changed", onTab);
+    // HomeFlow's first af-tab-changed fires before this listener exists
+    // (child effects run first), so pick up its current tab now.
+    if (homeFlowRef.tab) setActiveTabLocal(homeFlowRef.tab);
+    window.addEventListener("af-open-settings", onSettings);
+    window.addEventListener("af-open-feedback", onFeedback);
+    window.addEventListener("af-open-compass", onCompassEv);
+    return function() {
+      window.removeEventListener("af-tab-changed", onTab);
+      window.removeEventListener("af-open-settings", onSettings);
+      window.removeEventListener("af-open-feedback", onFeedback);
+      window.removeEventListener("af-open-compass", onCompassEv);
+    };
+  }, [sub.isPremium]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (REDESIGN) {
+    var navCur = navCurrent(showAnchor, vaultSection, activeTab);
+    var screenName = navScreenName(showAnchor, vaultSection, activeTab);
+    var navDark = showAnchor ? vaultSection !== "ripples" : RD_NAVY_TABS.indexOf(activeTab) !== -1;
+    var navBg = showAnchor && vaultSection === "ripples" ? gradient.ripples.from : undefined;
+    return (
+      <div data-testid="rd-shell" style={{ minHeight: "100dvh", paddingTop: "var(--af-nav-h, 64px)", boxSizing: "border-box", background: navDark ? "#1B2B44" : (navBg || undefined) }}>
+        <style>{`
+          div[style*="position: sticky"][style*="z-index: 100"] { display: none !important; }
+        `}</style>
+        <TopNav current={navCur} dark={navDark || !!navBg} background={navBg} ripplesOn={featureFlags.ripplesEnabled}
+          onSection={goSection}
+          onHome={function(){ goSection("today"); }}
+          onCompass={function(){
+            // On Today the daily brief (with its own Ask box) is the Compass.
+            if (!showAnchor && activeTab === "anchor") {
+              var ev = new CustomEvent("af-focus-compass-ask", { detail: { handled: false } });
+              window.dispatchEvent(ev);
+              if (ev.detail.handled) return;
+            }
+            openCompass(null);
+          }} />
+        {showAnchor && <SectionErrorBoundary label="Anchor Vault"><HomeSwitch redesignOn={vaultSection === "home" && !anchorFullVault}
+          renderLegacy={function(){ return <AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} initialTripId={vaultTripId} onTripIdConsumed={() => setVaultTripId(null)} redesign={REDESIGN} featureFlags={featureFlags} onBackToAnchor={function(){ setVaultSection("home"); setVaultReturnTo(null); setAnchorFullVault(false); }} onBackHome={function(){ setNavSel("today-pillar"); setShowAnchor(false); setOpenGroup(null); _setActiveTab("anchor"); }} returnTo={vaultReturnTo} onReturnTo={function(tabId){ if (tabId === "anchor") { setVaultSection("home"); setVaultReturnTo(null); setAnchorFullVault(false); return; } setShowAnchor(false); _setActiveTab(tabId); }} />; }}
+          renderRedesign={function(){ return <RedesignAnchor sections={sections} featureFlags={featureFlags}
+            onBack={function(){ setNavSel("today-pillar"); setShowAnchor(false); setOpenGroup(null); _setActiveTab("anchor"); }}
+            onSettings={function(){ setShowAnchor(false); _setActiveTab("settings"); }}
+            onOpenVaultDashboard={function(){ setAnchorFullVault(true); }}
+            onOpenVault={function(section){ setVaultSection(section); setVaultReturnTo("anchor"); }}
+            onOpenTab={function(tabId, label){
+              if (PLUS_GATED_NAV_IDS[tabId] && BILLING_V1 && !sub.isPremium) { setPlusModalFeature(label); return; }
+              setNavSel("c-Anchor-"+tabId); setShowAnchor(false); _setActiveTab(tabId);
+            }}
+          />; }}
+        /></SectionErrorBoundary>}
+        <div style={{ pointerEvents: showAnchor ? "none" : "auto" }} aria-hidden={showAnchor ? "true" : undefined}>
+          <ErrorBoundary>
+            <HomeFlow recoveryToken={recoveryToken} />
+          </ErrorBoundary>
+          {!showAnchor && <AppFooter dark={RD_NAVY_TABS.indexOf(activeTab) !== -1} />}
+        </div>
+        <CompassPanel open={compassOpen} screen={screenName} initialQuestion={compassQ} onClose={function(){ setCompassOpen(false); setCompassQ(null); }} />
+        {plusModalFeature && <PlusModal featureName={plusModalFeature} getToken={_afReadToken} onClose={function(){ setPlusModalFeature(null); }}/>}
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "flex", minHeight: "100dvh" }}>
       <div style={{ width: "68px", background: "#1a2744", display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 0 8px", gap: "2px", position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 200, borderRight: "1px solid rgba(255,255,255,0.06)", overflowY: "auto" }}>

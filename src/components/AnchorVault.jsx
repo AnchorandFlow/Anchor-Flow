@@ -8,6 +8,7 @@ import SafeHarbor from "../shell/SafeHarbor"
 import { REDESIGN } from "../design/redesignFlag.js"
 import { gradient } from "../design/tokens.js"
 import VaultFull from "../redesign/VaultFull.jsx"
+import AppFooter from "../shell/AppFooter.jsx"
 import { useVaultChrome, VAULT_DESCRIPTIONS, formatTripRange, tripTiming } from "../redesign/vaultChrome.js"
 // CareerSection is defined inline below
 
@@ -799,7 +800,7 @@ function InventorySection({ onAddToShopping }) {
             </div>
           )}
           {toast && (
-            <div style={{ position: "fixed", top: 80, left: "calc(68px + 50%)", transform: "translateX(-50%)", background: "#7a9e8e", color: "#fff", padding: "8px 18px", borderRadius: 20, fontSize: 13, fontFamily: "DM Sans,sans-serif", zIndex: 9999, whiteSpace: "nowrap" }}>{toast}</div>
+            <div style={{ position: "fixed", top: 80, left: REDESIGN ? "50%" : "calc(68px + 50%)", transform: "translateX(-50%)", background: "#7a9e8e", color: "#fff", padding: "8px 18px", borderRadius: 20, fontSize: 13, fontFamily: "DM Sans,sans-serif", zIndex: 9999, whiteSpace: "nowrap" }}>{toast}</div>
           )}
 
           {/* ── Main category tabs ── */}
@@ -6265,7 +6266,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
         // 68px left sidebar (zIndex:200, a sibling of af-vault, not a
         // descendant) and the sidebar would paint on top of that overlapping
         // strip, clipping the modal's left edge on narrow/mobile viewports.
-        <div style={{ position:"fixed", top:0, left:68, right:0, bottom:0, background:"rgba(15,26,42,0.72)", zIndex:300, display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={closeForm}>
+        <div style={{ position:"fixed", top:0, left:REDESIGN?0:68, right:0, bottom:0, background:"rgba(15,26,42,0.72)", zIndex:300, display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={closeForm}>
           <div onClick={function(e){ e.stopPropagation() }} style={{ background:"#1a2744", borderRadius:"18px 18px 0 0", padding:20, paddingBottom:"calc(20px + env(safe-area-inset-bottom,0px))", width:"min(480px,100%)", maxHeight:"calc(88dvh - env(safe-area-inset-top,0px))", overflowY:"auto", boxSizing:"border-box" }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
               <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:19, fontWeight:700, color:warm }}>{formTrip.id ? "Edit trip" : "Add trip"}</div>
@@ -6415,7 +6416,7 @@ function CHead(props) {
   )
 }
 function CModal(props) {
-  return React.createElement("div",{style:{position:"fixed",top:0,left:68,right:0,bottom:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999},onClick:props.onClose},
+  return React.createElement("div",{style:{position:"fixed",top:0,left:REDESIGN?0:68,right:0,bottom:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999},onClick:props.onClose},
     React.createElement("div",{style:{background:"#2E486B",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,calc(100vw - 68px - 2rem))",maxHeight:"85dvh",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:function(e){e.stopPropagation();}},
       React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}},
         React.createElement("span",{style:{color:CAREER_MODAL_TEXT,fontSize:15,fontWeight:600}},props.title),
@@ -7326,7 +7327,7 @@ function HItemRow(props) {
   );
 }
 function HModal(props) {
-  return React.createElement("div",{style:{position:"fixed",top:0,left:68,right:0,bottom:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:"env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:props.onClose},
+  return React.createElement("div",{style:{position:"fixed",top:0,left:REDESIGN?0:68,right:0,bottom:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:"env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:props.onClose},
     React.createElement("div",{style:{background:"#2E486B",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,calc(100vw - 68px - 2rem))",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:function(e){e.stopPropagation();}},
       React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}},React.createElement("span",{style:{color:HMODAL_TEXT,fontSize:15,fontWeight:500}},props.title),React.createElement("button",{onClick:props.onClose,style:{background:"none",border:"none",color:"rgba(250,248,244,0.4)",cursor:"pointer",fontSize:18}},"✕")),
       props.children
@@ -10386,7 +10387,7 @@ export default function AnchorVault({ onClose, calEvents, vaultSection, initialT
   }
 
   return (
-    <div className="af-vault" style={{ position: "fixed", top: 0, left: 68, right: 0, bottom: 0, zIndex: 150, display: "flex" }}>
+    <div className="af-vault" style={{ position: "fixed", top: REDESIGN ? "var(--af-nav-h, 0px)" : 0, left: REDESIGN ? 0 : 68, right: 0, bottom: 0, zIndex: 150, display: "flex" }}>
       <style>{VAULT_INPUT_STYLE}</style>
       <div ref={vaultScrollRef} style={{ flex: 1, background: (activeSection === "ripples" ? (REDESIGN ? gradient.ripples.css : "linear-gradient(165deg,#3E8B91 0%,#2B7378 55%,#1E5B63 100%)") : "#f2ead8"), transition: "background 0.3s", overflowY: "auto" }}>
         {/* Matches Flow's page container exactly (App.jsx's maxWidth:1100 branch) —
@@ -10422,6 +10423,7 @@ export default function AnchorVault({ onClose, calEvents, vaultSection, initialT
             </div>
           )}
         </div>
+        {REDESIGN && <AppFooter dark />}
       </div>
     </div>
   )

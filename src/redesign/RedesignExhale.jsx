@@ -305,7 +305,7 @@ export default function RedesignExhale(props) {
         </form>
 
         {movingItem && (
-          <div data-testid="move-banner" role="status" style={{ display: "flex", alignItems: "center", gap: 10, background: NAVY, color: IVORY, borderRadius: radius.sm, padding: "9px 12px", fontSize: 13, position: "sticky", top: "env(safe-area-inset-top, 0px)", zIndex: 2 }}>
+          <div data-testid="move-banner" role="status" style={{ display: "flex", alignItems: "center", gap: 10, background: NAVY, color: IVORY, borderRadius: radius.sm, padding: "9px 12px", fontSize: 13, position: "sticky", top: "var(--af-nav-h, env(safe-area-inset-top, 0px))", zIndex: 2 }}>
             <span style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>Moving “{movingItem.text}”. Tap Drop here on a bucket.</span>
             <button type="button" onClick={function () { setMoveFor(null); }} style={{ flexShrink: 0, background: "transparent", color: IVORY, border: "1px solid rgba(242,234,216,0.5)", borderRadius: 999, padding: "4px 12px", fontFamily: font.body, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Cancel</button>
           </div>

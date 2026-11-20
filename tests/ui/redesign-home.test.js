@@ -278,7 +278,7 @@ describe("RedesignHome screen", function () {
       setter.call(input, "Remember the permission slip");
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
-    await act(async function () { q("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+    await act(async function () { input.closest("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
     var saved = JSON.parse(localStorage.getItem("af_exhale_buckets"));
     expect(saved.items.length).toBe(2);
     expect(saved.items[0]).toMatchObject({ text: "Remember the permission slip", bucketIndex: 0 });

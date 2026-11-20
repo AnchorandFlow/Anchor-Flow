@@ -100,7 +100,7 @@ function panel() {
   var candidates = Array.from(root().querySelectorAll('div[style*="display: block"]'));
   for (var i = 0; i < candidates.length; i++) {
     var p = candidates[i].parentElement;
-    if (p && p.style && p.style.maxWidth === "1100px") return candidates[i];
+    if (p && p.style && (p.style.maxWidth === "1100px" || p.style.maxWidth === "1200px")) return candidates[i];
   }
   return root();
 }
@@ -161,7 +161,18 @@ async function run() {
   var errors = [];
   for (var i = 0; i < steps.length; i++) {
     var label = steps[i][0], click = steps[i][1];
-    if (click && click.indexOf("!event:") === 0) {
+    if (click && click.indexOf("!focus:") === 0) {
+      // "!focus:<css selector>" focuses an element (keyboard focus ring check)
+      var fe = document.querySelector(click.slice(7));
+      if (!fe) { errors.push("not found: " + click); continue; }
+      fe.focus();
+      await wait(300);
+    } else if (click && click.indexOf("!scroll:") === 0) {
+      // "!scroll:<css selector>" scrolls the element (or its scroll box) to its end
+      var se = document.querySelector(click.slice(8));
+      if (se) { se.scrollTop = se.scrollHeight; } else { window.scrollTo(0, document.body.scrollHeight); }
+      await wait(300);
+    } else if (click && click.indexOf("!event:") === 0) {
       // "!event:<name>:<json detail>" dispatches a window event (e.g. the
       // in-app confirm, which no harness screen opens by itself)
       var ev = /^!event:([a-z-]+):(.*)$/.exec(click);

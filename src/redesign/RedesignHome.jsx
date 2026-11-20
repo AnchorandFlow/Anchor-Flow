@@ -5,7 +5,7 @@
 // by other screens are read from localStorage and re-read on af-data-changed /
 // storage / visibility. Read-only except the Exhale quick-add, which appends
 // to the existing exhale_buckets key exactly like FlowHome's quick-add.
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import AnchorLogo from "../components/AnchorLogo.jsx";
 import { color, gradient, radius, shadow, font, shouldShowEmoji, tone, fullBleed } from "../design/tokens.js";
 import { buildHomeModel, daysLabel, EXHALED_BUCKET } from "./homeData.js";
@@ -13,6 +13,7 @@ import { whoOf } from "./flowData.js";
 import { personIdOf } from "./exhaleModel.js";
 import { isAnchoredToday } from "../lib/sunsetLog.js";
 import { AnchoredCheck } from "../shell/SunsetClose.jsx";
+import { SectionGlyph } from "../shell/TopNav.jsx";
 
 var IVORY = gradient.sunset.text;
 var NAVY = color.anchorNavy;
@@ -64,6 +65,8 @@ var THEMES = {
 };
 
 var wrapText = { minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" };
+var BRIEF_LABEL = { fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#DDBB70", marginBottom: 6 };
+var BRIEF_ITEM = { fontSize: 14, lineHeight: 1.45, padding: "3px 0", overflowWrap: "anywhere" };
 
 function Item(props) {
   var showIcon = props.icon && shouldShowEmoji(props.iconKind || "item", props.showEmojis);
@@ -109,6 +112,9 @@ export default function RedesignHome(props) {
   var [stores, setStores] = useState(readStores);
   var [openId, setOpenId] = useState("today");
   var [compassLine, setCompassLine] = useState(null);
+  var [brief, setBrief] = useState(null); // { notice, connection } from the daily briefing
+  var [ask, setAsk] = useState("");
+  var askRef = useRef(null);
   var [compassDone, setCompassDone] = useState(false);
   var [draft, setDraft] = useState("");
   var [justAdded, setJustAdded] = useState(false);
@@ -132,9 +138,12 @@ export default function RedesignHome(props) {
   useEffect(function () {
     var alive = true;
     if (props.compassEnabled === false || typeof props.loadCompassLine !== "function") { setCompassLine(null); setCompassDone(true); return; }
-    Promise.resolve().then(props.loadCompassLine).then(function (line) {
-      if (alive) { setCompassLine(line || null); setCompassDone(true); }
-    }, function () { if (alive) { setCompassLine(null); setCompassDone(true); } });
+    var load = typeof props.loadCompassBrief === "function" ? props.loadCompassBrief : props.loadCompassLine;
+    Promise.resolve().then(load).then(function (d) {
+      if (!alive) return;
+      var b = d && typeof d === "object" ? d : { notice: d || "" };
+      setBrief(b); setCompassLine(b.notice || null); setCompassDone(true);
+    }, function () { if (alive) { setBrief(null); setCompassLine(null); setCompassDone(true); } });
     return function () { alive = false; };
   }, [props.flowMode, props.compassEnabled]); // eslint-disable-line
 
@@ -150,6 +159,24 @@ export default function RedesignHome(props) {
   // Sunset done tonight (this member, household date): "Anchored" until the
   // household's midnight. Re-read every render (minute tick, data changes).
   var anchored = isAnchoredToday(props.now ? props.now() : new Date());
+
+  useEffect(function () {
+    function onFocusAsk(e) {
+      if (!askRef.current) return;
+      if (e && e.detail) e.detail.handled = true;
+      try { askRef.current.scrollIntoView({ block: "center", behavior: "smooth" }); } catch { /* old browser */ }
+      askRef.current.focus();
+    }
+    window.addEventListener("af-focus-compass-ask", onFocusAsk);
+    return function () { window.removeEventListener("af-focus-compass-ask", onFocusAsk); };
+  }, []);
+  function askCompass(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    var q = ask.trim();
+    if (!q) return;
+    setAsk("");
+    try { window.dispatchEvent(new CustomEvent("af-open-compass", { detail: { question: q } })); } catch { /* no window */ }
+  }
 
   function toggle(id) { setOpenId(function (cur) { return cur === id ? null : id; }); }
 
@@ -191,12 +218,51 @@ export default function RedesignHome(props) {
           </div>
         </header>
 
+        {/* Compass daily brief — the large navy card at the top of Today */}
+        <style>{".af-brief-ask{outline:none}.af-brief-ask:focus-visible{outline:2px solid #DDBB70;outline-offset:2px}.af-brief-ask::placeholder{color:rgba(242,234,216,0.6)}"}</style>
+        <section data-testid="compass-brief" aria-label="Compass daily brief"
+          style={{ background: NAVY, color: IVORY, borderRadius: radius.lg, boxShadow: shadow.raised, padding: "18px 18px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span aria-hidden="true" style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg,#DDBB70,#B08840)", color: NAVY, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><SectionGlyph id="compass" size={18} /></span>
+            <div style={{ fontFamily: font.heading, fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>Compass</div>
+          </div>
+          {props.compassEnabled === false ? (
+            <div data-testid="compass-line" style={{ fontFamily: font.heading, fontStyle: "italic", fontSize: 18, lineHeight: 1.45, color: "rgba(242,234,216,0.82)" }}>Compass is resting. Turn it on in Settings any time.</div>
+          ) : (
+            <>
+              {compassLine
+                ? <div data-testid="compass-line" style={{ fontFamily: font.heading, fontStyle: "italic", fontSize: 19, lineHeight: 1.45 }}>{compassLine}</div>
+                : <div style={{ fontFamily: font.heading, fontStyle: "italic", fontSize: 18, lineHeight: 1.45, color: "rgba(242,234,216,0.82)" }}>{compassDone ? "Compass is quiet for now. A calm day." : "Compass is looking over your day…"}</div>}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 230px), 1fr))", gap: 12 }}>
+                <div data-testid="brief-noted">
+                  <div style={BRIEF_LABEL}>Gently noted</div>
+                  {brief && brief.connection
+                    ? <div style={BRIEF_ITEM}>{brief.connection}</div>
+                    : <div style={Object.assign({}, BRIEF_ITEM, { color: "rgba(242,234,216,0.65)" })}>Nothing needs you right now.</div>}
+                  {t.exhale.length > 0 && <div style={BRIEF_ITEM}>{t.exhale.length + " Exhale item" + (t.exhale.length === 1 ? "" : "s") + " for today"}</div>}
+                </div>
+                <div data-testid="brief-coming">
+                  <div style={BRIEF_LABEL}>Coming up</div>
+                  {t.events.slice(0, 3).map(function (ev, i) {
+                    return <div key={"bc" + (ev.id || i)} style={BRIEF_ITEM}>{(ev.time ? ev.time + " · " : "Today · ") + (ev.title || "Event")}</div>;
+                  })}
+                  {a.horizon && <div style={BRIEF_ITEM}>{a.horizon.name + " · " + daysLabel(a.horizon.days)}</div>}
+                  {!t.events.length && !a.horizon && <div style={Object.assign({}, BRIEF_ITEM, { color: "rgba(242,234,216,0.65)" })}>Nothing on the calendar yet.</div>}
+                </div>
+              </div>
+              <form onSubmit={askCompass} style={{ display: "flex", gap: 8, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(242,234,216,0.16)", borderRadius: radius.md, padding: 6 }}>
+                <input ref={askRef} value={ask} onChange={function (e) { setAsk(e.target.value); }} aria-label="Ask Compass anything" data-testid="brief-ask"
+                  placeholder="Ask Compass anything…" className="af-brief-ask"
+                  style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", color: IVORY, fontFamily: font.body, fontSize: 16, padding: "8px 10px", borderRadius: 8 }} />
+                <button type="submit" disabled={!ask.trim()} style={{ flexShrink: 0, border: "none", borderRadius: radius.sm, padding: "0 16px", background: "linear-gradient(135deg,#DDBB70,#B08840)", color: NAVY, fontFamily: font.body, fontWeight: 800, fontSize: 14, cursor: ask.trim() ? "pointer" : "default", opacity: ask.trim() ? 1 : 0.55 }}>Ask</button>
+              </form>
+            </>
+          )}
+        </section>
+
         {/* Today */}
         <Pillar id="today" label="Today" icon={PILLARS[0].icon} open={openId === "today"} onToggle={function () { toggle("today"); }}
           summary={todayCount ? todayCount + " thing" + (todayCount === 1 ? "" : "s") + " today" : "A clear day"}>
-          {compassLine
-            ? <div data-testid="compass-line" style={{ fontFamily: font.heading, fontStyle: "italic", fontSize: 17, lineHeight: 1.45, color: NAVY, padding: "2px 4px 6px" }}>{compassLine}</div>
-            : compassDone && <Empty color={MUTED}>{props.compassEnabled === false ? "Compass is resting. Turn it on in Settings any time." : "Compass is quiet for now."}</Empty>}
           {t.events.map(function (ev, i) {
             return <Item key={"ev" + (ev.id || i)} showEmojis={se} icon={ev.emoji || "📅"} title={ev.title || "Event"} meta={ev.time || null} onClick={function () { goTab("calendar"); }} />;
           })}
