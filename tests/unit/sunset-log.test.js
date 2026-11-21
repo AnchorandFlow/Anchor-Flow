@@ -92,7 +92,7 @@ describe("sync", function () {
     expect(getSunsetEntry("p_twy", "2026-11-13", log).mood).toBe("grateful");
   });
   it("pull loops let sunset_log merge even while it has unpushed edits", function () {
-    expect(MERGE_WHILE_DIRTY).toEqual(["sunset_log", "meals"]);
+    expect(MERGE_WHILE_DIRTY).toEqual(["sunset_log", "meals", "nextWeekMeals"]);
     var app = fs.readFileSync("src/App.jsx", "utf8");
     expect(app).toContain("if (dirtyKeys.indexOf(k) !== -1 && MERGE_WHILE_DIRTY.indexOf(k) === -1) return;");
     expect(app.match(/MERGE_WHILE_DIRTY\.indexOf\(k\) === -1\) return;/g).length).toBe(4);

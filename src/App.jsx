@@ -25,7 +25,7 @@ import Icon from "./components/Icon.jsx"
 import ScrollTabs from "./components/ScrollTabs.jsx"
 import Section from "./components/Section.jsx"
 import { SettingsPillContext } from "./components/settingsPillContext.js"
-import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey, MERGE_WHILE_DIRTY, mergeMeals, resolveResponsibleParent, resolveForPerson, isLighthouseDirty, coveListIsShared } from "./sync-core.js"
+import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey, MERGE_WHILE_DIRTY, mergeMeals, stampMealWeek, resolveResponsibleParent, resolveForPerson, isLighthouseDirty, coveListIsShared } from "./sync-core.js"
 import { classifyRefreshError } from "./auth/classifyRefreshError.js"
 import { BUILD_STAMP } from "./buildStamp.js"
 import { TIDEPOOL_V2, newEventId, getStoredHouseholdId, planTabChoreToggle, planSectionChoreToggle, planBonus, planClaim } from "./tidepool/ledger.js"
@@ -1314,15 +1314,22 @@ function computeMealsRollover(thisSunday) {
     })();
     if (!storedWeekOf || storedWeekOf === thisSunday) return null;
     const nextRaw = (() => { try { return JSON.parse(localStorage.getItem("af_nextWeekMeals")||"null"); } catch { return null; } })();
+    const oldMeals = (() => { try { return JSON.parse(localStorage.getItem("af_meals")||"null"); } catch { return null; } })();
     const promoted = (nextRaw && typeof nextRaw === "object") ? nextRaw : {};
-    const safe = {};
+    const unstamped = {};
     MEAL_DAYS.forEach(day => {
       const m = promoted[day];
-      safe[day] = (!m || typeof m !== "object") ? {} : sanitizeMealDayFields(m);
+      const d = (!m || typeof m !== "object") ? {} : sanitizeMealDayFields(m);
+      delete d._at;
+      unstamped[day] = d;
     });
+    // Stamped now, so the per-day sync merge prefers the rolled-over weeks to
+    // copies from before the rollover (which would otherwise bring last week back).
+    const now = Date.now();
+    const safe = stampMealWeek(oldMeals, unstamped, now);
     localStorage.setItem("af_meals", JSON.stringify(safe));
     localStorage.setItem("af_mealsWeekOf", JSON.stringify(thisSunday));
-    localStorage.setItem("af_nextWeekMeals", JSON.stringify({}));
+    localStorage.setItem("af_nextWeekMeals", JSON.stringify(stampMealWeek(nextRaw, {}, now)));
     return safe;
   } catch { return null; }
 }
@@ -3529,7 +3536,7 @@ function createLocalBackup() {
           // must not ride the "pushed recently" shortcut over another member's
           // newer write — that sent a whole week missing their day. Pull (which
           // merges those keys even while dirty) first; the next cycle pushes the union.
-          var dirtyAtCheck = (function(){ try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch (e4) { return []; } })();
+          var dirtyAtCheck = (function(){ try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch { return []; } })();
           var mergeKeyPending = dirtyAtCheck.some(function(k){ return MERGE_WHILE_DIRTY.indexOf(k) !== -1; });
           if (serverUpdatedAt !== lastPushedAt && pushedRecently && mergeKeyPending) {
             console.warn("[AF SYNC] push of a merge key while the server holds another device's write — pulling to merge first", { serverUpdatedAt, lastPushedAt });
@@ -4875,7 +4882,7 @@ function createLocalBackup() {
   React.useEffect(() => {
     if (!authToken || !householdId) return undefined;
     var t = setTimeout(function() {
-      var d = []; try { d = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch (e) { d = []; }
+      var d = []; try { d = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch { d = []; }
       if (d.some(function(k){ return MERGE_WHILE_DIRTY.indexOf(k) !== -1; })) debouncedSync();
     }, 8000);
     return function(){ clearTimeout(t); };
@@ -10141,7 +10148,20 @@ Respond ONLY in valid JSON:
     // other week's data if the user navigates away mid-swap.
     useEffect(function(){ setSwapDay(null); },[mealSubTab]);
     const addIngredientToShopping = useCallback((ing)=>setShoppingItems(p=>[...p,{id:Date.now().toString(),text:ing,done:false,store:"Grocery Store",category:"grocery"}]),[]);
-    const [nextWeekMeals,setNextWeekMeals]=useSaved("nextWeekMeals",{});
+    const [nextWeekMeals,setNextWeekMealsRaw]=useSaved("nextWeekMeals",{});
+    // Same per-day sync merge as This Week (see setMeals / mergeMeals): build on
+    // the newest copy of each day (state or storage, which a pull may have
+    // merged into) and stamp the days this write changes.
+    function setNextWeekMeals(next){
+      setNextWeekMealsRaw(function(p){
+        var stored=null; try{ stored=JSON.parse(localStorage.getItem("af_nextWeekMeals")||"null"); }catch{ /* unreadable: use state */ }
+        var base=mergeMeals(p,stored);
+        return stampMealWeek(base, typeof next==="function"?next(base):next, Date.now());
+      });
+      // nextWeekMeals isn't in HomeFlow's push watch list; ask for the normal
+      // debounced push (after the setter has marked the key dirty).
+      setTimeout(function(){ try{ window.dispatchEvent(new CustomEvent("af-data-changed",{detail:{key:"nextWeekMeals"}})); }catch{ /* no window */ } },0);
+    }
     const [nextWeekMealCount,setNextWeekMealCount]=useSaved("nwMealCount",1);
     var nwMealsToShow = nextWeekMealCount===1?["dinner"]:nextWeekMealCount===2?["lunch","dinner"]:["breakfast","lunch","dinner"];
     const [showDietaryOptions,setShowDietaryOptions]=useState(false);
@@ -10321,7 +10341,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     {nwMealsToShow.map(function(meal){return(
                       <div key={meal} style={K.rd?{background:"#FBF8F2",borderRadius:14,padding:"10px 12px",border:"none",minWidth:0}:{background:T.white,borderRadius:"0.65rem",padding:"0.58rem 0.7rem",border:"1.5px solid "+T.borderSoft}}>
                         <div style={{fontSize:"0.6rem",color:T.textMid,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:800,marginBottom:"0.22rem"}}>{meal}</div>
-                        <input key={day+meal} defaultValue={m[meal]||""} onBlur={function(e){var v=e.target.value;setNextWeekMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=v;return nd;});}} placeholder="—" style={{...inp({padding:"0.28rem 0.45rem",fontSize:"0.8rem",border:"none",background:"transparent",width:"100%"})}}/>
+                        <input key={day+meal} data-testid={K.rd?("nw-"+day+"-"+meal):undefined} value={m[meal]||""} onChange={function(e){var v=e.target.value;setNextWeekMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=v;return nd;});}} placeholder="—" style={{...inp({padding:"0.28rem 0.45rem",fontSize:"0.8rem",border:"none",background:"transparent",width:"100%"})}}/>
                         <div style={{marginTop:"0.35rem"}}>
                           <MealBankDrawer key={meal} mealType={meal} allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(mb){setNextWeekMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=mb.name;return nd;});}} onAddToShopping={addIngredientToShopping}/>
                         </div>

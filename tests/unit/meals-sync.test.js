@@ -4,7 +4,7 @@
 // merge day by day (applyHouseholdKey, MERGE_WHILE_DIRTY).
 import { describe, it, expect, beforeEach } from "vitest";
 import fs from "node:fs";
-import { applyHouseholdKey, mergeMeals, mealsAhead, MERGE_WHILE_DIRTY, sanitizeHouseholdData, SYNC_KEYS } from "../../src/sync-core.js";
+import { applyHouseholdKey, mergeMeals, mealsAhead, stampMealWeek, MERGE_WHILE_DIRTY, sanitizeHouseholdData, SYNC_KEYS } from "../../src/sync-core.js";
 
 // One localStorage per device: swap jsdom's storage contents in and out.
 function device() { return {}; }
@@ -18,11 +18,12 @@ function dirty() { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]
 //  edit  = setMeals: stamp the changed day, write af_meals, mark meals dirty
 //  push  = send the dirty keys; the server merges per key (data || patch)
 //  pull  = apply every SYNC_KEYS key, skipping dirty keys unless MERGE_WHILE_DIRTY
-function edit(day, fields, at) {
-  var m = get("meals") || {};
+function edit(day, fields, at, key) {
+  key = key || "meals";
+  var m = get(key) || {};
   m[day] = Object.assign({}, m[day] || {}, fields, { _at: String(at) });
-  set("meals", m);
-  var d = dirty(); if (d.indexOf("meals") === -1) d.push("meals"); localStorage.setItem("af_dirtyKeys", JSON.stringify(d));
+  set(key, m);
+  var d = dirty(); if (d.indexOf(key) === -1) d.push(key); localStorage.setItem("af_dirtyKeys", JSON.stringify(d));
 }
 function push(server) {
   var patch = {};
@@ -96,6 +97,64 @@ describe("two members, one week of meals", function () {
   });
 });
 
+describe("two members, Next Week's meals", function () {
+  var server, lindsey, twyla;
+  var NEXT = { Sunday: {}, Monday: { dinner: "Chili" }, Tuesday: {}, Wednesday: {}, Thursday: {}, Friday: {}, Saturday: {} };
+  beforeEach(function () {
+    server = { meals: JSON.parse(JSON.stringify(WEEK)), nextWeekMeals: JSON.parse(JSON.stringify(NEXT)), people: [] };
+    lindsey = device(); twyla = device();
+    use(lindsey); pull(server); save(lindsey);
+    use(twyla); pull(server); save(twyla);
+  });
+
+  it("both plan different days of next week before syncing: neither is lost, on either device or the server", function () {
+    expect(MERGE_WHILE_DIRTY).toContain("nextWeekMeals");
+    use(lindsey); edit("Tuesday", { dinner: "Fish tacos" }, 1000, "nextWeekMeals"); push(server); save(lindsey);
+    use(twyla); edit("Saturday", { dinner: "Pizza night" }, 1100, "nextWeekMeals");
+    pull(server); // stale push → pull first; dirty nextWeekMeals merges instead of being skipped
+    expect(get("nextWeekMeals").Tuesday.dinner).toBe("Fish tacos");
+    expect(get("nextWeekMeals").Saturday.dinner).toBe("Pizza night");
+    push(server); save(twyla);
+    expect(server.nextWeekMeals.Tuesday.dinner).toBe("Fish tacos");
+    expect(server.nextWeekMeals.Saturday.dinner).toBe("Pizza night");
+    expect(server.nextWeekMeals.Monday.dinner).toBe("Chili");
+    use(lindsey); pull(server);
+    expect(get("nextWeekMeals").Saturday.dinner).toBe("Pizza night");
+    expect(get("nextWeekMeals").Tuesday.dinner).toBe("Fish tacos");
+  });
+
+  it("an older Next Week pushed over a newer day is repaired by the device that has it", function () {
+    use(twyla); edit("Friday", { dinner: "Curry" }, 2000, "nextWeekMeals"); push(server); save(twyla);
+    use(lindsey); edit("Sunday", { dinner: "Roast" }, 1500, "nextWeekMeals"); server.nextWeekMeals = get("nextWeekMeals"); localStorage.setItem("af_dirtyKeys", "[]"); save(lindsey);
+    use(twyla); pull(server);
+    expect(get("nextWeekMeals").Friday.dinner).toBe("Curry");
+    expect(get("nextWeekMeals").Sunday.dinner).toBe("Roast");
+    expect(dirty()).toContain("nextWeekMeals");
+    push(server);
+    expect(server.nextWeekMeals.Friday.dinner).toBe("Curry");
+    expect(server.nextWeekMeals.Sunday.dinner).toBe("Roast");
+  });
+
+  it("This Week and Next Week edits in the same window both survive", function () {
+    use(lindsey); edit("Monday", { dinner: "Lasagna" }, 1000); push(server); save(lindsey);
+    use(twyla); edit("Wednesday", { dinner: "Ramen" }, 1100, "nextWeekMeals"); pull(server); push(server); save(twyla);
+    use(lindsey); pull(server);
+    expect(get("meals").Monday.dinner).toBe("Lasagna");
+    expect(get("nextWeekMeals").Wednesday.dinner).toBe("Ramen");
+  });
+});
+
+describe("stampMealWeek", function () {
+  it("stamps only the days that changed; clearing a day stamps it so the clear wins a merge", function () {
+    var base = { Monday: { dinner: "A", _at: "5" }, Tuesday: { dinner: "B", _at: "6" } };
+    var next = stampMealWeek(base, { Monday: { dinner: "A", _at: "5" }, Tuesday: {} }, 99);
+    expect(next.Monday._at).toBe("5");
+    expect(next.Tuesday).toEqual({ _at: "99" });
+    expect(mergeMeals(base, next).Tuesday).toEqual({ _at: "99" });
+    expect(Object.keys(stampMealWeek(null, {}, 1))).toEqual(["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]);
+  });
+});
+
 describe("mergeMeals", function () {
   it("days without _at (saved before this change): the remote copy wins, as before", function () {
     var local = { Monday: { dinner: "Local" } }, remote = { Monday: { dinner: "Remote" } };
@@ -126,6 +185,14 @@ describe("App wiring", function () {
     expect(app).toContain("if (serverUpdatedAt !== lastPushedAt && pushedRecently && mergeKeyPending) {");
     expect(app).toContain('await pullLatestHouseholdData("merge-before-push");');
     expect(app).toContain("if (d.some(function(k){ return MERGE_WHILE_DIRTY.indexOf(k) !== -1; })) debouncedSync();");
+  });
+  it("Next Week: the same merge on write, controlled fields, and a rollover stamped so last week can't come back", function () {
+    expect(app).toContain("const [nextWeekMeals,setNextWeekMealsRaw]=useSaved(\"nextWeekMeals\",{});");
+    expect(app).toContain("return stampMealWeek(base, typeof next===\"function\"?next(base):next, Date.now());");
+    expect(app).toContain('value={m[meal]||""} onChange={function(e){var v=e.target.value;setNextWeekMeals(');
+    expect(app).toContain('window.dispatchEvent(new CustomEvent("af-data-changed",{detail:{key:"nextWeekMeals"}}));');
+    expect(app).toContain("const safe = stampMealWeek(oldMeals, unstamped, now);");
+    expect(app).toContain('localStorage.setItem("af_nextWeekMeals", JSON.stringify(stampMealWeek(nextRaw, {}, now)));');
   });
   it("the meal editor's fields are controlled, so Save sees what was typed without a blur", function () {
     expect(app).toContain('<input key={m+"_"+editDay} value={editMeal[m]||""} onChange={e=>{var v=e.target.value;setEditMeal(p=>({...p,[m]:v}));}}');

@@ -610,9 +610,10 @@ export function coveListIsShared(list) {
 // dirty-skip in the pull loops exists to protect wholesale-replace keys).
 // Without this, a dirty sunset_log skips the merge, and the next push sends
 // a log missing another member's entry for the same night.
-export var MERGE_WHILE_DIRTY = ["sunset_log", "meals"];
+export var MERGE_WHILE_DIRTY = ["sunset_log", "meals", "nextWeekMeals"];
 
-// ── meals: per-day merge ──────────────────────────────────────────────────────
+// ── meals / nextWeekMeals: per-day merge ──────────────────────────────────────
+// (Next Week's plan has the same shape and the same rules.)
 // meals is one object for the whole week ({ Sunday: {...}, ... }). Replacing it
 // wholesale let two members' edits overwrite each other: whoever pushed last
 // sent a week missing the other's day (a dirty local meals key also skipped
@@ -634,6 +635,25 @@ export function mergeMeals(local, remote) {
     if (!rd || typeof rd !== "object") { out[day] = ld && typeof ld === "object" ? ld : {}; return; }
     if (!ld || typeof ld !== "object") { out[day] = rd; return; }
     out[day] = mealDayAt(ld) > mealDayAt(rd) ? ld : rd;
+  });
+  return out;
+}
+// A week after a write: every day that differs from `base` (ignoring _at) is
+// stamped `now`; unchanged days keep base's stamp.
+function mealDayKey(x) {
+  var c = x && typeof x === "object" ? x : {};
+  return JSON.stringify(Object.keys(c).filter(function (k) { return k !== "_at"; }).sort().map(function (k) { return [k, c[k]]; }));
+}
+export function stampMealWeek(base, next, now) {
+  var b = base && typeof base === "object" ? base : {};
+  var n = next && typeof next === "object" ? next : {};
+  var out = {};
+  MEAL_DAYS.forEach(function (day) {
+    var d = n[day] && typeof n[day] === "object" ? Object.assign({}, n[day]) : {};
+    if (mealDayKey(d) !== mealDayKey(b[day])) d._at = String(now);
+    else if (b[day] && b[day]._at) d._at = b[day]._at;
+    else delete d._at;
+    out[day] = d;
   });
   return out;
 }
@@ -663,18 +683,18 @@ export function applyHouseholdKey(k, remoteVal) {
     try { localStorage.setItem("af_safe_harbor", JSON.stringify(merged)); } catch(_e) {}
     return;
   }
-  if (k === "meals") {
+  if (k === "meals" || k === "nextWeekMeals") {
     var localMeals = null;
-    try { var rawM = localStorage.getItem("af_meals"); localMeals = rawM ? JSON.parse(rawM) : null; } catch { /* unreadable: treat as empty */ }
-    try { localStorage.setItem("af_meals", JSON.stringify(mergeMeals(localMeals, remoteVal))); } catch { /* storage blocked */ }
+    try { var rawM = localStorage.getItem("af_" + k); localMeals = rawM ? JSON.parse(rawM) : null; } catch { /* unreadable: treat as empty */ }
+    try { localStorage.setItem("af_" + k, JSON.stringify(mergeMeals(localMeals, remoteVal))); } catch { /* storage blocked */ }
     // A day this device changed after the remote copy must still reach the
     // server: keep meals dirty and ask HomeFlow to push.
     if (mealsAhead(localMeals, remoteVal)) {
       try {
         var dk = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
-        if (dk.indexOf("meals") === -1) { dk.push("meals"); localStorage.setItem("af_dirtyKeys", JSON.stringify(dk)); }
+        if (dk.indexOf(k) === -1) { dk.push(k); localStorage.setItem("af_dirtyKeys", JSON.stringify(dk)); }
       } catch { /* storage blocked */ }
-      try { window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key: "meals" } })); } catch { /* no window */ }
+      try { window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key: k } })); } catch { /* no window */ }
     }
     return;
   }
