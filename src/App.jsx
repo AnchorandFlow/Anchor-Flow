@@ -48,6 +48,7 @@ import { LH_AREA_TONE, LH_DASH_TONE, lhAreaTone, lhChipStyle, lhRowStyle, lhText
 import { personColor as rdPersonColor } from "./redesign/flowData.js"
 import { MEALS_TONE, mealTagTone } from "./redesign/mealsColors.js"
 import "./design/redesignType.js"
+import { SCHOOL_TYPES as RD_SCHOOL_TYPES, SCHOOL_TYPES_SETTINGS as RD_SCHOOL_TYPES_SETTINGS, schoolTypeLabel, cleanSchoolLabel, lhSections, defaultSchoolType } from "./lib/schoolType.js"
 import { sysNextDue as vaultSysNextDue } from "./lib/vaultDates.js"
 import { occursOn as calOccursOn, forIdsOf as calForIdsOf, refreshPersonColors as calRefreshPersonColors, editOccurrence as calEditOccurrence, deleteOccurrence as calDeleteOccurrence, allCategories as calAllCategories, newCategory as calNewCategory } from "./lib/calEvents.js"
 import { tone as RD_TONE_BASE, accentTone as RD_ACCENT, calendarTones as RD_CAL_TONES, gradient } from "./design/tokens.js"
@@ -1076,7 +1077,20 @@ function schoolTypeToLhMode(schoolType) {
   if (schoolType === "homeschool") return "homeschool";
   if (schoolType === "public" || schoolType === "private") return "school";
   if (schoolType === "preschool") return "preschool";
+  // New-look types (src/lib/schoolType.js): Hybrid / co-op and Other.
+  if (schoolType === "hybrid") return "hybrid";
+  if (schoolType === "other") return "other";
   return null;
+}
+// Settings › School (new look): the short name for an "Other" school type.
+function SchoolLabelField({value,onSave,inp,btnP,T}){
+  const [v,setV]=useState(value||"");
+  return (
+    <form onSubmit={function(e){e.preventDefault();onSave(v);}} style={{display:"flex",gap:"0.5rem",marginTop:"0.6rem"}}>
+      <input value={v} maxLength={30} onChange={function(e){setV(e.target.value);}} placeholder="Name it, e.g. Online academy" aria-label="Name this school type" style={inp({flex:1,minWidth:0,fontSize:16})}/>
+      <button type="submit" style={btnP(T.blue,{flexShrink:0})}>Save</button>
+    </form>
+  );
 }
 function lhChallengeAutoProgress(books) {
   if (!Array.isArray(books)) return 0;
@@ -2205,9 +2219,15 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
     try{var s=localStorage.getItem("af_schoolData");var parsed=s?JSON.parse(s):{};return parsed&&typeof parsed==="object"?parsed:{};}catch{return {};}
   });
   var [lhDataForSettings,setLhDataForSettings]=useSaved("lighthouse",defaultLighthouse());
-  function setPersonSchoolType(personId,schoolType){
+  function setPersonSchoolType(personId,schoolType,label){
     setPeople(function(prev){
-      return prev.map(function(x){return x.id===personId?Object.assign({},x,{schoolType:schoolType}):x;});
+      return prev.map(function(x){
+        if(x.id!==personId) return x;
+        var n=Object.assign({},x,{schoolType:schoolType});
+        // New look: "Other" carries the family's own short label.
+        if(REDESIGN){ if(schoolType==="other") n.schoolLabel=cleanSchoolLabel(label!=null?label:x.schoolLabel); else delete n.schoolLabel; }
+        return n;
+      });
     });
     var mode=schoolTypeToLhMode(schoolType);
     setLhDataForSettings(function(prev){
@@ -2428,7 +2448,8 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
           )}
           {minorKids.map(function(kid){
             var currentType = kid.schoolType || migratedSchoolType(kid, sData);
-            var SCHOOL_TYPES = [
+            // New look adds Hybrid / co-op and Other (src/lib/schoolType.js).
+            var SCHOOL_TYPES = REDESIGN ? RD_SCHOOL_TYPES_SETTINGS : [
               {value:"homeschool", label:"Homeschool",      emoji:"🏠", desc:"Learning at home — full curriculum"},
               {value:"public",     label:"Public School",   emoji:"🏫", desc:"Standard public school"},
               {value:"private",    label:"Private School",  emoji:"🎓", desc:"Private or charter school"},
@@ -2459,6 +2480,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
                     );
                   })}
                 </div>
+                {REDESIGN&&currentType==="other"&&<SchoolLabelField key={kid.id} value={kid.schoolLabel||""} onSave={function(v){setPersonSchoolType(kid.id,"other",v);}} inp={inp} btnP={btnP} T={T}/>}
               </div>
             );
           })}
@@ -4774,14 +4796,16 @@ function createLocalBackup() {
       setPeople(function(prev){
         return (prev||[]).map(function(p){
           if (!p || !personIsMinor(p) || p.schoolType) return p;
-          return Object.assign({}, p, { schoolType: migratedSchoolType(p, schoolData) });
+          // New look: a child with no setting at all defaults to Homeschool
+          // (src/lib/schoolType.js); flag off keeps "none" as before.
+          return Object.assign({}, p, { schoolType: REDESIGN ? defaultSchoolType(p, migratedSchoolType(p, schoolData)) : migratedSchoolType(p, schoolData) });
         });
       });
     }
     var modes = lhGet(lighthouseForToday, "modes", {});
     var modePatch = null;
     minors.forEach(function(p){
-      var st = p.schoolType || migratedSchoolType(p, schoolData);
+      var st = p.schoolType || (REDESIGN ? defaultSchoolType(p, migratedSchoolType(p, schoolData)) : migratedSchoolType(p, schoolData));
       var mode = schoolTypeToLhMode(st);
       if (mode && modes[p.id] !== mode) { if (!modePatch) modePatch = {}; modePatch[p.id] = mode; }
     });
@@ -5436,6 +5460,7 @@ function createLocalBackup() {
       marker: null,
       schoolType: p.schoolType || "none"
     };
+    if (p.schoolType === "other" && p.schoolLabel) shaped.schoolLabel = cleanSchoolLabel(p.schoolLabel);
     if (p.tidePoolEnabled === true || p.tidePoolEnabled === false) { shaped.tidePoolEnabled = p.tidePoolEnabled; }
     return shaped;
   }
@@ -5488,6 +5513,7 @@ function createLocalBackup() {
             // safer to just never let a re-run clear something already set).
             if (np.schoolType && np.schoolType !== "none") {
               merged[matchIdx] = Object.assign({}, merged[matchIdx], { schoolType: np.schoolType });
+              if (np.schoolType === "other" && np.schoolLabel) merged[matchIdx].schoolLabel = cleanSchoolLabel(np.schoolLabel);
             }
             // tidePoolEnabled has no such ambiguity — buildPayload only includes the
             // key at all when the user made an explicit Yes/No choice ("Maybe later"
@@ -14961,6 +14987,20 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
+    // New look: sections a school type doesn't normally show but that still
+    // hold data (switching type never hides or deletes anything).
+    function LhMore(opts) {
+      if (!opts.children || (Array.isArray(opts.children) && opts.children.length === 0)) return null;
+      return (
+        <div data-testid={"lh-more-" + opts.area}>
+          <SectionShell tabName={opts.area} sectionName="more" emoji="➕" title="More" defaultOpen={false}>
+            <div style={lhIn({ fontSize:"0.8rem", color:"#7a7568", marginBottom:"0.6rem" })}>{"Kept from before — " + (childPerson ? schoolTypeLabel(childPerson) : "this school type") + " doesn't usually show these."}</div>
+            {opts.children}
+          </SectionShell>
+        </div>
+      );
+    }
+
     function DashCard(opts) {
       var pair = useSectionOpen("overview", opts.sectionKey, opts.defaultOpen);
       var open = pair[0], toggle = pair[1];
@@ -15126,7 +15166,30 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     var modes = lhGet(lighthouse, "modes", {});
     var childPerson = learningKids.find(function(p) { return p.id === activeChild; }) || null;
-    var childMode = activeChild ? (modes[activeChild] || null) : null;
+    // New look: the mode follows the child's school type (person.schoolType,
+    // src/lib/schoolType.js); flag off: lighthouse.modes as before.
+    var childMode = activeChild ? ((REDESIGN && childPerson && schoolTypeToLhMode(childPerson.schoolType)) || modes[activeChild] || null) : null;
+
+    // New look: the "School: …" control at the top of each child's tab. Writes
+    // the person (synced with people, pushed immediately) and keeps
+    // lighthouse.modes in step. Nothing else changes — no data is touched.
+    function setChildSchoolType(type, label) {
+      var id = activeChild; if (!id) return;
+      setPeople(function(prev) {
+        return (prev||[]).map(function(x) {
+          if (!x || x.id !== id) return x;
+          var n = Object.assign({}, x, { schoolType: type });
+          if (type === "other") n.schoolLabel = cleanSchoolLabel(label); else delete n.schoolLabel;
+          return n;
+        });
+      });
+      var mode = schoolTypeToLhMode(type);
+      setLighthouse(function(prev) {
+        var nextModes = Object.assign({}, lhGet(prev, "modes", {}));
+        if (mode) nextModes[id] = mode; else delete nextModes[id];
+        return Object.assign({}, prev, { modes: nextModes });
+      });
+    }
 
     function setMode(mode) {
       setLighthouse(function(prev) {
@@ -15182,7 +15245,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
       var cards = [];
 
-      if (childMode === "homeschool") {
+      // New look: Homeschool (and Preschool) cards, School cards, or both for
+      // Hybrid; Other keeps just goals and books. Flag off: exactly as before.
+      var _ovHs = REDESIGN ? childMode !== "school" : childMode === "homeschool";
+      var _ovSchool = REDESIGN ? (childMode === "school" || childMode === "hybrid") : childMode !== "homeschool";
+      if (_ovHs) {
         // 1. Today's Plan — prefer Lighthouse's daily plan, fall back to School's weekPlan
         var lhDailyToday = (hsChild.daily && typeof hsChild.daily === "object") ? hsChild.daily[todayIso] : null;
         var lhTasksToday = [];
@@ -15273,7 +15340,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             actionLabel="Add book"
             onAction={function(){ setLearningSubTab("library"); }} />
         );
-      } else {
+      }
+      if (_ovSchool) {
         // ── School mode cards ────────────────────────────────────────────────
         var weekEvents = (schoolChild.week && Array.isArray(schoolChild.week.events)) ? schoolChild.week.events : [];
         var sortedWeekEvents = weekEvents.slice().sort(function(a,b){ return (a.date||"") < (b.date||"") ? -1 : 1; });
@@ -15329,12 +15397,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <div style={lhIn({ background:LC.cream, borderRadius:"1rem", padding:"1rem" })}>
           <div style={lhIn({ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"1rem", flexWrap:"wrap", gap:"0.5rem" })}>
             <div style={lhIn({ fontFamily:"Cormorant Garamond, serif", fontSize:"1.2rem", color:LC.navy })}>{childPerson.name}'s Lighthouse</div>
-            <button onClick={function(){ setMode(childMode==="homeschool"?"school":"homeschool"); }} style={lhIn({ background:"transparent", border:"1.5px solid "+LC.seaglass, color:LC.seaglass, borderRadius:"99px", padding:"0.35rem 0.85rem", fontSize:"0.76rem", fontWeight:700, cursor:"pointer", fontFamily:"inherit" })}>
+            {!REDESIGN && <button onClick={function(){ setMode(childMode==="homeschool"?"school":"homeschool"); }} style={lhIn({ background:"transparent", border:"1.5px solid "+LC.seaglass, color:LC.seaglass, borderRadius:"99px", padding:"0.35rem 0.85rem", fontSize:"0.76rem", fontWeight:700, cursor:"pointer", fontFamily:"inherit" })}>
               Switch to {childMode==="homeschool"?"School":"Homeschool"}
-            </button>
+            </button>}
           </div>
           <div style={lhIn({ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(230px,1fr))", gap:"0.85rem" })}>
-            {cards}
+            {REDESIGN && childMode === "other" ? cards.filter(function(c){ return c && (c.key === "goals" || c.key === "books"); }) : cards}
           </div>
         </div>
       );
@@ -15382,7 +15450,19 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
 
     function PlanArea() {
-      var [planSubTab, _setPlanSubTab] = React.useState(function(){ try { var s = sessionStorage.getItem("af_learningPlanSubTab"); if (s && (s!=="loops" || childMode==="homeschool") && (s!=="year" || childMode==="homeschool") && (s!=="month" || childMode==="homeschool")) return s; } catch(_e) {} return "today"; });
+      // Which Plan pills a child gets: by school type in the new look (Month /
+      // Year / Loops also stay when they hold data, so nothing disappears); flag off:
+      // homeschool only, as before.
+      var _hsPlan = lhGet(lighthouse, "homeschool", {})[activeChild] || {};
+      var _attPlan = ((schoolData[activeChild] || {}).homeschool || {}).attendance || {};
+      var _planSecs = lhSections("plan", childMode, function(id) {
+        if (id === "month") return !!(String(_hsPlan.monthly || "").trim() || (Array.isArray(_hsPlan.monthlyGoals) && _hsPlan.monthlyGoals.length) || String(_hsPlan.monthlyBook || "").trim());
+        if (id === "loops") return Array.isArray(_hsPlan.loops) && _hsPlan.loops.length > 0;
+        if (id === "year") return Object.keys(_attPlan).length > 0;
+        return false;
+      });
+      function planOk(id) { return REDESIGN ? (_planSecs.shown.indexOf(id) !== -1 || _planSecs.more.indexOf(id) !== -1) : (id === "today" || id === "week" || childMode === "homeschool"); }
+      var [planSubTab, _setPlanSubTab] = React.useState(function(){ try { var s = sessionStorage.getItem("af_learningPlanSubTab"); if (s && planOk(s)) return s; } catch(_e) {} return "today"; });
       function setPlanSubTab(t) { _setPlanSubTab(t); try { sessionStorage.setItem("af_learningPlanSubTab", t); } catch(_e) {} }
 
       // Shared add/edit form plumbing (mirrors the pattern LighthouseTab's own
@@ -16288,7 +16368,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         );
       }
 
-      var PLAN_PILLS = [
+      var PLAN_LABELS = { today:"Today", week:"Week", month:"Month", year:"Year", loops:"Loops" };
+      var PLAN_PILLS = REDESIGN
+        ? _planSecs.shown.map(function(id){ return { id:id, label:PLAN_LABELS[id] }; }).concat(_planSecs.more.map(function(id){ return { id:id, label:PLAN_LABELS[id] }; })) /* kept: they hold data */
+        : [
         { id:"today", label:"Today" },
         { id:"week",  label:"Week" },
       ].concat(childMode==="homeschool" ? [{ id:"month", label:"Month" },{ id:"year", label:"Year" },{ id:"loops", label:"Loops" }] : []);
@@ -16304,9 +16387,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
           {planSubTab === "today" && <PlanToday/>}
           {planSubTab === "week"  && <PlanWeek/>}
-          {planSubTab === "month" && childMode==="homeschool" && <PlanMonth/>}
-          {planSubTab === "year"  && childMode==="homeschool" && <PlanYear/>}
-          {planSubTab === "loops" && childMode==="homeschool" && <PlanLoops/>}
+          {planSubTab === "month" && planOk("month") && <PlanMonth/>}
+          {planSubTab === "year"  && planOk("year") && <PlanYear/>}
+          {planSubTab === "loops" && planOk("loops") && <PlanLoops/>}
 
           <SubjectsSection/>
         </div>
@@ -16393,6 +16476,26 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       }
       function applySchoolLh(patch) { setLighthouse(function(prev) { return lhSchoolPatch(prev, activeChild, patch); }); }
       function commsMutate(patch) { applySchoolLh({ comms: Object.assign({}, comms, patch) }); }
+
+      // ── School info (new look: Public / Private / Hybrid) ──────────────────
+      // School name, schedule and where the logins live — hints only, never
+      // passwords. Kept on af_schoolData[child].public (synced) beside the
+      // teachers and events it already holds. Controlled fields + an explicit
+      // Save (iPhone doesn't blur a field when a button is tapped).
+      function SchoolInfoSection() {
+        var [f, setF] = React.useState({ schoolName: childPublic.schoolName || "", schedule: childPublic.schedule || "", loginHint: childPublic.loginHint || "" });
+        var [saved, setSaved] = React.useState(false);
+        function upd(k) { return function(e) { var v = e.target.value; setF(function(p){ var n = Object.assign({}, p); n[k] = v; return n; }); setSaved(false); }; }
+        return (
+          <SectionShell tabName="records" sectionName="schoolinfo" emoji="🏫" title="School info" defaultOpen={true}>
+            {fieldRow("School name", <input value={f.schoolName} onChange={upd("schoolName")} placeholder="e.g. Lincoln Elementary" data-testid="lh-school-name" style={inp()}/>)}
+            {fieldRow("Schedule", <input value={f.schedule} onChange={upd("schedule")} placeholder="e.g. 8:15–3:00, early release Wednesdays" style={inp()}/>)}
+            {fieldRow("Logins (hints only)", <input value={f.loginHint} onChange={upd("loginHint")} placeholder="e.g. Parent portal: PowerSchool — password in our password app" style={inp()}/>)}
+            <div style={lhIn({ fontSize:"0.78rem", color:"#7a7568", margin:"-0.3rem 0 0.6rem" })}>Where to find a login, never the password itself.</div>
+            <button type="button" data-testid="lh-school-save" onClick={function(){ savePub({ schoolName: f.schoolName.trim(), schedule: f.schedule.trim(), loginHint: f.loginHint.trim() }); setSaved(true); }} style={btnP(LC.seaglass,{ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>{saved ? "Saved" : "Save"}</button>
+          </SectionShell>
+        );
+      }
 
       // ── Umbrella School (homeschool only) ──────────────────────────────────
       function UmbrellaSection() {
@@ -16813,6 +16916,29 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         );
       }
 
+      if (REDESIGN) {
+        // Sections by school type (src/lib/schoolType.js); any other section
+        // that holds data goes under More.
+        var umbrellaData = childSchoolHs.umbrella || {};
+        var recHas = {
+          schoolinfo: !!(childPublic.schoolName || childPublic.schedule || childPublic.loginHint),
+          umbrella: Object.keys(umbrellaData).some(function(k){ return !!umbrellaData[k]; }),
+          activities: activities.length > 0,
+          teachers: teachers.length > 0,
+          events: calEvents.length > 0 || spiritDays.length > 0,
+          comms: commsContacts.length > 0 || commsLog.length > 0,
+          homework: homework.length > 0,
+          notes: !!(childPublic.notes && String(childPublic.notes).trim()),
+        };
+        var REC = { schoolinfo: SchoolInfoSection, umbrella: UmbrellaSection, activities: ActivitiesSection, teachers: TeacherContactsSection, events: CalendarEventsSection, comms: CommsSection, homework: HomeworkSection, notes: NotesSection };
+        var recSecs = lhSections("records", childMode, function(id){ return recHas[id]; });
+        return (
+          <div data-testid="lh-records" data-lh-mode={childMode || ""} style={lhIn({ background:LC.cream, borderRadius:"1rem", padding:"1rem" })}>
+            {recSecs.shown.map(function(id){ var C = REC[id]; return <C key={id}/>; })}
+            <LhMore area="records">{recSecs.more.map(function(id){ var C = REC[id]; return <C key={id}/>; })}</LhMore>
+          </div>
+        );
+      }
       return (
         <div style={lhIn({ background:LC.cream, borderRadius:"1rem", padding:"1rem" })}>
           {childMode === "school" ? (
@@ -17330,6 +17456,24 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         );
       }
 
+      if (REDESIGN) {
+        var attHas = Object.keys(schAttendance).length > 0 || Object.keys(hsDaily).some(function(k){ return hsDaily[k] && hsDaily[k].attendance; });
+        var growHas = {
+          attendance: attHas,
+          grades: gradeMarks.length > 0 || gradeScores.length > 0 || !!String(gradeNotes || "").trim(),
+          goals: goals.length > 0,
+          portfolio: portfolio.length > 0,
+          breakgoals: breakGoals.length > 0,
+        };
+        var GROW = { attendance: AttendanceSection, grades: GradesSection, goals: GoalsSection, portfolio: PortfolioSection, breakgoals: BreakGoalsSection };
+        var growSecs = lhSections("growth", childMode, function(id){ return growHas[id]; });
+        return (
+          <div data-testid="lh-growth" data-lh-mode={childMode || ""} style={lhIn({ background:LC.cream, borderRadius:"1rem", padding:"1rem" })}>
+            {growSecs.shown.map(function(id){ var C = GROW[id]; return <C key={id}/>; })}
+            <LhMore area="growth">{growSecs.more.map(function(id){ var C = GROW[id]; return <C key={id}/>; })}</LhMore>
+          </div>
+        );
+      }
       return (
         <div style={lhIn({ background:LC.cream, borderRadius:"1rem", padding:"1rem" })}>
           {childMode === "school" ? (
@@ -17855,8 +17999,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // state, same writes). Flag off never reaches this.
     if (REDESIGN) return (
       <LighthouseFull
-        children_={learningKids.map(function(p){ return { id:p.id, name:p.name, mode:modes[p.id]||null, color:rdPersonColor(p.id, people, personIsMinor) }; })}
+        children_={learningKids.map(function(p){ return { id:p.id, name:p.name, mode:schoolTypeToLhMode(p.schoolType)||modes[p.id]||null, color:rdPersonColor(p.id, people, personIsMinor) }; })}
         activeChild={activeChild} onChild={setActiveChild}
+        schoolType={childPerson ? childPerson.schoolType : null} schoolLabel={childPerson ? (childPerson.schoolLabel || "") : ""}
+        schoolTypeLabel={childPerson ? schoolTypeLabel(childPerson) : ""} schoolTypes={RD_SCHOOL_TYPES} onSchoolType={setChildSchoolType}
         sections={LEARNING_TABS} section={learningSubTab} onSection={setLearningSubTab}
         showEmojis={showEmojis}>
         {learningSubTab === "overview" && <OverviewArea key={activeChild} />}
@@ -19294,7 +19440,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       )}
       {showFirstVoyageRerun&&<FirstVoyageWizard
         redesign={REDESIGN} initialShowEmojis={showEmojis}
-        initialPeople={people.map(function(p){ return {name:p.name, birthday:p.birthday||"", schoolType:p.schoolType||"", tidePoolEnabled:p.tidePoolEnabled}; })}
+        initialPeople={people.map(function(p){ return {name:p.name, birthday:p.birthday||"", schoolType:p.schoolType||"", schoolLabel:p.schoolLabel||"", tidePoolEnabled:p.tidePoolEnabled}; })}
         householdId={householdId}
         onComplete={handleFirstVoyageRerunComplete}
         onSkip={handleFirstVoyageRerunSkip}

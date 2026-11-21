@@ -227,6 +227,17 @@ var SCHOOL_TYPE_OPTIONS = [
   { value: 'preschool',  label: 'Preschool',      emoji: '🧸' }
 ];
 
+// New look (af_redesign): the school types from src/lib/schoolType.js —
+// Hybrid / co-op and Other (with a short label) join the list.
+var RD_SCHOOL_TYPE_OPTIONS = [
+  { value: 'homeschool', label: 'Homeschool',     emoji: '🏠' },
+  { value: 'public',     label: 'Public School',  emoji: '🏫' },
+  { value: 'private',    label: 'Private School', emoji: '🎓' },
+  { value: 'hybrid',     label: 'Hybrid / co-op', emoji: '🤝' },
+  { value: 'other',      label: 'Other',          emoji: '✏️' },
+  { value: 'preschool',  label: 'Preschool',      emoji: '🧸' }
+];
+
 var PET_KIND_OPTIONS = [
   { value: 'Dog',   label: 'Dog',   emoji: '🐕' },
   { value: 'Cat',   label: 'Cat',   emoji: '🐈' },
@@ -610,7 +621,7 @@ function SchoolTypeRow(props) {
     <div style={K.S.innerCard || K.S.card}>
       <p style={K.S.cardTitle}>{person.name}</p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-        {SCHOOL_TYPE_OPTIONS.map(function (opt) {
+        {(K.redesign ? RD_SCHOOL_TYPE_OPTIONS : SCHOOL_TYPE_OPTIONS).map(function (opt) {
           return (
             <button key={opt.value} type="button" onClick={selectFactory(opt.value)}
               style={person.schoolType === opt.value ? K.pillOn : K.pill}>
@@ -619,6 +630,11 @@ function SchoolTypeRow(props) {
           );
         })}
       </div>
+      {K.redesign && person.schoolType === 'other' && props.onLabel ? (
+        <input value={person.schoolLabel || ''} maxLength={30} aria-label={'Name ' + person.name + "'s school type"}
+          placeholder="Name it, e.g. Online academy" onChange={function (e) { props.onLabel(person.id, e.target.value); }}
+          style={Object.assign({}, K.S.input, { marginTop: 10 })} />
+      ) : null}
     </div>
   );
 }
@@ -728,6 +744,11 @@ function StepHarbor(props) {
       return p.id === id ? Object.assign({}, p, { schoolType: value }) : p;
     }));
   }
+  function handleSchoolLabelChange(id, value) {
+    props.set('people', d.people.map(function (p) {
+      return p.id === id ? Object.assign({}, p, { schoolLabel: value }) : p;
+    }));
+  }
   function handleTreasureChest(value) {
     props.set('wantsTreasureChest', value);
   }
@@ -765,7 +786,7 @@ function StepHarbor(props) {
           <label style={K.S.label}>Do your kids go to school?</label>
           <YesNoRow value={d.goesToSchool} onChange={handleGoesToSchool} />
           {d.goesToSchool === true ? children.map(function (p) {
-            return <SchoolTypeRow key={p.id} person={p} onChange={handleSchoolTypeChange} />;
+            return <SchoolTypeRow key={p.id} person={p} onChange={handleSchoolTypeChange} onLabel={handleSchoolLabelChange} />;
           }) : null}
           </Group>
           <div style={{ height: 18 }} />
@@ -1059,6 +1080,7 @@ export function buildInitialData(props) {
   if (props.initialPeople && props.initialPeople.length) {
     people = props.initialPeople.map(function (p) {
       var person = { id: uid(), name: p.name || '', birthday: p.birthday || '', schoolType: p.schoolType || '' };
+      if (p.schoolLabel) { person.schoolLabel = p.schoolLabel; }
       if (p.tidePoolEnabled === true || p.tidePoolEnabled === false) { person.tidePoolEnabled = p.tidePoolEnabled; }
       return person;
     });
@@ -1096,6 +1118,7 @@ export function buildPayload(d) {
       .filter(function (p) { return p.name.trim() !== ''; })
       .map(function (p) {
         var person = { name: p.name.trim(), birthday: p.birthday, schoolType: p.schoolType || 'none' };
+        if (p.schoolType === 'other' && p.schoolLabel && String(p.schoolLabel).trim()) { person.schoolLabel = String(p.schoolLabel).trim().slice(0, 30); }
         if (p.tidePoolEnabled === true || p.tidePoolEnabled === false) { person.tidePoolEnabled = p.tidePoolEnabled; }
         if (p.isMe) { person.isMe = true; }
         return person;
