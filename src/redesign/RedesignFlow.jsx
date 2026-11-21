@@ -176,7 +176,11 @@ export default function RedesignFlow(props) {
         <div>
           {wk.map(function (d, i) {
             return (
-              <div key={d.iso} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 0", borderTop: i === 0 ? "none" : "1px solid rgba(27,43,68,0.07)" }}>
+              // The whole day row opens that day in the Calendar (it used to say
+              // "Open" for a free day, which read as a link that did nothing).
+              <button key={d.iso} type="button" data-testid={"flow-cal-day-" + d.iso} aria-label={"Open " + d.label + " " + d.dayNum + " in the Calendar"}
+                onClick={function () { try { window.dispatchEvent(new CustomEvent("af-open-calendar-day", { detail: { iso: d.iso } })); } catch { /* no window */ } }}
+                style={{ width: "100%", display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 0", border: "none", borderTop: i === 0 ? "none" : "1px solid rgba(27,43,68,0.07)", background: "none", cursor: "pointer", textAlign: "left", fontFamily: font.body, color: NAVY }}>
                 <div style={{ width: 38, flexShrink: 0, textAlign: "center" }}>
                   <div style={{ fontSize: 10.5, fontWeight: 700, color: d.isToday ? NAVY : MUTED, textTransform: "uppercase" }}>{d.label}</div>
                   <div style={{ fontFamily: font.heading, fontSize: 18, fontWeight: 700, color: NAVY, lineHeight: 1 }}>{d.dayNum}</div>
@@ -192,9 +196,10 @@ export default function RedesignFlow(props) {
                     return <div key={(e.id || j) + d.iso} style={{ fontSize: font.checklistItem.size, color: NAVY }}>{(e.time ? e.time + " · " : "") + (e.title || "Event")}</div>;
                   })}
                   {d.events.length > 3 && <div style={{ fontSize: 12, color: MUTED }}>{"+" + (d.events.length - 3) + " more"}</div>}
-                  {!d.events.length && !d.work.length && <div style={{ fontSize: 12.5, color: "rgba(91,100,114,0.7)" }}>Open</div>}
+                  {!d.events.length && !d.work.length && <div style={{ fontSize: 13, color: MUTED }}>Nothing planned</div>}
                 </div>
-              </div>
+                <span aria-hidden="true" style={{ alignSelf: "center", width: 7, height: 7, borderRight: "1.8px solid " + MUTED, borderBottom: "1.8px solid " + MUTED, transform: "rotate(-45deg)", marginRight: 4, flexShrink: 0 }} />
+              </button>
             );
           })}
           {!any && <div style={{ marginTop: 6 }}><Empty>A wide-open week.</Empty></div>}

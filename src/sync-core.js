@@ -610,7 +610,38 @@ export function coveListIsShared(list) {
 // dirty-skip in the pull loops exists to protect wholesale-replace keys).
 // Without this, a dirty sunset_log skips the merge, and the next push sends
 // a log missing another member's entry for the same night.
-export var MERGE_WHILE_DIRTY = ["sunset_log"];
+export var MERGE_WHILE_DIRTY = ["sunset_log", "meals"];
+
+// ── meals: per-day merge ──────────────────────────────────────────────────────
+// meals is one object for the whole week ({ Sunday: {...}, ... }). Replacing it
+// wholesale let two members' edits overwrite each other: whoever pushed last
+// sent a week missing the other's day (a dirty local meals key also skipped
+// the pull that would have brought it in). Each day now carries _at (ms, as a
+// string — sanitize coerces day fields to strings), stamped by setMeals when
+// that day changes, and both sides keep the newer copy of each day. Days with
+// no _at (saved before this) count as 0, so a remote copy wins ties — the old
+// "remote replaces" behavior for older data.
+export function mealDayAt(m) {
+  var n = m && m._at != null ? Number(m._at) : 0;
+  return isFinite(n) ? n : 0;
+}
+export function mergeMeals(local, remote) {
+  var l = local && typeof local === "object" ? local : {};
+  var r = remote && typeof remote === "object" ? remote : {};
+  var out = {};
+  MEAL_DAYS.forEach(function (day) {
+    var ld = l[day], rd = r[day];
+    if (!rd || typeof rd !== "object") { out[day] = ld && typeof ld === "object" ? ld : {}; return; }
+    if (!ld || typeof ld !== "object") { out[day] = rd; return; }
+    out[day] = mealDayAt(ld) > mealDayAt(rd) ? ld : rd;
+  });
+  return out;
+}
+// Does local hold a day newer than remote (so local must still be pushed)?
+export function mealsAhead(local, remote) {
+  var l = local || {}, r = remote || {};
+  return MEAL_DAYS.some(function (day) { return mealDayAt(l[day]) > mealDayAt(r[day]); });
+}
 
 // ── applyHouseholdKey ─────────────────────────────────────────────────────────
 // Per-key apply handler for SYNC_KEYS apply loops. Use this everywhere instead
@@ -630,6 +661,21 @@ export function applyHouseholdKey(k, remoteVal) {
     try { var raw = localStorage.getItem("af_safe_harbor"); localObj = raw ? JSON.parse(raw) : null; } catch(_e) {}
     var merged = mergeSafeHarbor(localObj, remoteVal);
     try { localStorage.setItem("af_safe_harbor", JSON.stringify(merged)); } catch(_e) {}
+    return;
+  }
+  if (k === "meals") {
+    var localMeals = null;
+    try { var rawM = localStorage.getItem("af_meals"); localMeals = rawM ? JSON.parse(rawM) : null; } catch { /* unreadable: treat as empty */ }
+    try { localStorage.setItem("af_meals", JSON.stringify(mergeMeals(localMeals, remoteVal))); } catch { /* storage blocked */ }
+    // A day this device changed after the remote copy must still reach the
+    // server: keep meals dirty and ask HomeFlow to push.
+    if (mealsAhead(localMeals, remoteVal)) {
+      try {
+        var dk = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
+        if (dk.indexOf("meals") === -1) { dk.push("meals"); localStorage.setItem("af_dirtyKeys", JSON.stringify(dk)); }
+      } catch { /* storage blocked */ }
+      try { window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key: "meals" } })); } catch { /* no window */ }
+    }
     return;
   }
   if (k === "sunset_log") {

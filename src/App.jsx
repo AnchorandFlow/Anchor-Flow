@@ -25,7 +25,7 @@ import Icon from "./components/Icon.jsx"
 import ScrollTabs from "./components/ScrollTabs.jsx"
 import Section from "./components/Section.jsx"
 import { SettingsPillContext } from "./components/settingsPillContext.js"
-import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey, MERGE_WHILE_DIRTY, resolveResponsibleParent, resolveForPerson, isLighthouseDirty, coveListIsShared } from "./sync-core.js"
+import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey, MERGE_WHILE_DIRTY, mergeMeals, resolveResponsibleParent, resolveForPerson, isLighthouseDirty, coveListIsShared } from "./sync-core.js"
 import { classifyRefreshError } from "./auth/classifyRefreshError.js"
 import { BUILD_STAMP } from "./buildStamp.js"
 import { TIDEPOOL_V2, newEventId, getStoredHouseholdId, planTabChoreToggle, planSectionChoreToggle, planBonus, planClaim } from "./tidepool/ledger.js"
@@ -3525,6 +3525,17 @@ function createLocalBackup() {
           var lastPullAt = Number(localStorage.getItem("af_lastPullAt") || 0);
           var pushedRecently = lastPushAt && (Date.now() - lastPushAt) < 30000;
           var pulledRecently = lastPullAt && (Date.now() - lastPullAt) < 30000;
+          // A per-day-merged key (meals; see MERGE_WHILE_DIRTY) about to be pushed
+          // must not ride the "pushed recently" shortcut over another member's
+          // newer write — that sent a whole week missing their day. Pull (which
+          // merges those keys even while dirty) first; the next cycle pushes the union.
+          var dirtyAtCheck = (function(){ try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch (e4) { return []; } })();
+          var mergeKeyPending = dirtyAtCheck.some(function(k){ return MERGE_WHILE_DIRTY.indexOf(k) !== -1; });
+          if (serverUpdatedAt !== lastPushedAt && pushedRecently && mergeKeyPending) {
+            console.warn("[AF SYNC] push of a merge key while the server holds another device's write — pulling to merge first", { serverUpdatedAt, lastPushedAt });
+            await pullLatestHouseholdData("merge-before-push");
+            return;
+          }
           if (serverUpdatedAt === lastPushedAt || pushedRecently) {  // pulledRecently removed: a recent PULL must not license overwriting newer server data
             try { localStorage.setItem("af_lastHHSync", serverUpdatedAt); } catch (e3) {}
             console.warn("[AF SYNC] stale-check: own push/pull (match or recent) - reconciled, not stale");
@@ -4480,12 +4491,23 @@ function createLocalBackup() {
     } catch { return {}; }
   });
   function setMeals(next) {
-    const resolved = typeof next === "function" ? next(meals) : next;
+    // Build on the newest copy of each day — this render's state or what's in
+    // storage (a sync pull may have merged another member's day in since this
+    // render) — so a write never sends back a stale week. See mergeMeals.
+    let stored = null;
+    try { stored = JSON.parse(localStorage.getItem("af_meals") || "null"); } catch { /* unreadable: use state */ }
+    const base = mergeMeals(meals, stored);
+    const resolved = typeof next === "function" ? next(base) : next;
     // Sanitize before storing — ensure no nulls
     const safe = {};
+    const now = String(Date.now());
     MEAL_DAYS.forEach(day => {
       const m = resolved[day];
       safe[day] = (!m || typeof m !== "object") ? {} : sanitizeMealDayFields(m);
+      // Stamp the days this write changed (per-day sync merge); unchanged days keep theirs.
+      const strip = function(x){ const c = x || {}; return JSON.stringify(Object.keys(c).filter(function(k){ return k !== "_at"; }).sort().map(function(k){ return [k, c[k]]; })); };
+      if (strip(safe[day]) !== strip(base[day])) safe[day]._at = now;
+      else if (base[day] && base[day]._at) safe[day]._at = base[day]._at;
     });
     setMealsRaw(safe);
     try { localStorage.setItem("af_meals", JSON.stringify(safe)); } catch {}
@@ -4780,6 +4802,16 @@ function createLocalBackup() {
   const [workDayForm,setWorkDayForm]   = useState({open:false,type:"wfh",startHour:9,endHour:17,location:"",note:""});
   const [selectedDay,setSelectedDay]   = useState(null);
   const [calView,setCalView]           = useState("month");
+  // Flow hub › Calendar day rows open that day in the Calendar (Day view).
+  useEffect(function(){
+    function onOpenDay(e){
+      var iso=e&&e.detail&&e.detail.iso; if(!iso) return;
+      var p=String(iso).split("-"); var d=new Date(+p[0],+p[1]-1,+p[2]); if(isNaN(d.getTime())) return;
+      setCalViewDate(d); setSelectedDay(d); setCalView("day"); goTab("calendar");
+    }
+    window.addEventListener("af-open-calendar-day", onOpenDay);
+    return function(){ window.removeEventListener("af-open-calendar-day", onOpenDay); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [calFilter,setCalFilter]       = useState("all");
   // Year view — its own local-only filter/layout state, deliberately not
   // synced and independent of the month/week/day calFilter above.
@@ -4835,6 +4867,19 @@ function createLocalBackup() {
     window.addEventListener("af-data-changed", onVaultChanged);
     return () => window.removeEventListener("af-data-changed", onVaultChanged);
   }, []); // eslint-disable-line
+
+  // ── Unsent merge keys after a reload ─────────────────────────────────────
+  // A sync pull that merges meals (MERGE_WHILE_DIRTY) can leave meals dirty and
+  // then reload the page; nothing else would push it until the next edit. Push
+  // shortly after start-up (after the first poll) when such a key is waiting.
+  React.useEffect(() => {
+    if (!authToken || !householdId) return undefined;
+    var t = setTimeout(function() {
+      var d = []; try { d = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch (e) { d = []; }
+      if (d.some(function(k){ return MERGE_WHILE_DIRTY.indexOf(k) !== -1; })) debouncedSync();
+    }, 8000);
+    return function(){ clearTimeout(t); };
+  }, [authToken, householdId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Immediate push for critical content keys ─────────────────────────────
   // useSaved dispatches "af-immediate-sync" for CRITICAL_IMMEDIATE_KEYS edits
@@ -10710,11 +10755,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div key={m} style={{marginBottom:"0.9rem"}}>
                 <label style={lbl}>{m}</label>
                 <div style={{display:"flex",gap:"0.4rem"}}>
+                  {/* Controlled (value + onChange), not defaultValue + onBlur: iOS
+                      Safari doesn't blur a focused field when a button is tapped, so
+                      the typed meal never reached editMeal and Save stored the old one.
+                      Controlled also lets a Meal Bank pick show in the field. */}
                   {/* Fix 2: the meal name is the thing being edited — make it the visually
                       prominent element: bigger text (18px) and a taller tap target
                       (44px min-height), not the shared inp() default (0.87rem/no min-height)
                       every other generic input in the app uses. */}
-                  <input key={m+"_"+editDay} defaultValue={editMeal[m]||""} onBlur={e=>setEditMeal(p=>({...p,[m]:e.target.value}))} placeholder={`${m[0].toUpperCase()+m.slice(1)}…`} style={{...inp({flex:1,fontSize:"18px",fontWeight:600,padding:"0.75rem 0.9rem",minHeight:"44px",boxSizing:"border-box"})}}/>
+                  <input key={m+"_"+editDay} value={editMeal[m]||""} onChange={e=>{var v=e.target.value;setEditMeal(p=>({...p,[m]:v}));}} placeholder={`${m[0].toUpperCase()+m.slice(1)}…`} style={{...inp({flex:1,fontSize:"18px",fontWeight:600,padding:"0.75rem 0.9rem",minHeight:"44px",boxSizing:"border-box"})}}/>
                   <MealBankDrawer mealType={m} allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(meal){setEditMeal(function(p){return {...p,[m]:meal.name};});}} onAddToShopping={addIngredientToShopping}/>
                 </div>
                 {/* Fix 2: recipe picker stays below the meal name, smaller/secondary text (13px).
@@ -10727,7 +10776,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </select>}
               </div>
             ))}
-            <div style={{marginBottom:"0.9rem"}}><label style={lbl}>Notes</label><textarea defaultValue={editMeal.notes||""} onBlur={e=>setEditMeal(p=>({...p,notes:e.target.value}))} placeholder="Dietary notes, prep reminders…" style={{...inp({height:65,resize:"none",fontSize:"13px"})}}/></div>
+            <div style={{marginBottom:"0.9rem"}}><label style={lbl}>Notes</label><textarea value={editMeal.notes||""} onChange={e=>{var v=e.target.value;setEditMeal(p=>({...p,notes:v}));}} placeholder="Dietary notes, prep reminders…" style={{...inp({height:65,resize:"none",fontSize:"13px"})}}/></div>
             <div style={{marginBottom:"0.9rem"}}>
               <label style={lbl}>Grocery items needed</label>
               <div style={{display:"flex",flexDirection:"column",gap:"0.4rem"}}>

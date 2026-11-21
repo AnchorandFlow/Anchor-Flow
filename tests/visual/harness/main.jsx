@@ -41,12 +41,19 @@ window.fetch = function (input, init) {
   var url = typeof input === "string" ? input : (input && input.url) || "";
   var local = url.indexOf(location.origin) === 0 || url.charAt(0) === "/";
   var api = url.indexOf("/api/") !== -1;
+  // hhsync=1: household REST calls go to the dev server's in-memory row (/__hh).
+  var sb = url.indexOf(".supabase.co/rest/v1/");
+  if (params.get("hhsync") === "1" && sb !== -1) { var hi = Object.assign({}, init || {}); hi.headers = Object.assign({}, (init && init.headers) || {}, { "x-harness-me": params.get("me") || "" }); return realFetch("/__hh" + url.slice(url.indexOf("/rest/v1/")), hi); }
   if (local && !api) return realFetch(input, init);
   return Promise.reject(new TypeError("harness: network disabled"));
 };
 
 // ── Seed storage ───────────────────────────────────────────────────────────
 var hh = params.get("hh") === "beta" ? BETA_HH : OTHER_HH;
+// hhsync=1: a sync pull reloads the page — keep what this device already has
+// (seed once per tab session) instead of re-seeding over the pulled data.
+var reseed = !(params.get("hhsync") === "1" && sessionStorage.getItem("harness_seeded") === "1");
+if (reseed) {
 localStorage.clear();
 sessionStorage.clear();
 var anchor = params.get("anchor") === "1";
@@ -82,6 +89,9 @@ var tabParam = params.get("tab") || "anchor";
 var vaultSection = tabParam.indexOf("vault:") === 0 ? tabParam.slice(6) : null;
 sessionStorage.setItem("af_activeTab", vaultSection ? "anchor" : tabParam);
 if (vaultSection) { sessionStorage.setItem("af_showAnchor", "1"); sessionStorage.setItem("af_vaultSection", vaultSection); }
+// hhsync=1&t0=<server updated_at>: this device last synced at t0.
+if (params.get("hhsync") === "1") { if (params.get("t0")) localStorage.setItem("af_lastHHSync", params.get("t0")); sessionStorage.setItem("harness_seeded", "1"); }
+}
 
 var steps = [];
 try { steps = JSON.parse(params.get("steps") || "[]"); } catch { steps = []; }
@@ -196,6 +206,19 @@ async function run() {
       // "!scroll:<css selector>" scrolls the element (or its scroll box) to its end
       var se = document.querySelector(click.slice(8));
       if (se) { se.scrollTop = se.scrollHeight; } else { window.scrollTo(0, document.body.scrollHeight); }
+      await wait(300);
+    } else if (click && click.indexOf("!wait:") === 0) {
+      await wait(parseInt(click.slice(6), 10) || 0); // "!wait:<ms>" (e.g. for a sync push/poll)
+    } else if (click && click.indexOf("!type:") === 0) {
+      // "!type:<css selector>|<text>" focuses the field and types into it the
+      // way a keyboard does (input events, focus stays in the field — no blur).
+      var tm = /^!type:([^|]+)\|(.*)$/.exec(click);
+      var te = tm && document.querySelector(tm[1]);
+      if (!te) { errors.push("not found: " + click); continue; }
+      te.focus();
+      var proto = te.tagName === "TEXTAREA" ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+      Object.getOwnPropertyDescriptor(proto, "value").set.call(te, tm[2]);
+      te.dispatchEvent(new Event("input", { bubbles: true }));
       await wait(300);
     } else if (click && click.indexOf("!event:") === 0) {
       // "!event:<name>:<json detail>" dispatches a window event (e.g. the

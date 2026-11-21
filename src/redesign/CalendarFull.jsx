@@ -179,7 +179,7 @@ export default function CalendarFull(props) {
                   var et = eventTone(e);
                   return <div key={(e.id || j) + di.iso} data-tone={et.full} style={Object.assign({ fontSize: font.checklistItem.size, color: NAVY, background: et.tint, borderRadius: 8, boxShadow: "inset 3px 0 0 " + et.full, padding: "3px 8px 3px 10px", opacity: props.isDimmed(e) ? 0.3 : 1 }, wrapText)}>{(e.time ? e.time + " · " : "") + (e.title || "Event")}</div>;
                 })}
-                {!di.events.length && !di.work.length && <div style={{ fontSize: 12.5, color: MUTED }}>Open</div>}
+                {!di.events.length && !di.work.length && <div style={{ fontSize: 13, color: MUTED }}>Nothing planned</div>}
               </div>
             </button>
           );
