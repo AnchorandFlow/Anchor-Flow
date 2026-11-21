@@ -149,6 +149,10 @@ describe("FlowWrapper wiring", function () {
   it("Anchor keeps its Plus gate from the new icon", function () {
     expect(app).toMatch(/else if \(id === "anchor"\) \{\s*setOpenGroup\("Anchor"\);\s*if \(BILLING_V1 && !sub\.isPremium\) \{ setPlusModalFeature\("Home"\); return; \}/);
   });
+  it("Flow hub tiles carry the rail's Plus gate for Waves, Lighthouse and Tide Pool only", function () {
+    expect(app).toContain("plusGatedTabs={BILLING_V1 && !sub.isPremium ? { waves:true, lighthouse:true, tidepool:true } : null}");
+    expect(app).toContain("onPlusGate={function(label){ setPlusModalFeature(label); }}");
+  });
   it("HomeFlow's own bottom tab bar is not rendered in the new look", function () {
     expect(app).toContain('{!REDESIGN&&<div style={{position:"fixed",bottom:0,left:0,right:0,background:T.navBg');
   });

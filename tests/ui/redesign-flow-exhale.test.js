@@ -491,6 +491,26 @@ describe("RedesignFlow screen", function () {
   async function pick(id) { await click(q('[data-testid="flowtab-' + id + '"]')); }
   function summary() { return q('[data-testid="flow-summary"]').textContent; }
 
+  it("Plus gate: Waves, Lighthouse and Tide Pool tiles show the Plus modal for non-Plus households; others open", async function () {
+    var gate = vi.fn(), tabs = [];
+    function on(e) { tabs.push(e.detail); }
+    window.addEventListener("af-set-tab", on);
+    await render(h(RedesignFlow, base({ plusGatedTabs: { waves: true, lighthouse: true, tidepool: true }, onPlusGate: gate })));
+    await pick("waves"); await pick("lighthouse"); await pick("tidepool");
+    expect(gate.mock.calls.map(function (c) { return c[0]; })).toEqual(["Waves", "Lighthouse", "Tide Pool"]);
+    expect(tabs).toEqual([]);
+    expect(q('[data-testid="flowtab-waves"]').getAttribute("aria-selected")).toBe("false");
+    await pick("calendar"); expect(summary()).toContain("A wide-open week.");
+    await pick("meals"); await pick("shopping"); await pick("exhale");
+    expect(gate).toHaveBeenCalledTimes(3);
+    // Plus households (plusGatedTabs null): every tile opens as before.
+    await render(h(RedesignFlow, base({ plusGatedTabs: null, onPlusGate: gate })));
+    await pick("waves"); expect(summary()).toContain("No routines for today.");
+    await pick("tidepool"); expect(tabs).toEqual(["tidepool"]);
+    expect(gate).toHaveBeenCalledTimes(3);
+    window.removeEventListener("af-set-tab", on);
+  });
+
   it("sea-glass background edge to edge, back to Home, 4-per-row tabs", async function () {
     await render(h(RedesignFlow, base()));
     var pg = q('[data-testid="redesign-flow"]');

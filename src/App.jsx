@@ -18931,6 +18931,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     shoppingItems={shoppingItems} shopCategories={shopCategories}
                     coveData={coveData} schoolData={schoolData} showEmojis={showEmojis}
                     tidePoolOn={tidePoolEnabled!==false}
+                    /* Same Plus gate the old side rail applied (PLUS_GATED_NAV_IDS):
+                       Waves, Lighthouse and Tide Pool tiles show the Plus modal for
+                       non-Plus households. */
+                    plusGatedTabs={BILLING_V1 && !sub.isPremium ? { waves:true, lighthouse:true, tidepool:true } : null}
+                    onPlusGate={function(label){ setPlusModalFeature(label); }}
                     enabled={{ mealsEnabled:mealsEnabled, tidePoolEnabled:tidePoolEnabled, lighthouseEnabled:lighthouseEnabled }}
                     /* Quick-add: same write as ShoppingTab.addItem, into the store
                        the Shopping screen last used (af_lastUsedStore). */

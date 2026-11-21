@@ -245,7 +245,7 @@ export default function RedesignFlow(props) {
               var tt = toneFor(t.id);
               return (
                 <button key={t.id} type="button" role="tab" aria-selected={on} data-testid={"flowtab-" + t.id} data-tone={t.id}
-                  onClick={function () { if (DIRECT[t.id]) { goTab(t.tab); return; } setSel(t.id); setInStore(false); }}
+                  onClick={function () { if (props.plusGatedTabs && props.plusGatedTabs[t.tab] && props.onPlusGate) { props.onPlusGate(t.label); return; } if (DIRECT[t.id]) { goTab(t.tab); return; } setSel(t.id); setInStore(false); }}
                   style={{ minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, minHeight: 54, padding: "8px 2px", borderRadius: radius.sm, border: "none", background: on ? tt.full : tt.tint, color: on ? "#FFFFFF" : tt.ink, boxShadow: on ? shadow.raised : shadow.card, cursor: "pointer", fontFamily: font.body }}>
                   {shouldShowEmoji("item", se) && <span aria-hidden="true" style={{ fontSize: 17 }}>{t.icon}</span>}
                   <span data-testid={"flowtab-label-" + t.id} style={{ fontSize: t.label.length > 8 ? "clamp(10px, 2.9vw, 12px)" : 12, letterSpacing: t.label.length > 8 ? "-0.01em" : undefined, fontWeight: on ? 700 : 600, lineHeight: 1.2, textAlign: "center", whiteSpace: "nowrap", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis" }}>{t.label}</span>
