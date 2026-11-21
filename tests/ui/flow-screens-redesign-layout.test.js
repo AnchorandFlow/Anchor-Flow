@@ -49,7 +49,7 @@ describe.skipIf(!CHROME)("Flow full views — af_redesign on, 390px phone", func
       expect(html).toMatch(/data-testid="fullview-back"[^>]*>.*?←.*?Flow<\/button>/);
       expect(html).toContain('data-testid="fullview-subtitle"');
       expect(html).toContain('role="tablist"');
-      expect(html).toContain("Cormorant Garamond");
+      expect(html).toContain("Playfair Display");
     });
   });
 

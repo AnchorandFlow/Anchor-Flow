@@ -101,14 +101,14 @@ export default function CompassPanel(props) {
 
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
           {off ? (
-            <div style={{ fontFamily: font.heading, fontStyle: "italic", fontSize: 17, lineHeight: 1.5, color: SOFT }}>Compass is resting. Turn it on in Settings any time.</div>
+            <div style={{ fontFamily: font.heading, fontStyle: "italic", fontWeight: 500, fontSize: 18, lineHeight: 1.5, color: SOFT }}>Compass is resting. Turn it on in Settings any time.</div>
           ) : thread.length === 0 && !busy && (
             <div>
-              <div style={{ fontFamily: font.heading, fontStyle: "italic", fontSize: 17, lineHeight: 1.5, color: SOFT, marginBottom: 14 }}>Ask anything about your family's week. I answer from your real calendar, tasks and meals.</div>
+              <div style={{ fontFamily: font.heading, fontStyle: "italic", fontWeight: 500, fontSize: 18, lineHeight: 1.5, color: SOFT, marginBottom: 14 }}>Ask anything about your family's week. I answer from your real calendar, tasks and meals.</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }} data-testid="compass-prompts">
                 {QUICK_PROMPTS.map(function (s) {
                   return <button key={s} type="button" onClick={function () { send(s); }}
-                    style={{ textAlign: "left", padding: "11px 14px", background: CARD, border: "1px solid " + LINE, borderRadius: 12, color: IVORY, fontSize: 14, fontFamily: font.body, cursor: "pointer" }}>{s}</button>;
+                    style={{ textAlign: "left", padding: "11px 14px", background: CARD, border: "1px solid " + LINE, borderRadius: 12, color: IVORY, fontSize: 15, fontFamily: font.body, cursor: "pointer" }}>{s}</button>;
                 })}
               </div>
             </div>
@@ -116,15 +116,15 @@ export default function CompassPanel(props) {
           {thread.map(function (m, i) {
             return (
               <div key={i} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ alignSelf: "flex-end", maxWidth: "85%", background: "rgba(200,162,83,.18)", borderRadius: "14px 14px 4px 14px", padding: "9px 13px", fontSize: 14, lineHeight: 1.45 }}>{m.q}</div>
+                <div style={{ alignSelf: "flex-end", maxWidth: "85%", background: "rgba(200,162,83,.18)", borderRadius: "14px 14px 4px 14px", padding: "9px 13px", fontSize: 15, lineHeight: 1.45 }}>{m.q}</div>
                 {m.error ? (
-                  <div style={{ alignSelf: "flex-start", maxWidth: "88%", background: CARD, border: "1px solid rgba(200,122,100,.35)", borderRadius: "14px 14px 14px 4px", padding: "9px 13px", fontSize: 14, color: SOFT, lineHeight: 1.5 }}>{m.error}</div>
+                  <div style={{ alignSelf: "flex-start", maxWidth: "88%", background: CARD, border: "1px solid rgba(200,122,100,.35)", borderRadius: "14px 14px 14px 4px", padding: "9px 13px", fontSize: 15, color: SOFT, lineHeight: 1.5 }}>{m.error}</div>
                 ) : (
                   <div style={{ alignSelf: "flex-start", maxWidth: "92%", background: CARD, border: "1px solid " + LINE, borderRadius: "14px 14px 14px 4px", padding: "11px 14px" }}>
-                    <div style={{ fontFamily: font.heading, fontSize: 17, lineHeight: 1.5 }}>{renderCompassText(m.a)}</div>
+                    <div style={{ fontSize: 16, lineHeight: 1.55 }}>{renderCompassText(m.a)}</div>
                     {Array.isArray(m.details) && m.details.length > 0 && (
                       <ul style={{ margin: "8px 0 0", padding: "0 0 0 18px", display: "flex", flexDirection: "column", gap: 4 }}>
-                        {m.details.map(function (d, j) { return <li key={j} style={{ fontSize: 13.5, color: SOFT, lineHeight: 1.45 }}>{renderCompassText(d)}</li>; })}
+                        {m.details.map(function (d, j) { return <li key={j} style={{ fontSize: 15, color: SOFT, lineHeight: 1.45 }}>{renderCompassText(d)}</li>; })}
                       </ul>
                     )}
                   </div>

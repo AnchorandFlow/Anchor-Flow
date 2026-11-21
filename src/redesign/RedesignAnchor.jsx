@@ -27,7 +27,7 @@ var CPANEL = "rgba(255,255,255,0.65)";
 var wrap = { minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" };
 
 function Empty(props) {
-  return <div style={{ fontFamily: font.heading, fontStyle: "italic", fontSize: 16, color: INK_SOFT, lineHeight: 1.45 }}>{props.children}</div>;
+  return <div style={{ fontFamily: font.body, fontWeight: 700, fontSize: 15, color: INK_SOFT, lineHeight: 1.45 }}>{props.children}</div>;
 }
 function Label(props) {
   return <div style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: INK_SOFT, fontWeight: 700, margin: props.first ? "0 0 6px" : "16px 0 6px" }}>{props.children}</div>;

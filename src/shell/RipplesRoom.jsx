@@ -373,7 +373,7 @@ export default function RipplesRoom(props) {
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div>
             <div style={{ fontFamily: font.heading, fontSize: 30, fontWeight: 600, color: RD.ivory, lineHeight: 1.1 }}>Ripples</div>
-            <div style={{ fontSize: 13, color: RD.ivory2, marginTop: 2 }}>The story of your family</div>
+            <div style={{ fontSize: 15, color: RD.ivory2, marginTop: 2 }}>The story of your family</div>
           </div>
           <button type="button" data-testid="ripples-add" onClick={function () { tab === "traditions" ? openNew() : quickAdd(tab === "quotes" ? "funny" : null); }} style={{ padding: "8px 16px", background: RD.ivory, border: "none", borderRadius: 999, color: RD.teal, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: font.body }}>{addLabel}</button>
         </div>
@@ -397,8 +397,8 @@ export default function RipplesRoom(props) {
       <div style={rdCardStyle({ textAlign: "center", padding: "28px 20px" })}>
         {se && emojiChar && <div style={{ fontSize: "1.6rem", marginBottom: 8 }}>{emojiChar}</div>}
         <div style={{ fontFamily: font.heading, fontSize: 19, color: RD.ink, marginBottom: 6 }}>{title}</div>
-        {desc && <div data-testid="ripples-empty-desc" style={{ fontSize: 13, color: RD.ink2, fontWeight: 700, marginBottom: 4 }}>{desc}</div>}
-        <div style={{ fontSize: 13, color: RD.ink2, lineHeight: 1.6 }}>{body}</div>
+        {desc && <div data-testid="ripples-empty-desc" style={{ fontSize: 15, color: RD.ink2, fontWeight: 700, marginBottom: 4 }}>{desc}</div>}
+        <div style={{ fontSize: 15, color: RD.ink2, lineHeight: 1.6 }}>{body}</div>
         {action}
       </div>
     );
@@ -648,7 +648,7 @@ export default function RipplesRoom(props) {
               {se && <span style={{ fontSize: "1.3rem" }}>✨</span>}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: RD.teal, marginBottom: 3 }}>On This Day · {fmtDate(onThisDay.date, { month: "long", day: "numeric", year: "numeric" })}</div>
-                <div style={{ fontSize: 17, color: RD.ink, fontFamily: font.heading, fontStyle: "italic", lineHeight: 1.4 }}>{onThisDay.name}</div>
+                <div style={{ fontSize: 18, color: RD.ink, fontFamily: font.heading, fontStyle: "italic", fontWeight: 500, lineHeight: 1.4 }}>{onThisDay.name}</div>
                 {onThisDay.who && <div style={{ fontSize: 12, color: RD.ink2, marginTop: 3 }}>{onThisDay.who}</div>}
               </div>
             </div>
@@ -663,7 +663,7 @@ export default function RipplesRoom(props) {
                   <div key={r.id} data-testid="ripple-card" onClick={function () { openRippleEdit(r); }} style={rdCardStyle({ cursor: "pointer" })}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
                       <div style={{ fontSize: 15, color: RD.ink, lineHeight: 1.4, fontWeight: 500, minWidth: 0, overflowWrap: "anywhere" }}>{r.name}</div>
-                      <div style={{ fontFamily: font.heading, fontStyle: "italic", color: RD.ink2, fontSize: 14, flexShrink: 0 }}>{fmtDate(r.date)}</div>
+                      <div style={{ fontFamily: font.body, fontWeight: 700, color: RD.ink2, fontSize: 14, flexShrink: 0 }}>{fmtDate(r.date)}</div>
                     </div>
                     {r.note && <div style={{ fontSize: 13, color: RD.ink2, marginTop: 4, lineHeight: 1.45 }}>{r.note}</div>}
                     {r.photo && <img src={r.photo} alt="" style={{ width: "100%", maxHeight: 180, objectFit: "cover", display: "block", borderRadius: radius.sm, marginTop: 8 }} />}
@@ -693,7 +693,7 @@ export default function RipplesRoom(props) {
               <div style={rdCardStyle({ padding: 16 })}>
                 <div style={{ fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: RD.teal, marginBottom: 8 }}>Today's Ripple Prompt</div>
                 <div style={{ fontFamily: font.heading, fontSize: 19, color: RD.ink, fontStyle: "italic", lineHeight: 1.5, marginBottom: 12 }}>"What's one moment from today worth holding onto?"</div>
-                <button type="button" onClick={function () { quickAdd(null); }} style={{ width: "100%", textAlign: "left", padding: "10px 12px", background: TK.background, border: "1px solid rgba(27,43,68,0.1)", borderRadius: radius.sm, cursor: "pointer", fontSize: 14, color: RD.ink2, fontStyle: "italic", fontFamily: font.heading }}>Just a sentence or two is enough.</button>
+                <button type="button" onClick={function () { quickAdd(null); }} style={{ width: "100%", textAlign: "left", padding: "10px 12px", background: TK.background, border: "1px solid rgba(27,43,68,0.1)", borderRadius: radius.sm, cursor: "pointer", fontSize: 15, color: RD.ink2, fontWeight: 700, fontFamily: font.body }}>Just a sentence or two is enough.</button>
                 <div style={{ fontSize: 11, color: RD.ink2, marginTop: 8, textAlign: "right" }}>from Compass{se ? " 🧭" : ""}</div>
               </div>
 
@@ -745,7 +745,7 @@ export default function RipplesRoom(props) {
                     <div style={{ fontSize: 12, color: RD.ink2, marginTop: 3 }}>
                       {t.when ? fmtMonthDay(t.when) + " · " : ""}Started {t.startedYear} · {years.length} year{years.length === 1 ? "" : "s"} running
                     </div>
-                    {t.description && <div style={{ fontFamily: font.heading, fontStyle: "italic", fontSize: 16, color: RD.ink2, marginTop: 8, lineHeight: 1.45 }}>"{t.description}"</div>}
+                    {t.description && <div style={{ fontFamily: font.body, fontWeight: 700, fontSize: 15, color: RD.ink2, marginTop: 8, lineHeight: 1.45 }}>"{t.description}"</div>}
                     {years.length > 0 && (
                       <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 10 }}>
                         {years.map(function (y) { return <span key={y} style={{ fontSize: 11, padding: "2px 9px", borderRadius: 999, background: RD.chip, color: RD.teal }}>{y}</span>; })}

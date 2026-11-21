@@ -147,15 +147,21 @@ export var shadow = {
   raised: "0 2px 4px rgba(27, 43, 68, 0.05), 0 10px 28px rgba(27, 43, 68, 0.08)",
 };
 
+// New-look type (final): Playfair Display for titles, headings, card titles
+// 18px+, the Compass brief, Sunset title and big numbers — never below 18px;
+// Lato for everything else. Loaded by ./redesignType.js (one link, only
+// Playfair 600/700 + italic 500 and Lato 400/700/900).
+var PLAYFAIR = "'Playfair Display', Georgia, serif";
+var LATO = "'Lato', system-ui, sans-serif";
 export var font = {
-  heading: "'Cormorant Garamond', Georgia, 'Times New Roman', serif",
-  body: "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-  checklistItem: { family: "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", size: 14 },
+  heading: PLAYFAIR,
+  body: LATO,
+  checklistItem: { family: LATO, size: 15 },
   // Anchor full views (Vault, Safe Harbor, Home, People, Cove, Horizon,
-  // Settings): Playfair Display titles, Lato subtitles and rows (15px).
+  // Settings): same pair, 15px rows.
   anchor: {
-    heading: "'Playfair Display', Georgia, 'Times New Roman', serif",
-    body: "'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    heading: PLAYFAIR,
+    body: LATO,
     rowSize: 15,
   },
 };

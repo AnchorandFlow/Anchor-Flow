@@ -66,7 +66,7 @@ var THEMES = {
 
 var wrapText = { minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" };
 var BRIEF_LABEL = { fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#DDBB70", marginBottom: 6 };
-var BRIEF_ITEM = { fontSize: 14, lineHeight: 1.45, padding: "3px 0", overflowWrap: "anywhere" };
+var BRIEF_ITEM = { fontSize: 15, lineHeight: 1.45, padding: "3px 0", overflowWrap: "anywhere" };
 
 function Item(props) {
   var showIcon = props.icon && shouldShowEmoji(props.iconKind || "item", props.showEmojis);
@@ -86,7 +86,7 @@ function Item(props) {
 }
 
 function Empty(props) {
-  return <div style={{ fontFamily: font.heading, fontStyle: "italic", fontSize: 16, color: props.color, lineHeight: 1.45, padding: "4px 2px" }}>{props.children}</div>;
+  return <div style={{ fontFamily: font.body, fontWeight: 700, fontSize: 15, color: props.color, lineHeight: 1.45, padding: "4px 2px" }}>{props.children}</div>;
 }
 
 function Pillar(props) {
@@ -214,7 +214,7 @@ export default function RedesignHome(props) {
             <h1 style={{ margin: 0, fontFamily: font.heading, fontSize: 28, fontWeight: 700, lineHeight: 1.1, color: NAVY }}>
               {m.greeting + (m.firstName ? ", " + m.firstName : "")}
             </h1>
-            <div style={{ fontSize: 13, color: MUTED, marginTop: 3 }}>{m.dateLabel + " · " + m.mode}</div>
+            <div style={{ fontSize: 15, color: MUTED, marginTop: 3 }}>{m.dateLabel + " · " + m.mode}</div>
           </div>
         </header>
 
@@ -316,7 +316,7 @@ export default function RedesignHome(props) {
           <div data-testid="sunset-card" data-anchored={anchored ? "true" : undefined} style={{ background: gradient.sunset.css, borderRadius: radius.lg, boxShadow: shadow.raised, padding: "20px 18px", color: IVORY, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <div style={Object.assign({ flex: "1 1 180px" }, wrapText)}>
               <div style={{ fontFamily: font.heading, fontSize: 22, fontWeight: 700 }}>Sunset</div>
-              <div style={{ fontSize: 13, opacity: 0.85, marginTop: 2 }}>{anchored ? "Today is anchored. Tap to see tonight's reflection." : "Close the day gently."}</div>
+              <div style={{ fontSize: 15, opacity: 0.85, marginTop: 2 }}>{anchored ? "Today is anchored. Tap to see tonight's reflection." : "Close the day gently."}</div>
             </div>
             <button type="button" data-testid="sunset-card-button" aria-label={anchored ? "Anchored. Open tonight's reflection" : undefined} onClick={function () { try { window.dispatchEvent(new CustomEvent("af-open-sunset")); } catch { /* no window */ } }}
               style={{ background: IVORY, color: "#26263F", border: "none", borderRadius: 999, padding: "10px 22px", fontFamily: font.body, fontWeight: 700, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>{anchored && <AnchoredCheck color="#26263F" />}{anchored ? "Anchored" : "Begin"}</button>

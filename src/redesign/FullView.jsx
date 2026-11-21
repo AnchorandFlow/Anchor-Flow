@@ -4,10 +4,10 @@
 // and handlers and returns these instead of its legacy markup.
 //
 //   FullViewPage    very light FAF8F3 page, phone-safe (no sideways scroll)
-//   FullViewHeader  "← Flow" back button, Cormorant Garamond title, one-line subtitle
+//   FullViewHeader  "← Flow" back button, Playfair Display title, one-line subtitle
 //   PillTabs        a screen's sub-sections as rounded pill tabs (wrap, never scroll)
 //   Card            white rounded card
-//   CheckRow        14px DM Sans row with the 22px sage circle check
+//   CheckRow        15px Lato row with the 22px sage circle check
 //                   (done = filled, text crossed out at 45% opacity)
 //   rdLegacyKit     T/card/btnP/btnS/inp/lbl in the new look, for the few
 //                   legacy sub-section bodies that are reused as-is inside
@@ -58,7 +58,7 @@ export function FullViewHeader(props) {
           <span style={wrapText}>{props.title}</span>
         </h1>
         {props.subtitle && (
-          <div data-testid="fullview-subtitle" style={{ marginTop: 4, fontSize: 13.5, color: MUTED, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{props.subtitle}</div>
+          <div data-testid="fullview-subtitle" style={{ marginTop: 4, fontSize: 15, color: MUTED, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{props.subtitle}</div>
         )}
       </div>
     </header>
@@ -114,7 +114,7 @@ export function SectionLabel(props) {
 }
 
 export function Empty(props) {
-  return <div style={{ fontFamily: font.heading, fontStyle: "italic", fontSize: 16, color: MUTED, lineHeight: 1.45 }}>{props.children}</div>;
+  return <div style={{ fontFamily: font.body, fontWeight: 700, fontSize: 15, color: MUTED, lineHeight: 1.45 }}>{props.children}</div>;
 }
 
 // The 22px sage circle. A <button> so it is reachable by keyboard; with

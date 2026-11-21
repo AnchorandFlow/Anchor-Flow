@@ -188,12 +188,14 @@ describe("design tokens", function () {
     expect(fullBleed("#1B2B44").boxShadow).toBe("0 0 0 100vmax #1B2B44");
   });
 
-  it("card radius 14–20px; fonts; checklist items 14px DM Sans", function () {
+  it("card radius 14–20px; fonts; checklist items 15px Lato", function () {
     [radius.sm, radius.md, radius.lg].forEach(function (r) { expect(r).toBeGreaterThanOrEqual(14); expect(r).toBeLessThanOrEqual(20); });
-    expect(font.heading).toMatch(/^'Cormorant Garamond'/);
-    expect(font.body).toMatch(/^'DM Sans'/);
-    expect(font.checklistItem.size).toBe(14);
-    expect(font.checklistItem.family).toMatch(/^'DM Sans'/);
+    expect(font.heading).toBe("'Playfair Display', Georgia, serif");
+    expect(font.body).toBe("'Lato', system-ui, sans-serif");
+    expect(font.checklistItem.size).toBe(15);
+    expect(font.checklistItem.family).toBe(font.body);
+    expect(font.anchor.heading).toBe(font.heading);
+    expect(font.anchor.body).toBe(font.body);
   });
 
   it("person colors; work days are neutral striped initials, not a person color", function () {

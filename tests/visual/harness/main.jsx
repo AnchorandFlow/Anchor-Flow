@@ -150,6 +150,30 @@ function measure() {
   return { width: vw, pageWidth: Math.round(box.width), offenders: out.slice(0, 20), count: out.length };
 }
 
+// fonts=1: type audit of everything visible on the page (tab panel, nav,
+// footer, overlays). For each element that holds its own text: the first
+// font family the browser resolved from its stack, size, weight, style.
+function fontAudit() {
+  var vw = document.documentElement.clientWidth, vh = window.innerHeight;
+  var rows = [];
+  Array.from(document.body.querySelectorAll("*")).forEach(function (el) {
+    if (/^(SCRIPT|STYLE|svg|path|circle)$/i.test(el.tagName)) return;
+    var own = Array.from(el.childNodes).filter(function (n) { return n.nodeType === 3 && n.textContent.trim(); }).map(function (n) { return n.textContent.trim(); }).join(" ");
+    var isField = el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT";
+    if (!own && !isField) return;
+    if (isField) own = "[" + el.tagName.toLowerCase() + "] " + (el.value || el.placeholder || "");
+    var r = el.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    var cs = getComputedStyle(el);
+    if (cs.visibility === "hidden" || +cs.opacity === 0) return;
+    for (var e = el; e; e = e.parentElement) { var c2 = getComputedStyle(e); if (c2.display === "none") return; }
+    var fam = cs.fontFamily.split(",")[0].replace(/["']/g, "").trim();
+    var tidEl = el.closest("[data-testid]");
+    rows.push({ tid: tidEl ? tidEl.getAttribute("data-testid") : "", cls: (el.closest("[class]") || {}).className || "", fam: fam, size: parseFloat(cs.fontSize), weight: cs.fontWeight, italic: cs.fontStyle === "italic", tag: el.tagName.toLowerCase(), text: own.replace(/\s+/g, " ").slice(0, 40), wraps: r.height > parseFloat(cs.lineHeight || 0) * 1.6 && cs.whiteSpace === "nowrap", over: el.scrollWidth > el.clientWidth + 1 && (cs.overflow === "hidden" || cs.textOverflow === "ellipsis") });
+  });
+  return { width: vw, height: vh, rows: rows };
+}
+
 async function run() {
   var { default: App } = await import("../../../src/App.jsx");
   var { StrictMode } = await import("react");
@@ -184,10 +208,10 @@ async function run() {
       el.click();
       await wait(500);
     }
-    out[label] = params.get("measure") === "1" ? measure() : (params.get("scope") === "root" ? root().innerHTML : panel().innerHTML);
+    out[label] = params.get("fonts") === "1" ? fontAudit() : params.get("measure") === "1" ? measure() : (params.get("scope") === "root" ? root().innerHTML : panel().innerHTML);
   }
   if (params.get("shot") === "1") { document.title = "READY"; return; }
-  if (params.get("measure") === "1" && window.parent !== window) {
+  if ((params.get("measure") === "1" || params.get("fonts") === "1") && window.parent !== window) {
     window.parent.postMessage({ harnessCapture: encodeURIComponent(JSON.stringify({ snapshots: out, errors: errors })) }, "*");
   }
   var s = document.createElement("script");

@@ -91,7 +91,7 @@ export function AnchorHeader(props) {
           <span style={wrapText}>{props.title}</span>
         </h1>
         {props.subtitle && (
-          <div data-testid="fullview-subtitle" style={Object.assign({ marginTop: 5, fontFamily: BODY, fontSize: 14, lineHeight: 1.45, color: IVORY_SOFT }, wrapText)}>{props.subtitle}</div>
+          <div data-testid="fullview-subtitle" style={Object.assign({ marginTop: 5, fontFamily: BODY, fontSize: 15, lineHeight: 1.45, color: IVORY_SOFT }, wrapText)}>{props.subtitle}</div>
         )}
       </div>
     </header>

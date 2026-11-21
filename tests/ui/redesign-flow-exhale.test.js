@@ -197,11 +197,11 @@ describe("RedesignExhale actions", function () {
     expect(q('[data-testid="exhale-board"]').className).toBe("rx-board");
   });
 
-  it("rows are 14px DM Sans", async function () {
+  it("rows are 15px Lato", async function () {
     await render(h(RedesignExhale, {}));
     var t = q('[data-testid="item-text"]');
-    expect(t.style.fontSize).toBe("14px");
-    expect(t.style.fontFamily).toMatch(/DM Sans/);
+    expect(t.style.fontSize).toBe("15px");
+    expect(t.style.fontFamily).toMatch(/Lato/);
   });
 
   it("quick-add is the big bar at the top and adds new items with empty optional fields", async function () {

@@ -29,7 +29,7 @@ export var inputStyle = { width: "100%", minWidth: 0, boxSizing: "border-box", b
 
 // ── Reused legacy bodies ─────────────────────────────────────────────────────
 // HomeFlow's own T/card/btnP/btnS/inp/lbl, in the new look (fixed light
-// palette, white cards, pill buttons, DM Sans). Same shapes as HomeFlow's so a
+// palette, white cards, pill buttons, Lato). Same shapes as HomeFlow's so a
 // legacy sub-section body can be rendered unchanged with these in scope.
 // No purple/pink: lavender maps to the blue family.
 export var RD_T = {

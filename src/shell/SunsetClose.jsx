@@ -105,8 +105,10 @@ function sectionLabel(th, text, extra) {
 function cardStyle(th, extra) {
   return Object.assign({ background: th.cardBg, border: th.cardBorder, borderRadius: th.cardRadius, padding: "13px 15px", backdropFilter: th.blur, WebkitBackdropFilter: th.blur, boxShadow: th.cardShadow }, extra || {});
 }
+// New look: Playfair never below 18px, so these small lines are Lato bold.
+function smallNote(th) { return th === THEMES.redesign ? { fontFamily: th.sans, fontWeight: 700, fontSize: 15 } : null; }
 function emptyState(th, text) {
-  return <div style={{ fontSize: ".82rem", color: th.text2, fontStyle: "italic", fontFamily: th.serif }}>{text}</div>;
+  return <div style={Object.assign({ fontSize: ".82rem", color: th.text2, fontStyle: "italic", fontFamily: th.serif }, smallNote(th))}>{text}</div>;
 }
 
 // Pure-CSS chevron (rotated border corner) — no unicode glyph, so it can
@@ -132,7 +134,7 @@ function AccordionCard(props) {
       <button type="button" aria-expanded={rd ? props.open : undefined} onClick={props.onToggle} style={{ width: "100%", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, background: "none", border: "none", cursor: "pointer", padding: "14px 15px", textAlign: "left", fontFamily: th.sans }}>
         <div>
           {sectionLabel(th, props.label, { marginBottom: 4 })}
-          <div style={{ fontFamily: th.serif, fontSize: "1.05rem", fontWeight: 600, color: th.text }}>{props.title}</div>
+          <div style={{ fontFamily: th.serif, fontSize: rd ? 18 : "1.05rem", fontWeight: 600, color: th.text }}>{props.title}</div>
         </div>
         <span style={{ marginTop: 8 }}><Chevron th={th} open={props.open} /></span>
       </button>
@@ -351,7 +353,7 @@ export default function SunsetClose(props) {
               <span style={{ fontSize: ".82rem", color: th.headSub, fontFamily: th.sans }}>Tonight's reflection. Change anything and save.</span>
             </div>
           ) : (
-            <div style={{ fontSize: ".82rem", color: th.headSub, fontFamily: th.sans, marginTop: 4 }}>Let's close today with intention.</div>
+            <div style={{ fontSize: rd ? 15 : ".82rem", color: th.headSub, fontFamily: th.sans, marginTop: 4 }}>Let's close today with intention.</div>
           )}
         </div>
 
@@ -455,15 +457,15 @@ export default function SunsetClose(props) {
         <AccordionCard th={th} label="Exhale" title="Anything still lingering?" open={openSections.exhale} onToggle={function () { toggleSection("exhale"); }}>
           {reopen && (saved.exhaled || []).length > 0 && (
             <div data-testid="sunset-exhaled" style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
-              {saved.exhaled.map(function (x, i) { return <div key={i} style={{ fontSize: ".84rem", color: th.text, fontStyle: "italic", fontFamily: th.serif }}>{x}</div>; })}
+              {saved.exhaled.map(function (x, i) { return <div key={i} style={Object.assign({ fontSize: ".84rem", color: th.text, fontStyle: "italic", fontFamily: th.serif }, smallNote(th))}>{x}</div>; })}
             </div>
           )}
           {savedClearMind && !reopen ? (
-            <div style={{ fontSize: ".82rem", color: th.saved, fontStyle: "italic", fontFamily: th.serif }}>Saved to Exhale.</div>
+            <div style={Object.assign({ fontSize: ".82rem", color: th.saved, fontStyle: "italic", fontFamily: th.serif }, smallNote(th))}>Saved to Exhale.</div>
           ) : (
             <div>
               <div style={{ padding: "10px 12px", background: th.inputBg, border: th.inputBorder, borderRadius: 10, marginBottom: 8 }}>
-                <input value={clearMindText} onChange={function (e) { setClearMindText(e.target.value); }} onKeyDown={function (e) { if (e.key === "Enter") saveClearMind(); }} placeholder="Write it here to let it go…" style={{ width: "100%", background: "transparent", border: "none", outline: "none", fontSize: rd ? 16 : ".82rem", color: th.text, fontStyle: "italic", fontFamily: th.serif, boxSizing: "border-box" }} />
+                <input value={clearMindText} onChange={function (e) { setClearMindText(e.target.value); }} onKeyDown={function (e) { if (e.key === "Enter") saveClearMind(); }} placeholder="Write it here to let it go…" style={{ width: "100%", background: "transparent", border: "none", outline: "none", fontSize: rd ? 16 : ".82rem", color: th.text, fontStyle: rd ? "normal" : "italic", fontFamily: rd ? th.sans : th.serif, boxSizing: "border-box" }} />
               </div>
               {clearMindText.trim() && <span onClick={saveClearMind} style={{ fontSize: rd ? ".78rem" : ".68rem", color: th.saved, cursor: "pointer", fontFamily: th.sans, fontWeight: rd ? 600 : undefined }}>Save</span>}
             </div>

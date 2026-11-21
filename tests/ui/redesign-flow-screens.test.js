@@ -40,7 +40,7 @@ function hsl(hex) {
 
 // ── Shared pieces ───────────────────────────────────────────────────────────
 describe("full-view chrome", function () {
-  it("header: ← Flow back button (goes to the Flow tab), Cormorant title, one-line subtitle", async function () {
+  it("header: ← Flow back button (goes to the Flow tab), Playfair title, one-line subtitle", async function () {
     var seen = [];
     function on(e) { seen.push(e.detail); }
     window.addEventListener("af-set-tab", on);
@@ -50,7 +50,7 @@ describe("full-view chrome", function () {
     await click(back);
     expect(seen).toEqual(["flowhome"]);
     window.removeEventListener("af-set-tab", on);
-    expect(q("h1").style.fontFamily).toMatch(/Cormorant Garamond/);
+    expect(q("h1").style.fontFamily).toMatch(/Playfair Display/);
     var sub = q('[data-testid="fullview-subtitle"]');
     expect(sub.textContent).toBe("4 items left");
     expect(sub.style.whiteSpace).toBe("nowrap");
@@ -71,7 +71,7 @@ describe("full-view chrome", function () {
     expect(picked).toHaveBeenCalledWith("b");
   });
 
-  it("check: 22px sage circle; done = filled, text crossed out at 45% opacity, 14px DM Sans", async function () {
+  it("check: 22px sage circle; done = filled, text crossed out at 45% opacity, 15px Lato", async function () {
     var toggle = vi.fn();
     await render(h("div", null,
       h(CheckRow, { testId: "open", text: "Bananas", done: false, onToggle: toggle }),
@@ -91,7 +91,7 @@ describe("full-view chrome", function () {
     expect(texts[0].style.textDecoration).toBe("none");
     expect(texts[1].style.opacity).toBe("0.45");
     expect(texts[1].style.textDecoration).toBe("line-through");
-    texts.forEach(function (t) { expect(t.style.fontSize).toBe("14px"); expect(t.style.fontFamily).toMatch(/^"?DM Sans/); });
+    texts.forEach(function (t) { expect(t.style.fontSize).toBe("15px"); expect(t.style.fontFamily).toMatch(/^"?Lato/); });
     await click(circles[0]);
     await click(texts[0]);
     expect(toggle).toHaveBeenCalledTimes(2);

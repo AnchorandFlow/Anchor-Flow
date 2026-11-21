@@ -59,7 +59,7 @@ function QuickAdd(props) {
 }
 
 function Empty(props) {
-  return <div style={{ fontFamily: font.heading, fontStyle: "italic", fontSize: 16, color: MUTED, lineHeight: 1.45 }}>{props.children}</div>;
+  return <div style={{ fontFamily: font.body, fontWeight: 700, fontSize: 15, color: MUTED, lineHeight: 1.45 }}>{props.children}</div>;
 }
 function Row(props) {
   return (

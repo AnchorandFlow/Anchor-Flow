@@ -337,7 +337,7 @@ export default function RedesignExhale(props) {
                     <div aria-hidden="true" style={{ border: "2px dashed " + t.full, borderRadius: radius.sm, padding: "10px", textAlign: "center", fontSize: 13, fontWeight: 700, color: t.ink, background: over ? "rgba(255,255,255,0.8)" : "transparent" }}>Drop here</div>
                   )}
                   {items.length === 0 && (
-                    <div style={{ fontFamily: font.heading, fontStyle: "italic", fontSize: 15, color: MUTED, padding: "2px 4px" }}>
+                    <div style={{ fontFamily: font.body, fontWeight: 700, fontSize: 15, color: MUTED, padding: "2px 4px" }}>
                       {idx === EXHALED ? "Nothing here yet. Exhale a thought above." : "Clear. Nothing waiting in " + names[idx] + "."}
                     </div>
                   )}

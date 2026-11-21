@@ -46,6 +46,7 @@ import LighthouseFull from "./redesign/LighthouseFull.jsx"
 import { LH_AREA_TONE, LH_DASH_TONE, lhAreaTone, lhChipStyle, lhRowStyle, lhTextStyle, lhSectionCard, lhSectionHead, lhDashCard, lhInnerStyle } from "./redesign/lighthouseColors.js"
 import { personColor as rdPersonColor } from "./redesign/flowData.js"
 import { MEALS_TONE, mealTagTone } from "./redesign/mealsColors.js"
+import "./design/redesignType.js"
 import { tone as RD_TONE_BASE, accentTone as RD_ACCENT, calendarTones as RD_CAL_TONES, gradient } from "./design/tokens.js"
 import { rdLegacyKit, RD_T, goAnchor, rdFormKit, RD_OVERLAY, RD_DIALOG, RD_SHEET, RD_SHEET_TITLE, RD_CLOSE, RD_SECTION_LABEL, rdChip, rdPersonChip, RD_SEG_TRACK, rdSeg, rdLink, RD_DANGER, rdYearCatTone } from "./redesign/fullViewKit.js"
 import { HomeFull, PeopleFull, HorizonFull } from "./redesign/AnchorHubsFull.jsx"
@@ -12897,7 +12898,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var tpEmptyTitle = (
             <div>
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.55rem",fontWeight:700,color:T.textDark,letterSpacing:"0.04em"}}>🏝️ Tide Pool</div>
-              <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"2px"}}>Earn shells, open the chest, choose your treasure</div>
+              <div style={{fontSize:REDESIGN?"15px":"0.78rem",color:T.textSoft,marginTop:"2px"}}>Earn shells, open the chest, choose your treasure</div>
             </div>
       );
       var tpEmptyCard = (
@@ -13030,7 +13031,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var tpTitle = (
           <div>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.55rem",fontWeight:700,color:T.textDark,letterSpacing:"0.04em"}}>🏝️ Tide Pool</div>
-            <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"2px"}}>Earn shells, open the chest, choose your treasure</div>
+            <div style={{fontSize:REDESIGN?"15px":"0.78rem",color:T.textSoft,marginTop:"2px"}}>Earn shells, open the chest, choose your treasure</div>
           </div>
     );
     var tpBody = (
@@ -13192,7 +13193,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* Chores */}
         <div style={card()}>
           <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem",marginBottom:"0.75rem"}}>Today's chores</div>
-          {(kid.chores||[]).length===0&&<div style={{color:T.textSoft,fontSize:"0.82rem",marginBottom:"0.65rem"}}>No chores yet — add some in Settings.</div>}
+          {(kid.chores||[]).length===0&&<div style={{color:T.textSoft,fontSize:REDESIGN?"15px":"0.82rem",marginBottom:"0.65rem"}}>No chores yet — add some in Settings.</div>}
           {(kid.chores||[]).map(function(ch){
             return (
               <div key={ch.id} onClick={function(){toggleChore(ch.id);}}
@@ -13200,7 +13201,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <div style={{width:20,height:20,borderRadius:"50%",border:"1.5px solid "+(ch.done?tealHex:sandHex),background:ch.done?tealHex:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:"11px",color:ch.done?"#fff":"transparent",transition:"all 0.15s"}}>
                   {ch.done?"✓":""}
                 </div>
-                <div style={{flex:1,fontSize:"0.85rem",color:ch.done?T.textSoft:T.textDark,textDecoration:ch.done?"line-through":"none"}}>{ch.name}</div>
+                <div style={{flex:1,fontSize:REDESIGN?"16px":"0.85rem",color:ch.done?T.textSoft:T.textDark,textDecoration:ch.done?"line-through":"none"}}>{ch.name}</div>
                 <div style={{fontSize:"0.76rem",color:"#8a6a3a",fontWeight:600}}>+{ch.pts} 🐚</div>
               </div>
             );
@@ -13212,9 +13213,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <div style={{display:"flex",gap:"0.4rem"}}>
               <input value={flyName} onChange={function(e){setFlyName(e.target.value);}}
                 placeholder="Something helpful they did..."
-                style={{...inp({fontSize:"0.8rem",padding:"0.42rem 0.65rem",flex:1})}}/>
+                style={{...inp({fontSize:REDESIGN?"16px":"0.8rem",padding:"0.42rem 0.65rem",flex:1,minWidth:REDESIGN?0:undefined})}}/>
               <select value={flyPts} onChange={function(e){setFlyPts(parseInt(e.target.value));}}
-                style={{...inp({width:72,padding:"0.42rem 0.4rem",fontSize:"0.8rem"})}}>
+                style={{...inp({width:72,padding:"0.42rem 0.4rem",fontSize:REDESIGN?"15px":"0.8rem"})}}>
                 <option value={1}>+1 🐚</option>
                 <option value={2}>+2 🐚</option>
                 <option value={3}>+3 🐚</option>

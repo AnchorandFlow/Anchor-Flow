@@ -102,14 +102,14 @@ describe("Ripples — af_redesign on", function () {
     expect(q('[data-testid="tradition-card"]').style.background).toBe(rgb("#FDFAF5"));
   });
 
-  it("kid quotes: Cormorant Garamond italic quote, child's name and date below", async function () {
+  it("kid quotes: Playfair Display italic quote, child's name and date below", async function () {
     seedRipples();
     await render(h(RipplesRoom, { redesign: true }));
     await click(q('[data-testid="ripples-tab-quotes"]'));
     var card = q('[data-testid="kid-quote-card"]');
     var text = card.querySelector('[data-testid="kid-quote-text"]');
     expect(text.textContent).toBe("\"Dinosaurs don't have bedtimes\"");
-    expect(text.style.fontFamily).toContain("Cormorant Garamond");
+    expect(text.style.fontFamily).toContain("Playfair Display");
     expect(text.style.fontStyle).toBe("italic");
     var who = card.querySelector('[data-testid="kid-quote-who"]');
     var date = card.querySelector('[data-testid="kid-quote-date"]');
@@ -172,7 +172,7 @@ describe("Sunset — af_redesign on", function () {
     expect(greet.style.color).toBe(rgb(gradient.sunset.plum));
     var title = byText("div", "How did today feel?");
     expect(title.style.color).toBe(rgb("#F2EAD8"));
-    expect(title.style.fontFamily).toContain("Cormorant Garamond");
+    expect(title.style.fontFamily).toContain("Playfair Display");
   });
 
   it("five existing sections, frosted glass, all closed by default", async function () {
