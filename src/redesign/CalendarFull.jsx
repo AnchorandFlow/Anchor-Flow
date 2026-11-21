@@ -36,8 +36,33 @@ function Marker(props) {
   return <span title={props.label || "Marker"} aria-label={props.label || "Marker"} style={{ width: 6, height: 6, transform: "rotate(45deg)", background: "#C8A253", display: "inline-block", flexShrink: 0 }} />;
 }
 
+// Google Calendar events: their own look (white card, dashed Google-blue
+// edge, a "Google" tag and the calendar's name) and read-only — they're
+// edited in Google, and the next sync would undo a change made here.
+var GOOGLE_BLUE = "#2F6BD8";
+export function GoogleTag(props) {
+  return <span data-testid="google-tag" style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: props.small ? 10.5 : 11.5, fontWeight: 800, letterSpacing: "0.02em", color: GOOGLE_BLUE, background: "#EEF3FB", border: "1px solid #C9D8F2", borderRadius: 999, padding: props.small ? "0 5px" : "1px 7px", lineHeight: 1.5, flexShrink: 0, verticalAlign: "middle" }}>{props.small ? "G" : "Google"}</span>;
+}
+function GoogleEventRow(props) {
+  var e = props.event;
+  return (
+    <div data-testid={"cal-event-" + e.id} data-google="true" style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "9px 10px 9px 12px", marginTop: props.first ? 0 : 6, background: "#FFFFFF", borderRadius: 12, border: "1.5px dashed " + GOOGLE_BLUE + "88", boxShadow: "inset 4px 0 0 " + (e.color || GOOGLE_BLUE), opacity: props.dimmed ? 0.3 : 1 }}>
+      <div style={Object.assign({ flex: 1, minWidth: 0, fontFamily: font.body, color: NAVY }, wrapText)}>
+        <div style={{ fontSize: font.checklistItem.size, lineHeight: 1.4 }}>
+          {e.time ? <span style={{ fontWeight: 700, marginRight: 6 }}>{e.time}</span> : null}{e.title || "Event"}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
+          <GoogleTag />
+          <span style={{ fontSize: 12.5, color: MUTED }}>{[e.googleCalendar || e.colorLabel || null, "edit in Google Calendar"].filter(Boolean).join(" · ")}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EventRow(props) {
   var e = props.event;
+  if (e && e.fromGoogle) return <GoogleEventRow {...props} />;
   return (
     <div data-testid={"cal-event-" + e.id} data-tone={props.tone.full} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "9px 10px 9px 12px", marginTop: props.first ? 0 : 6, background: props.tone.tint, borderRadius: 12, boxShadow: "inset 4px 0 0 " + props.tone.full, opacity: props.dimmed ? 0.3 : 1 }}>
       <span style={{ paddingTop: 6 }}><Dot color={props.color} size={9} /></span>
@@ -177,6 +202,7 @@ export default function CalendarFull(props) {
                 )}
                 {di.events.map(function (e, j) {
                   var et = eventTone(e);
+                  if (e.fromGoogle) return <div key={(e.id || j) + di.iso} data-google="true" style={Object.assign({ fontSize: font.checklistItem.size, color: NAVY, background: "#FFFFFF", border: "1.5px dashed " + GOOGLE_BLUE + "88", borderRadius: 8, padding: "2px 8px 2px 8px", opacity: props.isDimmed(e) ? 0.3 : 1, display: "flex", gap: 6, alignItems: "center" }, wrapText)}><GoogleTag small /><span style={{ minWidth: 0 }}>{(e.time ? e.time + " · " : "") + (e.title || "Event")}</span></div>;
                   return <div key={(e.id || j) + di.iso} data-tone={et.full} style={Object.assign({ fontSize: font.checklistItem.size, color: NAVY, background: et.tint, borderRadius: 8, boxShadow: "inset 3px 0 0 " + et.full, padding: "3px 8px 3px 10px", opacity: props.isDimmed(e) ? 0.3 : 1 }, wrapText)}>{(e.time ? e.time + " · " : "") + (e.title || "Event")}</div>;
                 })}
                 {!di.events.length && !di.work.length && <div style={{ fontSize: 13, color: MUTED }}>Nothing planned</div>}
@@ -237,8 +263,10 @@ export default function CalendarFull(props) {
       {view === "day" && day()}
       {view === "year" && <div data-testid="cal-year" style={{ minWidth: 0, overflowX: "hidden" }}><EmojiScope showEmojis={se}>{props.yearView}</EmojiScope></div>}
       <EmojiScope showEmojis={se}>{props.markerPicker}{props.workScheduleModal}</EmojiScope>
-      <div style={{ display: "flex", justifyContent: "flex-start" }}>
-        <PillButton small variant="ghost" onClick={props.onCalSync}>{props.googleConnected ? "Google Calendar · synced" : "Connect Google Calendar"}</PillButton>
+      <div style={{ display: props.googleRow ? "block" : "flex", justifyContent: "flex-start", minWidth: 0 }}>
+        {props.googleRow
+          ? <Card testId="cal-google" style={{ background: "#FFFFFF" }}>{props.googleRow}</Card>
+          : <PillButton small variant="ghost" onClick={props.onCalSync}>{props.googleConnected ? "Google Calendar · synced" : "Connect Google Calendar"}</PillButton>}
       </div>
     </FullViewPage>
   );

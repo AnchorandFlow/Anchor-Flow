@@ -48,6 +48,8 @@ import { LH_AREA_TONE, LH_DASH_TONE, lhAreaTone, lhChipStyle, lhRowStyle, lhText
 import { personColor as rdPersonColor } from "./redesign/flowData.js"
 import { MEALS_TONE, mealTagTone } from "./redesign/mealsColors.js"
 import "./design/redesignType.js"
+import { GOOGLE_CLIENT_ID as GCAL_CLIENT_ID, GOOGLE_SCOPES as GCAL_SCOPES, GOOGLE_AUTO_SYNC_MS as GCAL_AUTO_MS, tokenValid as gcalTokenValid, fetchGoogleCalendar, mergeGoogleEvents, syncErrorText as gcalErrorText } from "./lib/googleCal.js"
+import GoogleCalendarRow from "./redesign/GoogleCalendarRow.jsx"
 import { SCHOOL_TYPES as RD_SCHOOL_TYPES, SCHOOL_TYPES_SETTINGS as RD_SCHOOL_TYPES_SETTINGS, schoolTypeLabel, cleanSchoolLabel, lhSections, defaultSchoolType } from "./lib/schoolType.js"
 import { sysNextDue as vaultSysNextDue } from "./lib/vaultDates.js"
 import { occursOn as calOccursOn, forIdsOf as calForIdsOf, refreshPersonColors as calRefreshPersonColors, editOccurrence as calEditOccurrence, deleteOccurrence as calDeleteOccurrence, allCategories as calAllCategories, newCategory as calNewCategory } from "./lib/calEvents.js"
@@ -2130,7 +2132,7 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,workSche
 // only when something is actually needed.
 var SAFE_LOCAL_PREFS = [];
 
-function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,shoppingItems,setShoppingItems,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,syncStatus,authToken,onOpenFirstVoyageRerun,tidePoolEnabled,setTidePoolEnabled,lighthouseEnabled,setLighthouseEnabled,celebrationsEnabled,setCelebrationsEnabled,mealsEnabled,setMealsEnabled,careerEnabled,setCareerEnabled,safeHarborEnabled,setSafeHarborEnabled,compassEnabled,setCompassEnabled,ripplesEnabled,setRipplesEnabled,showEmojis,setShowEmojis,sections,setSections,plusGateActive,onPlusGate}){
+function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,shoppingItems,setShoppingItems,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,syncStatus,authToken,onOpenFirstVoyageRerun,tidePoolEnabled,setTidePoolEnabled,lighthouseEnabled,setLighthouseEnabled,celebrationsEnabled,setCelebrationsEnabled,mealsEnabled,setMealsEnabled,careerEnabled,setCareerEnabled,safeHarborEnabled,setSafeHarborEnabled,compassEnabled,setCompassEnabled,ripplesEnabled,setRipplesEnabled,showEmojis,setShowEmojis,sections,setSections,plusGateActive,onPlusGate,calendarPanel}){
   // F-97 §3 — local display copy of af_myPersonId. Session-local by design
   // (not useSaved/SYNC_KEYS), so it's read directly and kept in sync via the
   // same custom-event pattern as af_sections/af-sections-changed elsewhere.
@@ -2248,7 +2250,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
   var _rdStTabs = [
     {id:"family",label:"Family",emoji:"🏡"},{id:"flow",label:"Flow",emoji:"🌊"},{id:"mind",label:"Mind",emoji:"💭"},
     {id:"meals",label:"Meals",emoji:"🍽️"},{id:"shopping",label:"Shopping",emoji:"🛒"},{id:"tidepool",label:"Tide Pool",emoji:"🏝️"},
-    {id:"weekly",label:"Weekly Rhythm",emoji:"📅"},{id:"school",label:"School",emoji:"📚"},
+    {id:"weekly",label:"Weekly Rhythm",emoji:"📅"},{id:"calendar",label:"Calendar",emoji:"📆"},{id:"school",label:"School",emoji:"📚"},
     {id:"appearance",label:"Appearance & Notifications",emoji:"🎨"},{id:"sync",label:"Sign In & Sync",emoji:"🔐"},
   ].concat(_rdAiFacts.length>0?[{id:"aimemory",label:"What Compass Knows",emoji:"🧠"}]:[])
    .concat(redesignState.eligible?[{id:"designpreview",label:"Design preview",emoji:"🧪"}]:[])
@@ -2437,6 +2439,13 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
         rhythm={rhythm} setRhythm={setRhythm}
         T={T} inp={inp} btnP={btnP} btnS={btnS} lbl={lbl} ModalBox={ModalBox}
       />
+
+      {/* New look: Calendar — the Google Calendar connection for this device. */}
+      {REDESIGN&&calendarPanel&&(
+        <Sec id="calendar" emoji="📆" title="Calendar" sub="Google Calendar on this device">
+          <div style={{paddingTop:"0.5rem"}}>{calendarPanel}</div>
+        </Sec>
+      )}
 
       {/* ════════════════════════════════════
           8. SCHOOL
@@ -2872,7 +2881,7 @@ function _afEndHydration(){ _afHydrating = false; }
 
 // Keys that must never be marked dirty — system/session state, not user data.
 // Defined at module scope so markKeyDirty and setSaved share a single list.
-var _DIRTY_EXCLUDE = ["authToken","authUser","refreshToken","householdId","householdOwnerId",
+var _DIRTY_EXCLUDE = ["authToken","authUser","refreshToken","householdId","householdOwnerId","googleCal","googleCalToken",
   "dailySummaryScheduled","lastSeenDate","checkedCalEvents","checkedMealItems",
   "insights","insightsBuilt","dismissedInsights","lastHHSync","lastPushedAt",
   "deviceId","dirtyKeys","theme","activeTab"];
@@ -4670,6 +4679,89 @@ function createLocalBackup() {
   function catId(c){ if(!c)return ""; if(typeof c==="string") return c; return c.id||c.label||""; }
   function shopCatLabels(){ return shopCategories.map(function(c){return catLabel(c);}); }
   const [calColorLabels,setCalColorLabels]     = useSaved("calColorLabels",{});
+  // ── Google Calendar (new look) ─────────────────────────────────────────────
+  // Per device (af_googleCal, never synced): { token, expiresAt, account,
+  // lastSynced, error }. Google's token flow gives an ~1-hour token and no
+  // refresh token (client id / scopes unchanged), so: sync on open and every
+  // 30 min while the token is good; when it lapses, say so and let one tap
+  // (Sync now / Reconnect) ask Google again. Events go into calEvents tagged
+  // with the account, and a sync only replaces that account's events.
+  const [gcal,setGcal] = useSaved("googleCal", null);
+  const [gcalSyncing,setGcalSyncing] = useState(false);
+  const gcalRef = useRef(null); gcalRef.current = gcal;
+  function gcalPatch(p){ setGcal(function(prev){ return Object.assign({}, prev||{}, p); }); }
+  function gcalRunSync(token, accountHint){
+    setGcalSyncing(true);
+    return fetchGoogleCalendar(token, { account: accountHint }).then(function(r){
+      setCalEvents(function(prev){ return mergeGoogleEvents(prev, r.account, r.events); });
+      gcalPatch({ account: r.account || accountHint || "", lastSynced: Date.now(), error: "" });
+      setConnectedCals(function(p){ return (p||[]).indexOf("google")===-1 ? (p||[]).concat(["google"]) : p; });
+    }).catch(function(e){
+      if (e && (e.status===401 || e.status===403)) gcalPatch({ token: null, expiresAt: 0, error: gcalErrorText(e) });
+      else gcalPatch({ error: gcalErrorText(e) });
+    }).finally(function(){ setGcalSyncing(false); });
+  }
+  function gcalConnect(){
+    function go(){
+      var g = gcalRef.current || {};
+      try {
+        var client = window.google.accounts.oauth2.initTokenClient({
+          client_id: GCAL_CLIENT_ID, scope: GCAL_SCOPES, hint: g.account || undefined, prompt: "",
+          callback: function(resp){
+            if (!resp || resp.error || !resp.access_token) { gcalPatch({ error: "Google sign-in didn't finish" + (resp && resp.error ? " (" + resp.error + ")" : "") + ". Tap Reconnect to try again." }); return; }
+            var exp = Date.now() + (Number(resp.expires_in) || 3600) * 1000;
+            gcalPatch({ token: resp.access_token, expiresAt: exp, error: "" });
+            gcalRunSync(resp.access_token, g.account);
+          },
+          error_callback: function(err){
+            var t = err && err.type;
+            gcalPatch({ error: t==="popup_failed_to_open" ? "Your browser blocked Google's sign-in window. Allow pop-ups for this site, then tap Reconnect." : t==="popup_closed" ? "The Google window was closed before finishing. Tap Reconnect to try again." : "Google sign-in didn't finish. Tap Reconnect to try again." });
+          },
+        });
+        client.requestAccessToken();
+      } catch { gcalPatch({ error: "Couldn't start Google sign-in. Check your connection and try again." }); }
+    }
+    if (window.google && window.google.accounts && window.google.accounts.oauth2) { go(); return; }
+    var sc = document.createElement("script");
+    sc.src = "https://accounts.google.com/gsi/client";
+    sc.onload = go;
+    sc.onerror = function(){ gcalPatch({ error: "Couldn't load Google sign-in. Check your connection and try again." }); };
+    document.head.appendChild(sc);
+  }
+  function gcalSyncNow(){ var g = gcalRef.current; if (gcalTokenValid(g)) return gcalRunSync(g.token, g.account); gcalConnect(); }
+  function gcalDisconnect(){
+    var g = gcalRef.current || {};
+    try { if (g.token && window.google && window.google.accounts && window.google.accounts.oauth2 && window.google.accounts.oauth2.revoke) window.google.accounts.oauth2.revoke(g.token, function(){}); } catch { /* best effort */ }
+    setCalEvents(function(prev){ return (prev||[]).filter(function(e){ return !(e && e.fromGoogle && (!e.googleAccount || e.googleAccount === g.account)); }); });
+    setGcal(null); setGoogleCalToken(null);
+  }
+  // A token left by the earlier connect flow (af_googleCalToken) has no expiry
+  // recorded: show it as needing a quick reconnect rather than "synced".
+  useEffect(function(){
+    if (REDESIGN && !gcalRef.current && googleCalToken) setGcal({ token: null, expiresAt: 0, account: "", lastSynced: null, error: "Google Calendar needs you to confirm access again. Tap Reconnect." });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(function(){
+    if (!REDESIGN) return undefined;
+    function tick(){
+      var g = gcalRef.current;
+      if (!gcalTokenValid(g)) return;
+      if (!g.lastSynced || Date.now() - g.lastSynced > GCAL_AUTO_MS - 60000) gcalRunSync(g.token, g.account);
+    }
+    var t0 = setTimeout(tick, 4000);
+    var iv = setInterval(tick, GCAL_AUTO_MS);
+    function onVis(){ if (document.visibilityState === "visible") tick(); }
+    document.addEventListener("visibilitychange", onVis);
+    return function(){ clearTimeout(t0); clearInterval(iv); document.removeEventListener("visibilitychange", onVis); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  var gcalStatus = (function(){
+    var g = gcal || {};
+    var on = gcalTokenValid(g);
+    return { connected: on, account: g.account || "", lastSynced: g.lastSynced || null, syncing: gcalSyncing, error: g.error || "",
+      needsReconnect: !on && !!(g.account || g.error),
+      count: (calEvents||[]).filter(function(e){ return e && e.fromGoogle && (!g.account || e.googleAccount === g.account); }).length };
+  })();
+  var gcalRow = function(compact){ return <GoogleCalendarRow status={gcalStatus} compact={compact} onConnect={gcalConnect} onSync={gcalSyncNow} onDisconnect={gcalDisconnect}/>; };
+
   // Household's own event categories (Add/Edit Event sheet "+ Add category"), synced.
   const [calCategories,setCalCategories]       = useSaved("calCategories",[]);
   // Events whose color follows their For person(s) (colorFrom:"person") pick
@@ -8871,6 +8963,7 @@ Respond ONLY in valid JSON:
           workScheduleModal={calWorkScheduleModal(RDK)} reminderForm={calReminderForm(RDK)}
           yearView={calYearView(RDK)}
           googleConnected={connectedCals.includes("google")} onCalSync={function(){ setModal("calSync"); }}
+          googleRow={gcalRow(true)}
           showEmojis={showEmojis}
         />
       );
@@ -19315,6 +19408,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   ripplesEnabled={ripplesEnabled} setRipplesEnabled={setRipplesEnabled}
                   showEmojis={showEmojis} setShowEmojis={setShowEmojis}
                   sections={sections} setSections={setSections}
+                  calendarPanel={REDESIGN ? gcalRow(false) : null}
                   plusGateActive={BILLING_V1 && !sub.isPremium}
                   onPlusGate={function(featureName){ setPlusModalFeature(featureName); }}
                 /></SectionErrorBoundary>}

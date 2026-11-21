@@ -41,12 +41,41 @@ window.fetch = function (input, init) {
   var url = typeof input === "string" ? input : (input && input.url) || "";
   var local = url.indexOf(location.origin) === 0 || url.charAt(0) === "/";
   var api = url.indexOf("/api/") !== -1;
+  // gcal=1: a stand-in Google Calendar API (gcal=401: Google rejects the token).
+  if (params.get("gcal") && url.indexOf("https://www.googleapis.com/calendar/v3/") === 0) return harnessGoogle(url);
   // hhsync=1: household REST calls go to the dev server's in-memory row (/__hh).
   var sb = url.indexOf(".supabase.co/rest/v1/");
   if (params.get("hhsync") === "1" && sb !== -1) { var hi = Object.assign({}, init || {}); hi.headers = Object.assign({}, (init && init.headers) || {}, { "x-harness-me": params.get("me") || "" }); return realFetch("/__hh" + url.slice(url.indexOf("/rest/v1/")), hi); }
   if (local && !api) return realFetch(input, init);
   return Promise.reject(new TypeError("harness: network disabled"));
 };
+
+// ── gcal=1: Google Identity Services + Calendar API stand-ins ─────────────
+function harnessJson(v, status) { return Promise.resolve(new Response(JSON.stringify(v), { status: status || 200, headers: { "Content-Type": "application/json" } })); }
+function harnessGoogle(url) {
+  if (params.get("gcal") === "401") return harnessJson({ error: { code: 401, message: "Invalid Credentials" } }, 401);
+  if (url.indexOf("/users/me/calendarList") !== -1) return harnessJson({ items: [
+    { id: "lindsey@example.com", primary: true, summary: "Lindsey", backgroundColor: "#9fc6e7", selected: true },
+    { id: "family123@group.calendar.google.com", summary: "Family", backgroundColor: "#7bd148", selected: true },
+    { id: "holidays@group.v.calendar.google.com", summary: "Holidays (unticked)", backgroundColor: "#ff887c", selected: false },
+  ] });
+  function at(d, h, m) { return new RealDate(2026, 10, d, h, m).toISOString(); }
+  if (url.indexOf("/calendars/lindsey%40example.com/events") !== -1) return harnessJson({ items: [
+    { id: "g1", summary: "Dentist (Google)", start: { dateTime: at(13, 18, 30) }, end: { dateTime: at(13, 19, 30) } },
+    { id: "g2", summary: "Book club (Google)", start: { dateTime: at(18, 19, 0) }, end: { dateTime: at(18, 20, 0) } },
+  ] });
+  if (url.indexOf("/calendars/family123") !== -1) return harnessJson({ items: [
+    { id: "g3", summary: "Grandparents visiting (Google)", start: { date: "2026-11-20" }, end: { date: "2026-11-23" } },
+  ] });
+  if (url.indexOf("/calendars/holidays") !== -1) return harnessJson({ items: [{ id: "g4", summary: "SHOULD NOT SHOW", start: { date: "2026-11-26" }, end: { date: "2026-11-27" } }] });
+  return harnessJson({ items: [] });
+}
+if (params.get("gcal")) {
+  window.google = { accounts: { oauth2: {
+    initTokenClient: function (cfg) { return { requestAccessToken: function () { setTimeout(function () { cfg.callback({ access_token: "harness-google-token", expires_in: 3599 }); }, 50); } }; },
+    revoke: function (t, cb) { if (cb) cb(); },
+  } } };
+}
 
 // ── Seed storage ───────────────────────────────────────────────────────────
 var hh = params.get("hh") === "beta" ? BETA_HH : OTHER_HH;

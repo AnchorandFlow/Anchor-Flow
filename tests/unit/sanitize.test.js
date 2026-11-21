@@ -454,6 +454,7 @@ describe("A10 — completeness lint: every useSaved key is classified", () => {
   const DEVICE_LOCAL = new Set([
     // Auth & session — must never leave the device
     "authToken", "authUser", "refreshToken", "householdId", "householdOwnerId", "googleCalToken",
+    "googleCal", // Google Calendar connection (token, account, last synced) — per device by design
     // Sync stamps — system bookkeeping, not user data
     "lastHHSync", "lastPushedAt", "lastPushAt", "lastPullAt", "dirtyKeys", "deviceId",
     // Device UI state
