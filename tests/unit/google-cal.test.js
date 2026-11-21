@@ -78,7 +78,7 @@ describe("fetch", function () {
     var err = null;
     try { await fetchGoogleCalendar("bad", { fetch: function () { return res({ error: { code: 401 } }, 401); } }); } catch (e) { err = e; }
     expect(err && err.status).toBe(401);
-    expect(syncErrorText(err)).toBe("Google needs you to confirm access again (Google asks about once an hour). Tap Reconnect.");
+    expect(syncErrorText(err)).toBe("Google Calendar stopped accepting this connection. Tap Reconnect to connect it again.");
   });
 });
 
@@ -91,5 +91,34 @@ describe("wiring", function () {
     expect(app).toContain("calendarPanel={REDESIGN ? gcalRow(false) : null}");
     expect(app).toContain("googleRow={gcalRow(true)}");
     expect(app).toContain("setCalEvents(function(prev){ return mergeGoogleEvents(prev, r.account, r.events); });");
+  });
+});
+
+describe("server side (google-calendar Edge Function + table)", function () {
+  var fn = fs.readFileSync("supabase/functions/google-calendar/index.ts", "utf8");
+  var sql = fs.readFileSync("supabase/migrations/20261121000000_google_calendar_tokens.sql", "utf8");
+  it("the refresh token is never sent to the browser and is stored encrypted", function () {
+    var responses = fn.match(/json\(\{[^;]*\}, \d{3}, origin\)/g) || [];
+    expect(responses.length).toBeGreaterThan(8);
+    responses.forEach(function (r) { expect(r).not.toMatch(/\.refresh_token|refresh_token(_enc)?\s*:/); }); // the value or field, not the "no_refresh_token" error code
+    expect(fn).toContain("refresh_token_enc: await seal(t.body.refresh_token)");
+    expect(fn).toContain('crypto.subtle.encrypt({ name: "AES-GCM", iv }');
+  });
+  it("same client id, read-only scopes only, the secret from Supabase secrets, the user from their own session", function () {
+    expect(fn).toContain('const CLIENT_ID = "1071398827259-kt8fuuclq8riohieaeu4r58sk93484u9.apps.googleusercontent.com";');
+    expect(fn).toContain('"https://www.googleapis.com/auth/calendar.readonly",');
+    expect(fn).toContain('Deno.env.get("GOOGLE_CLIENT_SECRET")');
+    expect(fn).toContain('redirect_uri: "postmessage"');
+    expect(fn).toContain("await admin.auth.getUser(jwt)");
+    expect((fn.match(/\.eq\("user_id", user\.id\)/g) || []).length).toBeGreaterThanOrEqual(4);
+  });
+  it("disconnect revokes with Google and deletes the row; a revoked grant deletes it too", function () {
+    expect(fn).toMatch(/action === "disconnect"[\s\S]*?revoke\(await open\(rec\.refresh_token_enc\)\)[\s\S]*?\.delete\(\)\.eq\("user_id", user\.id\)/);
+    expect(fn).toMatch(/invalid_grant[\s\S]*?\.delete\(\)\.eq\("user_id", user\.id\)/);
+  });
+  it("the table has RLS on and no browser access", function () {
+    expect(sql).toContain("alter table public.google_calendar_tokens enable row level security;");
+    expect(sql).toContain("revoke all on table public.google_calendar_tokens from anon, authenticated;");
+    expect(sql).not.toMatch(/create policy/i);
   });
 });

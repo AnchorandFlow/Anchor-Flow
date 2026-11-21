@@ -1,10 +1,11 @@
 // src/lib/googleCal.js — Google Calendar (read-only) for the new look.
 //
-// Auth is Google Identity Services' token flow (unchanged client id and
-// scopes): an access token that lasts about an hour, no refresh token, so the
-// connection is per device (af_googleCal, never synced). When it expires the
-// app says so and one tap ("Sync now" / "Reconnect") asks Google again —
-// usually without a prompt, since consent was already given.
+// Auth: Google Identity Services' code flow (popup; unchanged client id and
+// read-only scopes). The google-calendar Supabase Edge Function exchanges the
+// code, keeps the refresh token server-side (encrypted), and hands the app
+// short-lived access tokens — so the connection stays on without hourly
+// re-consent. The connection is per device and per person (af_googleCal,
+// never synced).
 //
 // Events land in the shared calEvents (so both members see them) tagged with
 // the Google account they came from: a sync replaces only that account's
@@ -102,7 +103,7 @@ export async function fetchGoogleCalendar(token, opts) {
 }
 
 export function syncErrorText(e) {
-  if (e && (e.status === 401 || e.status === 403)) return "Google needs you to confirm access again (Google asks about once an hour). Tap Reconnect.";
+  if (e && (e.status === 401 || e.status === 403)) return "Google Calendar stopped accepting this connection. Tap Reconnect to connect it again.";
   if (e && e.name === "AbortError") return "Google Calendar didn't answer in time. Try Sync now again.";
   return "Couldn't reach Google Calendar" + (e && e.message && e.message !== "auth" ? ": " + e.message : ".") + " Try Sync now again.";
 }

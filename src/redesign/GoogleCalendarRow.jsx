@@ -30,7 +30,7 @@ export default function GoogleCalendarRow(props) {
           <div data-testid="gcal-status" style={{ fontSize: 15, color: MUTED, overflowWrap: "anywhere" }}>
             {s.connected
               ? ["Connected as " + (s.account || "your Google account"), "Last synced " + (s.syncing ? "now…" : when(s.lastSynced))].join(" · ")
-              : s.needsReconnect ? "Connected as " + (s.account || "your Google account") + " · needs confirming"
+              : s.needsReconnect ? (s.account ? s.account + " · reconnect needed" : "Reconnect needed")
               : "Not connected on this device"}
           </div>
         </div>

@@ -48,7 +48,7 @@ import { LH_AREA_TONE, LH_DASH_TONE, lhAreaTone, lhChipStyle, lhRowStyle, lhText
 import { personColor as rdPersonColor } from "./redesign/flowData.js"
 import { MEALS_TONE, mealTagTone } from "./redesign/mealsColors.js"
 import "./design/redesignType.js"
-import { GOOGLE_CLIENT_ID as GCAL_CLIENT_ID, GOOGLE_SCOPES as GCAL_SCOPES, GOOGLE_AUTO_SYNC_MS as GCAL_AUTO_MS, tokenValid as gcalTokenValid, fetchGoogleCalendar, mergeGoogleEvents, syncErrorText as gcalErrorText } from "./lib/googleCal.js"
+import { GOOGLE_CLIENT_ID as GCAL_CLIENT_ID, GOOGLE_SCOPES as GCAL_SCOPES, GOOGLE_AUTO_SYNC_MS as GCAL_AUTO_MS, fetchGoogleCalendar, mergeGoogleEvents, syncErrorText as gcalErrorText } from "./lib/googleCal.js"
 import GoogleCalendarRow from "./redesign/GoogleCalendarRow.jsx"
 import { SCHOOL_TYPES as RD_SCHOOL_TYPES, SCHOOL_TYPES_SETTINGS as RD_SCHOOL_TYPES_SETTINGS, schoolTypeLabel, cleanSchoolLabel, lhSections, defaultSchoolType } from "./lib/schoolType.js"
 import { sysNextDue as vaultSysNextDue } from "./lib/vaultDates.js"
@@ -4680,45 +4680,78 @@ function createLocalBackup() {
   function shopCatLabels(){ return shopCategories.map(function(c){return catLabel(c);}); }
   const [calColorLabels,setCalColorLabels]     = useSaved("calColorLabels",{});
   // ── Google Calendar (new look) ─────────────────────────────────────────────
-  // Per device (af_googleCal, never synced): { token, expiresAt, account,
-  // lastSynced, error }. Google's token flow gives an ~1-hour token and no
-  // refresh token (client id / scopes unchanged), so: sync on open and every
-  // 30 min while the token is good; when it lapses, say so and let one tap
-  // (Sync now / Reconnect) ask Google again. Events go into calEvents tagged
-  // with the account, and a sync only replaces that account's events.
+  // Persistent connection: the google-calendar Edge Function holds each user's
+  // Google refresh token server-side (encrypted, never sent here) and hands
+  // this device short-lived access tokens, kept in memory only. Per device:
+  // af_googleCal { server, account, lastSynced, error, reconnect } (never
+  // synced). Sync on open, every 30 min, and on returning to the app. Events go
+  // into calEvents tagged with the account; a sync replaces only that
+  // account's events. Client id and read-only scopes are unchanged.
   const [gcal,setGcal] = useSaved("googleCal", null);
   const [gcalSyncing,setGcalSyncing] = useState(false);
   const gcalRef = useRef(null); gcalRef.current = gcal;
+  const gcalTokRef = useRef(null); // { token, expiresAt } — memory only
   function gcalPatch(p){ setGcal(function(prev){ return Object.assign({}, prev||{}, p); }); }
-  function gcalRunSync(token, accountHint){
+  function gcalFn(action, extra){ return sbFetch("/functions/v1/google-calendar", { method:"POST", body: JSON.stringify(Object.assign({ action: action }, extra||{})) }); }
+  function gcalFnError(e){
+    var code = ""; try { code = JSON.parse(e && e.message || "{}").error || ""; } catch { code = ""; }
+    return code;
+  }
+  async function gcalAccess(force){
+    var c = gcalTokRef.current;
+    if (!force && c && Date.now() < c.expiresAt - 60000) return c.token;
+    var r = await gcalFn("token");
+    gcalTokRef.current = { token: r.access_token, expiresAt: Date.now() + (Number(r.expires_in)||3600)*1000 };
+    if (r.account && (!gcalRef.current || gcalRef.current.account !== r.account)) gcalPatch({ account: r.account });
+    return r.access_token;
+  }
+  function gcalSetError(e){
+    var code = gcalFnError(e);
+    if (code === "reconnect") { gcalTokRef.current = null; gcalPatch({ reconnect: true, error: "Google Calendar was disconnected in Google (or the access expired). Tap Reconnect to connect it again." }); return; }
+    if (code === "not_configured") { gcalPatch({ error: "Google Calendar's server connection isn't switched on yet. Try again a little later." }); return; }
+    if (!code && e && (e.status===401 || e.status===403)) { gcalTokRef.current = null; gcalPatch({ reconnect: true, error: gcalErrorText(e) }); return; }
+    gcalPatch({ error: gcalErrorText(e) });
+  }
+  async function gcalRunSync(){
     setGcalSyncing(true);
-    return fetchGoogleCalendar(token, { account: accountHint }).then(function(r){
+    try {
+      var g = gcalRef.current || {};
+      var r;
+      try { r = await fetchGoogleCalendar(await gcalAccess(false), { account: g.account }); }
+      catch (e) {
+        if (e && (e.status===401 || e.status===403) && !gcalFnError(e)) r = await fetchGoogleCalendar(await gcalAccess(true), { account: g.account }); // fresh token, once
+        else throw e;
+      }
       setCalEvents(function(prev){ return mergeGoogleEvents(prev, r.account, r.events); });
-      gcalPatch({ account: r.account || accountHint || "", lastSynced: Date.now(), error: "" });
-      setConnectedCals(function(p){ return (p||[]).indexOf("google")===-1 ? (p||[]).concat(["google"]) : p; });
-    }).catch(function(e){
-      if (e && (e.status===401 || e.status===403)) gcalPatch({ token: null, expiresAt: 0, error: gcalErrorText(e) });
-      else gcalPatch({ error: gcalErrorText(e) });
-    }).finally(function(){ setGcalSyncing(false); });
+      gcalPatch({ account: r.account || g.account || "", lastSynced: Date.now(), error: "", reconnect: false });
+    } catch (e) { gcalSetError(e); }
+    finally { setGcalSyncing(false); }
   }
   function gcalConnect(){
     function go(){
       var g = gcalRef.current || {};
       try {
-        var client = window.google.accounts.oauth2.initTokenClient({
-          client_id: GCAL_CLIENT_ID, scope: GCAL_SCOPES, hint: g.account || undefined, prompt: "",
+        var client = window.google.accounts.oauth2.initCodeClient({
+          client_id: GCAL_CLIENT_ID, scope: GCAL_SCOPES, ux_mode: "popup", login_hint: g.account || undefined,
           callback: function(resp){
-            if (!resp || resp.error || !resp.access_token) { gcalPatch({ error: "Google sign-in didn't finish" + (resp && resp.error ? " (" + resp.error + ")" : "") + ". Tap Reconnect to try again." }); return; }
-            var exp = Date.now() + (Number(resp.expires_in) || 3600) * 1000;
-            gcalPatch({ token: resp.access_token, expiresAt: exp, error: "" });
-            gcalRunSync(resp.access_token, g.account);
+            if (!resp || resp.error || !resp.code) { gcalPatch({ error: "Google sign-in didn't finish" + (resp && resp.error ? " (" + resp.error + ")" : "") + ". Tap " + (g.server ? "Reconnect" : "Connect") + " to try again." }); return; }
+            gcalFn("exchange", { code: resp.code }).then(function(r){
+              gcalTokRef.current = { token: r.access_token, expiresAt: Date.now() + (Number(r.expires_in)||3600)*1000 };
+              setGcal({ server: true, account: r.account || g.account || "", lastSynced: null, error: "", reconnect: false });
+              setGoogleCalToken(null);
+              gcalRunSync();
+            }).catch(function(e){
+              var code = gcalFnError(e);
+              if (code === "no_refresh_token") gcalPatch({ error: "Google didn't grant the lasting permission this time. Tap " + (g.server ? "Reconnect" : "Connect") + " once more to finish." });
+              else gcalSetError(e);
+            });
           },
           error_callback: function(err){
             var t = err && err.type;
-            gcalPatch({ error: t==="popup_failed_to_open" ? "Your browser blocked Google's sign-in window. Allow pop-ups for this site, then tap Reconnect." : t==="popup_closed" ? "The Google window was closed before finishing. Tap Reconnect to try again." : "Google sign-in didn't finish. Tap Reconnect to try again." });
+            gcalPatch({ error: t==="popup_failed_to_open" ? "Your browser blocked Google's sign-in window. Allow pop-ups for this site, then try again." : t==="popup_closed" ? "The Google window was closed before finishing. Try again when you're ready." : "Google sign-in didn't finish. Try again." });
           },
         });
-        client.requestAccessToken();
+        client.requestCode();
       } catch { gcalPatch({ error: "Couldn't start Google sign-in. Check your connection and try again." }); }
     }
     if (window.google && window.google.accounts && window.google.accounts.oauth2) { go(); return; }
@@ -4728,24 +4761,32 @@ function createLocalBackup() {
     sc.onerror = function(){ gcalPatch({ error: "Couldn't load Google sign-in. Check your connection and try again." }); };
     document.head.appendChild(sc);
   }
-  function gcalSyncNow(){ var g = gcalRef.current; if (gcalTokenValid(g)) return gcalRunSync(g.token, g.account); gcalConnect(); }
+  function gcalSyncNow(){ var g = gcalRef.current; if (g && g.server && !g.reconnect) return gcalRunSync(); gcalConnect(); }
   function gcalDisconnect(){
     var g = gcalRef.current || {};
-    try { if (g.token && window.google && window.google.accounts && window.google.accounts.oauth2 && window.google.accounts.oauth2.revoke) window.google.accounts.oauth2.revoke(g.token, function(){}); } catch { /* best effort */ }
+    if (g.server) gcalFn("disconnect").catch(function(){ /* row stays until the next disconnect; tokens there are useless without this device */ });
+    gcalTokRef.current = null;
     setCalEvents(function(prev){ return (prev||[]).filter(function(e){ return !(e && e.fromGoogle && (!e.googleAccount || e.googleAccount === g.account)); }); });
     setGcal(null); setGoogleCalToken(null);
   }
-  // A token left by the earlier connect flow (af_googleCalToken) has no expiry
-  // recorded: show it as needing a quick reconnect rather than "synced".
   useEffect(function(){
-    if (REDESIGN && !gcalRef.current && googleCalToken) setGcal({ token: null, expiresAt: 0, account: "", lastSynced: null, error: "Google Calendar needs you to confirm access again. Tap Reconnect." });
+    if (!REDESIGN) return;
+    // Existing connections from the hourly-token version: ask once to Reconnect.
+    var g = gcalRef.current;
+    if ((g && !g.server) || (!g && googleCalToken)) {
+      setGcal({ server: false, account: (g && g.account) || "", lastSynced: (g && g.lastSynced) || null, reconnect: true,
+        error: "Google Calendar can now stay connected without asking again every hour. Tap Reconnect once to finish." });
+    }
+    // The old household-wide "google" flag never meant a real connection; the
+    // status here comes only from this device's own connection.
+    if ((connectedCals||[]).indexOf("google") !== -1) setConnectedCals(function(p){ return (p||[]).filter(function(x){ return x !== "google"; }); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(function(){
     if (!REDESIGN) return undefined;
     function tick(){
       var g = gcalRef.current;
-      if (!gcalTokenValid(g)) return;
-      if (!g.lastSynced || Date.now() - g.lastSynced > GCAL_AUTO_MS - 60000) gcalRunSync(g.token, g.account);
+      if (!g || !g.server || g.reconnect) return;
+      if (!g.lastSynced || Date.now() - g.lastSynced > GCAL_AUTO_MS - 60000) gcalRunSync();
     }
     var t0 = setTimeout(tick, 4000);
     var iv = setInterval(tick, GCAL_AUTO_MS);
@@ -4755,9 +4796,9 @@ function createLocalBackup() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   var gcalStatus = (function(){
     var g = gcal || {};
-    var on = gcalTokenValid(g);
+    var on = !!(g.server && !g.reconnect);
     return { connected: on, account: g.account || "", lastSynced: g.lastSynced || null, syncing: gcalSyncing, error: g.error || "",
-      needsReconnect: !on && !!(g.account || g.error),
+      needsReconnect: !!gcal && !on,
       count: (calEvents||[]).filter(function(e){ return e && e.fromGoogle && (!g.account || e.googleAccount === g.account); }).length };
   })();
   var gcalRow = function(compact){ return <GoogleCalendarRow status={gcalStatus} compact={compact} onConnect={gcalConnect} onSync={gcalSyncNow} onDisconnect={gcalDisconnect}/>; };

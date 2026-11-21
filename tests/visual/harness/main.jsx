@@ -43,6 +43,7 @@ window.fetch = function (input, init) {
   var api = url.indexOf("/api/") !== -1;
   // gcal=1: a stand-in Google Calendar API (gcal=401: Google rejects the token).
   if (params.get("gcal") && url.indexOf("https://www.googleapis.com/calendar/v3/") === 0) return harnessGoogle(url);
+  if (params.get("gcal") && url.indexOf("/functions/v1/google-calendar") !== -1) return harnessGoogleFn(init);
   // hhsync=1: household REST calls go to the dev server's in-memory row (/__hh).
   var sb = url.indexOf(".supabase.co/rest/v1/");
   if (params.get("hhsync") === "1" && sb !== -1) { var hi = Object.assign({}, init || {}); hi.headers = Object.assign({}, (init && init.headers) || {}, { "x-harness-me": params.get("me") || "" }); return realFetch("/__hh" + url.slice(url.indexOf("/rest/v1/")), hi); }
@@ -70,8 +71,25 @@ function harnessGoogle(url) {
   if (url.indexOf("/calendars/holidays") !== -1) return harnessJson({ items: [{ id: "g4", summary: "SHOULD NOT SHOW", start: { date: "2026-11-26" }, end: { date: "2026-11-27" } }] });
   return harnessJson({ items: [] });
 }
+// The google-calendar Edge Function stand-in (refresh token stays "server-side":
+// here, nowhere at all). gcal=401: the stored connection was revoked in Google;
+// gcal=norefresh: Google didn't return a refresh token on the exchange.
+var harnessFnCalls = [];
+window.__harnessFnCalls = harnessFnCalls;
+function harnessGoogleFn(init) {
+  var body = {}; try { body = JSON.parse((init && init.body) || "{}"); } catch { body = {}; }
+  harnessFnCalls.push(body.action);
+  var mode = params.get("gcal");
+  var ok = { access_token: "harness-google-token", expires_in: 3599, account: "lindsey@example.com" };
+  if (body.action === "exchange") return mode === "norefresh" ? harnessJson({ error: "no_refresh_token" }, 409) : harnessJson(ok);
+  if (body.action === "token") return mode === "401" ? harnessJson({ error: "reconnect" }, 401) : harnessJson(ok);
+  if (body.action === "disconnect") return harnessJson({ ok: true });
+  if (body.action === "status") return harnessJson({ connected: mode !== "401", account: "lindsey@example.com" });
+  return harnessJson({ error: "unknown_action" }, 400);
+}
 if (params.get("gcal")) {
   window.google = { accounts: { oauth2: {
+    initCodeClient: function (cfg) { return { requestCode: function () { setTimeout(function () { cfg.callback({ code: "harness-auth-code" }); }, 50); } }; },
     initTokenClient: function (cfg) { return { requestAccessToken: function () { setTimeout(function () { cfg.callback({ access_token: "harness-google-token", expires_in: 3599 }); }, 50); } }; },
     revoke: function (t, cb) { if (cb) cb(); },
   } } };
