@@ -55,6 +55,29 @@ describe("type rules", function () {
     expect(css).not.toContain('font-size: 18px;"]');
     expect(css).toContain("{font-family:" + LATO + "!important;font-weight:700!important;font-style:normal!important}");
   });
+  it("text fields are 16px in the new look (iPhone doesn't zoom); checkboxes and buttons are left alone", function () {
+    var css = redesignTypeCss();
+    expect(css).toContain('html.af-rd input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]),html.af-rd textarea,html.af-rd select{font-size:16px!important}');
+    var d = document;
+    var st = d.createElement("style"); st.textContent = css; d.head.appendChild(st);
+    d.documentElement.classList.add("af-rd");
+    var i = d.createElement("input"); i.style.fontSize = "13px"; d.body.appendChild(i);
+    var c = d.createElement("input"); c.type = "checkbox"; c.style.fontSize = "13px"; d.body.appendChild(c);
+    var sel = d.createElement("select"); sel.style.fontSize = "0.8rem"; d.body.appendChild(sel);
+    try {
+      expect(getComputedStyle(i).fontSize).toBe("16px");
+      expect(getComputedStyle(sel).fontSize).toBe("16px");
+      expect(getComputedStyle(c).fontSize).toBe("13px");
+    } finally { d.documentElement.classList.remove("af-rd"); st.remove(); i.remove(); c.remove(); sel.remove(); }
+  });
+  it("phone body text at 15px: Lighthouse overview cards, school-info hint, Maintenance banners and next-due hint", function () {
+    var app = fs.readFileSync("src/App.jsx", "utf8");
+    var v = fs.readFileSync("src/components/AnchorVault.jsx", "utf8");
+    expect(app).toContain('{open && <div style={lhIn({ fontSize:REDESIGN?"15px":"0.83rem"');
+    expect(app).toContain('<div style={lhIn({ fontSize:"15px", color:"#7a7568", margin:"-0.3rem 0 0.6rem" })}>Where to find a login');
+    expect(v).toContain('style:{fontSize:vc?15:13,color:vc?"rgba(250,248,244,0.85)"');
+    expect((v.match(/gap:9,fontSize:vc\?15:12,/g) || []).length).toBe(2);
+  });
   it("the safety net really applies in the browser engine (jsdom cascade)", function () {
     var d = document;
     var st = d.createElement("style"); st.textContent = redesignTypeCss(); d.head.appendChild(st);

@@ -8608,13 +8608,13 @@ function MaintenancePanel() {
     vc?React.createElement("div",{style:{height:12}}):React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.35)",fontFamily:"DM Sans,sans-serif",marginBottom:16,marginTop:2}},"Track maintenance schedules for every part of your home"),
 
     // alert banners
-    overdue.length>0&&React.createElement("div",{style:{background:"rgba(160,92,16,0.1)",border:"0.5px solid rgba(160,92,16,0.25)",borderRadius:8,padding:"9px 13px",display:"flex",alignItems:"center",gap:9,fontSize:12,color:"#a05c10",marginBottom:10}},
+    overdue.length>0&&React.createElement("div",{style:{background:"rgba(160,92,16,0.1)",border:"0.5px solid rgba(160,92,16,0.25)",borderRadius:8,padding:"9px 13px",display:"flex",alignItems:"center",gap:9,fontSize:vc?15:12,color:"#a05c10",marginBottom:10}},
       (!vc||vc.showEmojis)&&React.createElement("span",{style:{fontSize:15}},"\u26a0\ufe0f"),
       overdue.length===1
         ? (overdue[0].name+" is overdue")
         : (overdue.length+" systems are overdue")
     ),
-    soon.length>0&&React.createElement("div",{style:{background:"rgba(26,46,61,0.08)",border:"1px solid rgba(26,46,61,0.12)",borderRadius:8,padding:"9px 13px",display:"flex",alignItems:"center",gap:9,fontSize:12,color:"#4a6275",marginBottom:10}},
+    soon.length>0&&React.createElement("div",{style:{background:"rgba(26,46,61,0.08)",border:"1px solid rgba(26,46,61,0.12)",borderRadius:8,padding:"9px 13px",display:"flex",alignItems:"center",gap:9,fontSize:vc?15:12,color:"#4a6275",marginBottom:10}},
       (!vc||vc.showEmojis)&&React.createElement("span",{style:{fontSize:15}},"\u23f0"),
       soon.length===1
         ? (soon[0].name+" due soon")
@@ -8712,7 +8712,7 @@ function MaintenancePanel() {
         )
       ),
       React.createElement(HInput,{label:"Last completed (optional)",value:form.lastDone,onChange:function(v){setForm(function(f){return Object.assign({},f,{lastDone:v});});},placeholder:"YYYY-MM-DD",type:"date",testId:"sys-form-last"}),
-      React.createElement("p",{"data-testid":"sys-form-auto",style:{fontSize:13,color:vc?"#1a2e3d":"rgba(250,248,244,0.6)",margin:"-0.35rem 0 0.75rem"}},
+      React.createElement("p",{"data-testid":"sys-form-auto",style:{fontSize:vc?15:13,color:vc?"rgba(250,248,244,0.85)":"rgba(250,248,244,0.6)",margin:"-0.35rem 0 0.75rem"}},
         sysNextDate(form.lastDone,form.freq)?("Next due "+fmtVaultDate(sysNextDate(form.lastDone,form.freq))+", calculated from last completed + frequency"):"Next due is calculated from last completed + frequency"),
       React.createElement(HInput,{label:"Next due (optional — only to override the calculation)",value:form.nextDue,onChange:function(v){setForm(function(f){return Object.assign({},f,{nextDue:v});});},type:"date",testId:"sys-form-next"}),
       React.createElement(HTextarea,{label:"Notes (optional)",value:form.notes,onChange:function(v){setForm(function(f){return Object.assign({},f,{notes:v});});},placeholder:"Filter size, service provider, warranty info...",rows:2}),

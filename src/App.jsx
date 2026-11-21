@@ -15011,7 +15011,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <span style={lhIn({ fontWeight:700, color:REDESIGN ? (LH_DASH_TONE[opts.sectionKey] || LH_AREA_TONE.overview).ink : LC.navy, fontSize:"0.85rem", flex:1 })}>{opts.title}</span>
             {Chevron(open)}
           </div>
-          {open && <div style={lhIn({ fontSize:"0.83rem", color:opts.muted?"#9a9488":"#4a4a44", lineHeight:1.5 })}>{opts.body}</div>}
+          {open && <div style={lhIn({ fontSize:REDESIGN?"15px":"0.83rem", color:opts.muted?"#9a9488":"#4a4a44", lineHeight:1.5 })}>{opts.body}</div>}
           {open && opts.actionLabel && (
             <button onClick={opts.onAction} style={lhIn({ alignSelf:"flex-start", background:"transparent", border:"none", color:LC.seaglass, fontWeight:700, fontSize:"0.78rem", cursor:"pointer", fontFamily:"inherit", padding:0 })}>
               {opts.actionLabel} →
@@ -16491,7 +16491,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {fieldRow("School name", <input value={f.schoolName} onChange={upd("schoolName")} placeholder="e.g. Lincoln Elementary" data-testid="lh-school-name" style={inp()}/>)}
             {fieldRow("Schedule", <input value={f.schedule} onChange={upd("schedule")} placeholder="e.g. 8:15–3:00, early release Wednesdays" style={inp()}/>)}
             {fieldRow("Logins (hints only)", <input value={f.loginHint} onChange={upd("loginHint")} placeholder="e.g. Parent portal: PowerSchool — password in our password app" style={inp()}/>)}
-            <div style={lhIn({ fontSize:"0.78rem", color:"#7a7568", margin:"-0.3rem 0 0.6rem" })}>Where to find a login, never the password itself.</div>
+            <div style={lhIn({ fontSize:"15px", color:"#7a7568", margin:"-0.3rem 0 0.6rem" })}>Where to find a login, never the password itself.</div>
             <button type="button" data-testid="lh-school-save" onClick={function(){ savePub({ schoolName: f.schoolName.trim(), schedule: f.schedule.trim(), loginHint: f.loginHint.trim() }); setSaved(true); }} style={btnP(LC.seaglass,{ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>{saved ? "Saved" : "Save"}</button>
           </SectionShell>
         );

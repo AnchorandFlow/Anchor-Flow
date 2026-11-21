@@ -42,6 +42,10 @@ export function redesignTypeCss() {
     "html.af-rd body,html.af-rd button{font-family:" + LATO + "}",
     // App.jsx's global <style> sets fields to DM Sans with !important.
     "html.af-rd input,html.af-rd textarea,html.af-rd select{font-family:" + LATO + "!important}",
+    // Text fields are 16px everywhere in the new look, so iPhone never zooms
+    // into a field on tap (it does below 16px). Not checkboxes, radios,
+    // sliders, color swatches or buttons.
+    'html.af-rd input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]),html.af-rd textarea,html.af-rd select{font-size:16px!important}',
     'html.af-rd [style*="DM Sans"]{font-family:' + LATO + "!important}",
     'html.af-rd [style*="Cormorant"]{font-family:' + PLAYFAIR + "!important}",
     // Playfair never below 18px: Lato bold instead.
