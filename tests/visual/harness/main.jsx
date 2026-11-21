@@ -72,7 +72,8 @@ try { var seed = JSON.parse(params.get("seed") || "null"); if (seed) Object.keys
 if (params.get("plus") === "1") localStorage.setItem("af_entitlement", JSON.stringify({ entitled: true, plan: "plus", status: "active" }));
 // Raw (non-JSON) strings, the way the app itself stores these.
 localStorage.setItem("af_choreResetDate", "2026-11-13");
-localStorage.setItem("af_myPersonId", MY_PERSON_ID);
+// me=<person id> signs this device in as that household member (default Lindsey).
+localStorage.setItem("af_myPersonId", params.get("me") || MY_PERSON_ID);
 localStorage.setItem("af_myPersonId_authUserId", AUTH_USER_ID);
 localStorage.setItem("af_supabase_session", JSON.stringify({ access_token: "harness-token" }));
 // "vault:<section>" opens the AnchorVault overlay on that section (Today

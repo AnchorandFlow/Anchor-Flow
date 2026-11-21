@@ -26,6 +26,9 @@ export const MEAL_DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Fr
 export const SYNC_KEYS = [
   // Core data
   "tasks","brainItems","brainCats","calEvents","connectedCals","calColorLabels",
+  // calCategories: the household's own event categories ("+ Add category" in
+  // the Add/Edit Event sheet) — array of { id, label, emoji }.
+  "calCategories",
   // Meals
   "meals","mealsWeekOf","nextWeekMeals","mealCount","mealThemeEnabled","mealThemes","favMeals","mealBankCustom","recipes",
   // Recipes tab (occasion-tagged full/simple recipes; distinct from the
@@ -236,7 +239,7 @@ export function clearZombieAuthKeys() {
 // the pass-through. Fixed: F1 (pass-through was overwriting array-guard rejections).
 const _SANITIZE_HANDLED = new Set([
   // Array-guard list
-  "tasks","brainItems","shoppingItems","notifications","calEvents","connectedCals",
+  "tasks","brainItems","shoppingItems","notifications","calEvents","connectedCals","calCategories",
   "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories",
   "brainCats","homeSystems","dietaryFilters",
   "recurring","celebrations","inventory","pets","houseFile",
@@ -303,7 +306,7 @@ export function sanitizeHouseholdData(data) {
     if (!data || typeof data !== "object") return {};
     const out = {};
     // Arrays: only preserve if actually an array — never pass null/object through
-    ["tasks","brainItems","shoppingItems","notifications","calEvents","connectedCals",
+    ["tasks","brainItems","shoppingItems","notifications","calEvents","connectedCals","calCategories",
      "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories",
      "brainCats","homeSystems","dietaryFilters",
      // Vault arrays

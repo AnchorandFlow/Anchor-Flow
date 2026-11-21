@@ -2,6 +2,7 @@
 // views (af_redesign). Existing data and keys only.
 import { eventsOn, workersOn, personColor, ymd } from "./flowData.js";
 import { resolveForPerson } from "../sync-core.js";
+import { forIdsOf, settingsColor, FAMILY_COLOR } from "../lib/calEvents.js";
 import { initialsFor, tone, accentTone, calendarTones, hashIndex } from "../design/tokens.js";
 
 var UNCAT = "__uncat__";
@@ -36,13 +37,25 @@ export function eventPersonId(e, people) {
 // One calendar day: its events, the person-color dots for them (one per
 // person), and who's working — scheduled people (af_work_schedules) plus the
 // device's own date-keyed work day (af_workDays) under `me`'s initials.
+// Person dot colors for an event: one per For person (Settings color, else
+// the token person color), Everyone = the family color; with nobody chosen,
+// the responsible person's.
+export function eventDotColors(e, people, isPersonMinor) {
+  var ids = forIdsOf(e, people);
+  if (!ids.length) { var pid = eventPersonId(e, people); ids = pid ? [pid] : []; }
+  var out = [];
+  ids.forEach(function (id) {
+    var c = id === "everyone" ? FAMILY_COLOR : settingsColor(id, people, function (x) { return personColor(x, people, isPersonMinor); });
+    if (c && out.indexOf(c) === -1) out.push(c);
+  });
+  return out;
+}
+
 export function calendarDay(date, d) {
   var events = eventsOn(d.calEvents, date);
   var dots = [];
   events.forEach(function (e) {
-    var pid = eventPersonId(e, d.people);
-    var c = pid ? personColor(pid, d.people, d.isPersonMinor) : null;
-    if (c && dots.indexOf(c) === -1) dots.push(c);
+    eventDotColors(e, d.people, d.isPersonMinor).forEach(function (c) { if (dots.indexOf(c) === -1) dots.push(c); });
   });
   var iso = ymd(date);
   var work = workersOn(d.workSchedules, d.people, date);
@@ -81,7 +94,18 @@ function hueSat(hex) {
 }
 // An event's tone. Purple/pink stored colors (birthdays, celebrations) land
 // on gold, since the redesign has no purple or pink outside Sunset.
+// A tone built from one color: the color itself, a pale tint and a darker ink.
+function mix(hex, to, t) {
+  var a = parseInt(hex.slice(1), 16), b = parseInt(to.slice(1), 16);
+  var ch = [16, 8, 0].map(function (sh) { var x = a >> sh & 255, y = b >> sh & 255; return Math.round(x + (y - x) * t); });
+  return "#" + ch.map(function (v) { return ("0" + v.toString(16)).slice(-2); }).join("").toUpperCase();
+}
+export function toneFromColor(hex) {
+  return { full: hex, tint: mix(hex, "#FFFFFF", 0.84), ink: mix(hex, "#1B2B44", 0.55) };
+}
 export function eventTone(e) {
+  // Saved by the new event sheet: the chosen (or person) color, as is.
+  if (e && e.colorFrom && /^#[0-9a-f]{6}$/i.test(String(e.color || ""))) return toneFromColor(e.color);
   var c = String((e && e.color) || "").toLowerCase();
   var hs = c && c !== DEFAULT_EVENT_COLOR ? hueSat(c) : null;
   // Blue-family stored colors (the form default and its neighbors, which is

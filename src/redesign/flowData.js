@@ -9,6 +9,7 @@
 import { MEAL_DAYS, resolveForPerson } from "../sync-core.js";
 import { person as PERSON_COLORS, initialsFor, color as COLOR } from "../design/tokens.js";
 import { bucketItems, bucketName } from "./exhaleModel.js";
+import { occursOn } from "../lib/calEvents.js";
 
 // Flow tab grid, in display order. `flag` = the Settings toggle that hides it.
 export var FLOW_TABS = [
@@ -41,22 +42,12 @@ export function weekDates(now) {
   return [0, 1, 2, 3, 4, 5, 6].map(function (i) { var x = new Date(d); x.setDate(d.getDate() + i); return x; });
 }
 
+// Repeat-aware (daily/weekly on chosen days/every 2 weeks/monthly/yearly/
+// specific dates, with an end and skipped dates) — src/lib/calEvents.js,
+// the same rules every Calendar view uses.
 export function eventsOn(calEvents, date) {
-  var d = date.getDate(), mm = date.getMonth(), yy = date.getFullYear();
-  var target = new Date(yy, mm, d);
-  return arr(calEvents).filter(function (e) {
-    if (!e || !e.date) return false;
-    var ed = new Date(e.date + "T00:00:00");
-    if (isNaN(ed.getTime())) return false;
-    if (ed.getDate() === d && ed.getMonth() === mm && ed.getFullYear() === yy) return true;
-    if (!e.repeat || target < ed) return false;
-    if (e.repeat === "weekly") return ed.getDay() === target.getDay();
-    if (e.repeat === "biweekly") return ed.getDay() === target.getDay() && Math.round((target - ed) / 86400000) % 14 === 0;
-    if (e.repeat === "monthly") return ed.getDate() === d;
-    if (e.repeat === "yearly") return ed.getDate() === d && ed.getMonth() === mm;
-    if (e.repeat === "dates" && Array.isArray(e.repeatDates)) return e.repeatDates.indexOf(d) !== -1;
-    return false;
-  }).sort(function (a, b) { return String(a.time || "").localeCompare(String(b.time || "")); });
+  return arr(calEvents).filter(function (e) { return occursOn(e, date); })
+    .sort(function (a, b) { return String(a.time || "").localeCompare(String(b.time || "")); });
 }
 
 function isMinor(p, isPersonMinor) {

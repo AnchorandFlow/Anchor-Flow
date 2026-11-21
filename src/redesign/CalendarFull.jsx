@@ -16,8 +16,8 @@ import { font, shadow, workDayTag, tone, accentTone, calendarTones } from "../de
 import { WorkTag } from "./RedesignFlow.jsx";
 import { FullViewPage, FullViewHeader, PillTabs, Card, SectionLabel, Empty, PillButton, EmojiScope } from "./FullView.jsx";
 import { emo, NAVY, MUTED, HAIRLINE, wrapText } from "./fullViewKit.js";
-import { calendarDay, monthCells, eventPersonId, eventTone, WEEKDAY_LETTERS } from "./fullViewData.js";
-import { personColor } from "./flowData.js";
+import { calendarDay, monthCells, eventDotColors, eventTone, WEEKDAY_LETTERS } from "./fullViewData.js";
+import { forIdsOf } from "../lib/calEvents.js";
 
 var VIEWS = [{ id: "month", label: "Month", tone: tone.blue }, { id: "week", label: "Week", tone: tone.sage }, { id: "day", label: "Day", tone: tone.teal }, { id: "year", label: "Year", tone: accentTone.gold }];
 var FILTERS = [["all", "All"], ["mine", "Mine"], ["partner", "Partner’s"]];
@@ -41,7 +41,7 @@ function EventRow(props) {
   return (
     <div data-testid={"cal-event-" + e.id} data-tone={props.tone.full} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "9px 10px 9px 12px", marginTop: props.first ? 0 : 6, background: props.tone.tint, borderRadius: 12, boxShadow: "inset 4px 0 0 " + props.tone.full, opacity: props.dimmed ? 0.3 : 1 }}>
       <span style={{ paddingTop: 6 }}><Dot color={props.color} size={9} /></span>
-      <button type="button" onClick={function () { props.onEdit(e); }} aria-label={"Edit " + (e.title || "event")} style={{ flex: 1, minWidth: 0, textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: font.body, color: NAVY }}>
+      <button type="button" data-testid={"cal-edit-" + e.id} onClick={function () { props.onEdit(e, props.iso); }} aria-label={"Edit " + (e.title || "event")} style={{ flex: 1, minWidth: 0, textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: font.body, color: NAVY }}>
         <div style={Object.assign({ fontSize: font.checklistItem.size, lineHeight: 1.4 }, wrapText)}>
           {e.time ? <span style={{ fontWeight: 700, marginRight: 6, color: props.tone.ink }}>{e.time}</span> : null}{e.title || "Event"}
         </div>
@@ -53,7 +53,7 @@ function EventRow(props) {
       </button>
       <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
         {props.onRemind && <button type="button" onClick={function () { props.onRemind(e.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: MUTED, fontFamily: font.body, fontSize: 12.5, fontWeight: 600, padding: "2px 6px" }}>Remind</button>}
-        <button type="button" aria-label={"Delete " + (e.title || "event")} onClick={function () { props.onDelete(e.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: MUTED, fontSize: 17, lineHeight: 1, padding: "0 6px" }}>×</button>
+        <button type="button" aria-label={"Delete " + (e.title || "event")} onClick={function () { props.onDelete(e.id, props.iso); }} style={{ background: "none", border: "none", cursor: "pointer", color: MUTED, fontSize: 17, lineHeight: 1, padding: "0 6px" }}>×</button>
       </div>
     </div>
   );
@@ -82,11 +82,16 @@ export default function CalendarFull(props) {
   var today = props.today;
 
   function info(date) { return calendarDay(date, d); }
-  function colorOf(e) { var pid = eventPersonId(e, d.people); return (pid && personColor(pid, d.people, d.isPersonMinor)) || NO_PERSON; }
-  function whoOf(e) { var pid = e.forPerson ? eventPersonId({ forPerson: e.forPerson }, d.people) : null; var p = pid ? (d.people || []).filter(function (x) { return x.id === pid; })[0] : null; return p ? p.name : null; }
-  function events(list) {
+  function colorOf(e) { return eventDotColors(e, d.people, d.isPersonMinor)[0] || NO_PERSON; }
+  function whoOf(e) {
+    var ids = forIdsOf(e, d.people);
+    if (ids.indexOf("everyone") !== -1) return "everyone";
+    var names = ids.map(function (id) { var p = (d.people || []).filter(function (x) { return x.id === id; })[0]; return p ? String(p.name).split(/\s+/)[0] : null; }).filter(Boolean);
+    return names.length ? names.join(", ").replace(/, ([^,]*)$/, " and $1") : null;
+  }
+  function events(list, iso) {
     return list.map(function (e, i) {
-      return <EventRow key={e.id || i} first={i === 0} event={e} tone={eventTone(e)} color={colorOf(e)} who={whoOf(e)} dimmed={props.isDimmed(e)} reminder={props.hasReminder(e.id)} onEdit={props.onEditEvent} onDelete={props.onDeleteEvent} onRemind={view === "day" ? props.onRemind : null} />;
+      return <EventRow key={e.id || i} iso={iso} first={i === 0} event={e} tone={eventTone(e)} color={colorOf(e)} who={whoOf(e)} dimmed={props.isDimmed(e)} reminder={props.hasReminder(e.id)} onEdit={props.onEditEvent} onDelete={props.onDeleteEvent} onRemind={view === "day" ? props.onRemind : null} />;
     });
   }
   function workLabel(w, date) { return (w.workDayType ? props.workDayTypeLabel(w.workDayType) : props.workLabel(w.personId, date)); }
@@ -139,7 +144,7 @@ export default function CalendarFull(props) {
     return (
       <Card testId="cal-selected" style={{ background: "#FFFFFF" }} title={longDate(date)} right={<PillButton small variant="ghost" ariaLabel="Close day" onClick={function () { props.onSelectDay(null); }}>Close</PillButton>}>
         {di.work.length > 0 && <div style={{ marginBottom: 6 }}><WorkLine work={di.work} label={function (w) { return workLabel(w, date); }} /></div>}
-        {di.events.length ? events(di.events) : <Empty>Nothing planned.</Empty>}
+        {di.events.length ? events(di.events, di.iso) : <Empty>Nothing planned.</Empty>}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
           <PillButton small onClick={function () { props.onAddEvent(di.iso); }}>Add event</PillButton>
           <PillButton small variant="secondary" onClick={function () { props.onMarker(di.iso); }}>Markers</PillButton>
@@ -197,7 +202,7 @@ export default function CalendarFull(props) {
           <div style={{ marginTop: 8 }}><PillButton small variant="secondary" onClick={props.onOpenWorkSchedules}>Work schedules</PillButton></div>
           <div style={{ marginTop: 10 }}><EmojiScope showEmojis={se}>{props.workDayStrip}</EmojiScope></div>
           <SectionLabel>Events</SectionLabel>
-          {di.events.length ? events(di.events) : <Empty>No events — enjoy the open space.</Empty>}
+          {di.events.length ? events(di.events, di.iso) : <Empty>No events — enjoy the open space.</Empty>}
           <EmojiScope showEmojis={se}>{props.reminderForm}</EmojiScope>
         </Card>
       </>

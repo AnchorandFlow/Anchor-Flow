@@ -23,6 +23,7 @@ const PLAUSIBLE = {
   calEvents:          [{ id:"e1", title:"Meeting", date:"2026-07-04" }],
   connectedCals:      [{ id:"cal1", name:"Work" }],
   calColorLabels:     { "#ff0000": "Red" },
+  calCategories:      [{ id:"c_band", label:"Band practice", emoji:"" }],
   meals:              { Monday:{ breakfast:"eggs" }, Tuesday:{}, Wednesday:{}, Thursday:{}, Friday:{}, Saturday:{}, Sunday:{} },
   mealsWeekOf:        "2026-06-30",
   nextWeekMeals:      { Monday:{ lunch:"salad" } },

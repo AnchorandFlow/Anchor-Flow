@@ -41,12 +41,14 @@ import ShoppingFull from "./redesign/ShoppingFull.jsx"
 import TidePoolFull from "./redesign/TidePoolFull.jsx"
 import WavesFull from "./redesign/WavesFull.jsx"
 import CalendarFull from "./redesign/CalendarFull.jsx"
+import EventSheet from "./redesign/EventSheet.jsx"
 import MealsFull, { PrepTask } from "./redesign/MealsFull.jsx"
 import LighthouseFull from "./redesign/LighthouseFull.jsx"
 import { LH_AREA_TONE, LH_DASH_TONE, lhAreaTone, lhChipStyle, lhRowStyle, lhTextStyle, lhSectionCard, lhSectionHead, lhDashCard, lhInnerStyle } from "./redesign/lighthouseColors.js"
 import { personColor as rdPersonColor } from "./redesign/flowData.js"
 import { MEALS_TONE, mealTagTone } from "./redesign/mealsColors.js"
 import "./design/redesignType.js"
+import { occursOn as calOccursOn, forIdsOf as calForIdsOf, refreshPersonColors as calRefreshPersonColors, editOccurrence as calEditOccurrence, deleteOccurrence as calDeleteOccurrence, allCategories as calAllCategories, newCategory as calNewCategory } from "./lib/calEvents.js"
 import { tone as RD_TONE_BASE, accentTone as RD_ACCENT, calendarTones as RD_CAL_TONES, gradient } from "./design/tokens.js"
 import { rdLegacyKit, RD_T, goAnchor, rdFormKit, RD_OVERLAY, RD_DIALOG, RD_SHEET, RD_SHEET_TITLE, RD_CLOSE, RD_SECTION_LABEL, rdChip, rdPersonChip, RD_SEG_TRACK, rdSeg, rdLink, RD_DANGER, rdYearCatTone } from "./redesign/fullViewKit.js"
 import { HomeFull, PeopleFull, HorizonFull } from "./redesign/AnchorHubsFull.jsx"
@@ -4616,6 +4618,16 @@ function createLocalBackup() {
   function catId(c){ if(!c)return ""; if(typeof c==="string") return c; return c.id||c.label||""; }
   function shopCatLabels(){ return shopCategories.map(function(c){return catLabel(c);}); }
   const [calColorLabels,setCalColorLabels]     = useSaved("calColorLabels",{});
+  // Household's own event categories (Add/Edit Event sheet "+ Add category"), synced.
+  const [calCategories,setCalCategories]       = useSaved("calCategories",[]);
+  // Events whose color follows their For person(s) (colorFrom:"person") pick
+  // up Settings color changes. Only events saved by the new event sheet carry
+  // colorFrom, and refreshPersonColors returns the same array when nothing
+  // differs, so this never writes (or dirties sync) on its own.
+  useEffect(function(){
+    var next=calRefreshPersonColors(calEvents, people, function(pid){ return rdPersonColor(pid, people, personIsMinor); });
+    if(next!==calEvents) setCalEvents(next);
+  }, [people, calEvents]); // eslint-disable-line react-hooks/exhaustive-deps
   const [familyProfile,setFamilyProfile]       = useSaved("familyProfile",null);
   // OB-0 gap 2 — feature toggles gating PILLARS nav entries in FlowWrapper.
   // Each wrapped setter dispatches "af-features-changed" after writing, so
@@ -4856,6 +4868,9 @@ function createLocalBackup() {
   const [calFormMode,setCalFormMode]   = useState(null);
   const [calFormId,setCalFormId]       = useState(null);
   const [calFormInit,setCalFormInit]   = useState(null);
+  // af_redesign: the tapped date of a repeating event (for "This event" / "All events").
+  const [calFormOcc,setCalFormOcc]     = useState(null);
+  const [calFormAsk,setCalFormAsk]     = useState(null); // "delete": open straight on This event / All events
 
   const [onboardStep,setOnboardStep]   = useState(0);
   const [onboardAnswers,setOnboardAnswers] = useState({parentNames:"",numKids:"",kidAges:"",dietaryNeeds:"",biggestChallenge:"",favoriteDinner:"",cookingStyle:""});
@@ -6250,8 +6265,8 @@ Respond ONLY with valid JSON array, no markdown:
   function localDateStr(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
   function calDayFromStr(str){ if(!str)return null; const [y,m,d]=str.split("-").map(Number); return new Date(y,m-1,d); }
   function openAddEvent(prefillDate){ setCalFormInit({title:"",date:prefillDate||"",time:"",color:"#6A9BB5",colorLabel:calColorLabels["#6A9BB5"]||"",colorCustom:"",note:"",repeat:"",forPerson:null,responsibleParent:null,schoolType:null}); setCalFormMode("add"); setCalFormId(null); }
-  function openEditEvent(e){ setCalFormInit({...e,colorCustom:e.colorCustom||""}); setCalFormId(e.id); setCalFormMode("edit"); }
-  function closeCalForm(){ setCalFormMode(null); setCalFormId(null); setCalFormInit(null); }
+  function openEditEvent(e,occIso,ask){ setCalFormInit({...e,colorCustom:e.colorCustom||""}); setCalFormId(e.id); setCalFormOcc(e.repeat&&occIso?occIso:null); setCalFormAsk(ask||null); setCalFormMode("edit"); }
+  function closeCalForm(){ setCalFormMode(null); setCalFormId(null); setCalFormInit(null); setCalFormOcc(null); setCalFormAsk(null); }
 
   // ── Shared UI helpers ───────────────────────────────────────────────────────
   _hfRenders.Pill = ({label,color,tiny}) => (
@@ -8183,22 +8198,10 @@ Respond ONLY in valid JSON:
     const firstDay=getFirstDayOfMonth(year,month);
     function eventsForDay(d,m2,y2){
       const mm=m2!==undefined?m2:month,yy=y2!==undefined?y2:year;
-      return calEvents.filter(e=>{
-        if(!e.date)return false;
-        const ed=new Date(e.date+"T00:00:00");
-        const baseMatch=ed.getDate()===d&&ed.getMonth()===mm&&ed.getFullYear()===yy;
-        if(baseMatch)return true;
-        if(!e.repeat)return false;
-        // Don't show recurring before the original date
-        const targetDate=new Date(yy,mm,d);
-        if(targetDate<ed)return false;
-        if(e.repeat==="weekly")return ed.getDay()===targetDate.getDay();
-        if(e.repeat==="biweekly"){const diffDays=Math.round((targetDate-ed)/(86400000));return ed.getDay()===targetDate.getDay()&&diffDays%14===0;}
-        if(e.repeat==="monthly")return ed.getDate()===d;
-        if(e.repeat==="yearly")return ed.getDate()===d&&ed.getMonth()===mm;
-        if(e.repeat==="dates"&&Array.isArray(e.repeatDates))return e.repeatDates.includes(d);
-        return false;
-      }).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
+      // Shared repeat rules (src/lib/calEvents.js): identical results for
+      // events saved before repeatDays/repeatEnd/exceptions existed.
+      const targetDate=new Date(yy,mm,d);
+      return calEvents.filter(e=>calOccursOn(e,targetDate)).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
     }
     function getWeekDates(ref){var d=new Date(ref);var day=d.getDay();d.setDate(d.getDate()-day);return Array.from({length:7},function(_,i){var nd=new Date(d);nd.setDate(d.getDate()+i);return nd;});}
     const weekDates=getWeekDates(calViewDate);
@@ -8766,7 +8769,12 @@ Respond ONLY in valid JSON:
           isDimmed={function(e){ var _rp=resolveResponsibleParent(e.responsibleParent); return (calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="partner"&&_rp===myPersonId); }}
           data={{ calEvents:calEvents, workSchedules:workSchedules, people:people, myPersonId:myPersonId, workDays:workDays, calMarkers:calMarkers, isPersonMinor:personIsMinor }}
           onAddEvent={openAddEvent} onEditEvent={openEditEvent}
-          onDeleteEvent={function(id){ setCalEvents(function(p){ return p.filter(function(x){ return x.id!==id; }); }); }}
+          onDeleteEvent={function(id,iso){
+            // A repeating event asks "This event" / "All events" (the event sheet's own prompt).
+            var ev=calEvents.find(function(x){ return x.id===id; });
+            if(ev&&ev.repeat&&iso){ openEditEvent(ev,iso,"delete"); return; }
+            setCalEvents(function(p){ return p.filter(function(x){ return x.id!==id; }); });
+          }}
           hasReminder={function(id){ return notifications.some(function(n){ return n.entityId===id; }); }}
           onRemind={function(id){ setShowCalNotif(showCalNotif===id?null:id); }}
           workLabel={function(pid, dd){
@@ -18518,6 +18526,66 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       }
     }
     if(!calFormMode)return null;
+    // af_redesign: the new Add/Edit Event sheet (src/redesign/EventSheet.jsx).
+    // Same writes as handleSave below — calEvents, the reminder, and Lighthouse
+    // attendance for School Day / Half Day — plus "This event" / "All events"
+    // for repeating events and custom categories (calCategories, synced).
+    if(REDESIGN){
+      function attendanceFor(ev){
+        const attStatus=schoolTypeAttendanceStatus(ev.schoolType);
+        if(!attStatus)return;
+        const ids=calForIdsOf(ev,people);
+        const targetIds=ids.indexOf("everyone")!==-1
+          ? people.filter(function(p){return p&&p.schoolType&&p.schoolType!=="none"&&personIsMinor(p);}).map(function(p){return p.id;})
+          : ids;
+        if(!targetIds.length)return;
+        setSchoolDataForAttendance(function(prev){
+          const next=Object.assign({},prev);
+          targetIds.forEach(function(childId){
+            const existingChild=next[childId]||{type:null,public:{teachers:[],calEvents:[],spiritDays:[],teacherAppWeek:{},schedule:"",notes:""},homeschool:{umbrella:{},curricula:[],lessons:[],activities:[],attendance:{}}};
+            const existingHs=existingChild.homeschool||{};
+            const nextAtt=Object.assign({},existingHs.attendance||{},{[ev.date]:attStatus});
+            next[childId]=Object.assign({},existingChild,{homeschool:Object.assign({},existingHs,{attendance:nextAtt})});
+          });
+          return next;
+        });
+      }
+      function onSheetSave(fields,scope){
+        var id=calFormMode==="add"?uid():calFormId;
+        if(calFormMode==="add"){
+          setCalEvents(function(p){return p.concat([Object.assign({id:id},fields)]);});
+        }else if(scope==="this"&&calFormOcc){
+          id=uid();
+          var one=Object.assign({},fields);
+          delete one.repeat; delete one.repeatDays; delete one.repeatDates; delete one.repeatEnd;
+          setCalEvents(function(p){return calEditOccurrence(p,calFormId,calFormOcc,one,id);});
+        }else{
+          // The Date field showed the tapped day; an unchanged date keeps the series start.
+          if(calFormOcc&&fields.date===calFormOcc) fields=Object.assign({},fields,{date:calFormInit.date});
+          setCalEvents(function(p){return p.map(function(e){return e.id===calFormId?Object.assign({},e,fields,{id:calFormId}):e;});});
+        }
+        if(fields.remindDate&&fields.remindTime) addNotification(id, fields.title, fields.remindDate, fields.remindTime, fields.note||"", "calendar");
+        attendanceFor(fields);
+        closeCalForm();setSelectedDay(null);
+      }
+      function onSheetDelete(scope){
+        if(scope==="this"&&calFormOcc) setCalEvents(function(p){return calDeleteOccurrence(p,calFormId,calFormOcc);});
+        else setCalEvents(function(p){return p.filter(function(e){return e.id!==calFormId;});});
+        closeCalForm();
+      }
+      return <EventSheet mode={calFormMode} init={calFormOcc?Object.assign({},calFormInit,{date:calFormOcc}):calFormInit} occurrenceIso={calFormOcc} initialAsk={calFormAsk} people={people}
+        personColor={function(pid){ var p=people.find(function(x){return x.id===pid;}); return (p&&p.color)||rdPersonColor(pid,people,personIsMinor); }}
+        categories={calAllCategories(calCategories)} schoolTypes={SCHOOL_EVENT_TYPES} colorLabels={calColorLabels}
+        showEmojis={showEmojis===true} today={new Date()}
+        onAddCategory={function(label){
+          var existing=calAllCategories(calCategories).find(function(c){return c.label.toLowerCase()===String(label||"").trim().toLowerCase();});
+          if(existing) return existing;
+          var c=calNewCategory(label,uid); if(!c) return null;
+          setCalCategories(function(p){return (Array.isArray(p)?p:[]).concat([c]);});
+          return c;
+        }}
+        onSave={onSheetSave} onDelete={calFormMode==="edit"?onSheetDelete:null} onCancel={closeCalForm}/>;
+    }
     function handleSave(){
       if(!f.title||!f.date)return;
       const resolvedLabel=calColorLabels[f.color]||f.colorCustom.trim()||f.colorLabel;const ev={...f,colorLabel:resolvedLabel};
