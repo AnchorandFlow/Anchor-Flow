@@ -19,7 +19,14 @@ var STROKE = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLin
 export function SectionGlyph(props) {
   var s = props.size || 20;
   var body;
-  if (props.id === "today" || props.id === "compass") {
+  if (props.id === "today") {
+    // Today: a house (the gold Compass button keeps the compass).
+    body = (<>
+      <path d="M4 11.2L12 4.5l8 6.7" {...STROKE} />
+      <path d="M6.2 9.6V19.5h11.6V9.6" {...STROKE} />
+      <path d="M10 19.5v-5h4v5" {...STROKE} />
+    </>);
+  } else if (props.id === "compass") {
     body = (<>
       <circle cx="12" cy="12" r="8.5" {...STROKE} />
       <path d="M15.5 8.5l-2.2 5-4.8 2 2.2-5z" {...STROKE} fill="currentColor" fillOpacity="0.25" />
@@ -45,7 +52,11 @@ export function SectionGlyph(props) {
 }
 
 var CSS = [
-  ".af-topnav{position:fixed;top:0;left:0;right:0;z-index:210;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}",
+  ".af-topnav{position:fixed;top:0;left:0;right:0;z-index:210;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);transition:box-shadow .2s}",
+  ".af-topnav[data-scrolled=true]{box-shadow:0 6px 16px rgba(14,27,46,.16)}",
+  // Anything scrolled into view (focus, links, the keyboard on iPhone) stops
+  // below the bar on every screen, and inside the full-screen Anchor overlays.
+  "html{scroll-padding-top:calc(var(--af-nav-h, 64px) + 12px)}[data-anchor-room]{scroll-padding-top:12px}",
   ".af-topnav-in{max-width:1200px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-sizing:border-box}",
   ".af-tn-brand{display:flex;align-items:center;gap:8px;background:none;border:none;padding:4px;border-radius:10px;cursor:pointer;color:inherit;min-width:0}",
   ".af-tn-word{font-size:12px;font-weight:800;letter-spacing:.16em;white-space:nowrap}",
@@ -73,7 +84,15 @@ export default function TopNav(props) {
     var ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(publish) : null;
     if (ro) ro.observe(el);
     window.addEventListener("resize", publish);
-    return function () { if (ro) ro.disconnect(); window.removeEventListener("resize", publish); };
+    // A soft shadow while the page (or a full-screen Anchor overlay) is
+    // scrolled under the bar, so content reads as passing beneath it.
+    function onScroll(e) {
+      var t = e && e.target && e.target !== document ? e.target : document.scrollingElement || document.documentElement;
+      var y = t && typeof t.scrollTop === "number" ? t.scrollTop : 0;
+      el.setAttribute("data-scrolled", y > 2 ? "true" : "false");
+    }
+    document.addEventListener("scroll", onScroll, true);
+    return function () { if (ro) ro.disconnect(); window.removeEventListener("resize", publish); document.removeEventListener("scroll", onScroll, true); };
   }, []);
   var dark = props.dark === true;
   var ink = dark ? color.surface : color.anchorNavy;

@@ -207,6 +207,12 @@ async function run() {
       var se = document.querySelector(click.slice(8));
       if (se) { se.scrollTop = se.scrollHeight; } else { window.scrollTo(0, document.body.scrollHeight); }
       await wait(300);
+    } else if (click && click.indexOf("!scrollby:") === 0) {
+      // "!scrollby:<css selector>|<px>" scrolls that box (or the page) by px
+      var sb2 = /^!scrollby:([^|]+)\|(-?\d+)$/.exec(click);
+      var sbe = sb2 && document.querySelector(sb2[1]);
+      if (sbe) sbe.scrollTop += +sb2[2]; else if (sb2) window.scrollBy(0, +sb2[2]);
+      await wait(300);
     } else if (click && click.indexOf("!wait:") === 0) {
       await wait(parseInt(click.slice(6), 10) || 0); // "!wait:<ms>" (e.g. for a sync push/poll)
     } else if (click && click.indexOf("!type:") === 0) {

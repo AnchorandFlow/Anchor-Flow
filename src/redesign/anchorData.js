@@ -5,11 +5,12 @@
 //   sensitiveRecords  — TravelProfileSection MaskedFields + Health's PIN-locked note
 //   safeHarborModel   — SafeHarbor.jsx tiers (10/30/60), 6 P categories, Our Plan
 //   todayZone         — HomeTab cleaning rotation (date % zones unless zonePinned)
-//   nextMaintenance   — AnchorVault sysNextDate / HomeTab maintenanceDueSoon
+//   nextMaintenance   — src/lib/vaultDates.js sysNextDue / HomeTab maintenanceDueSoon
 //   peopleCards       — PeopleTab health status + petNextVet
 //   coveSummary       — CoveTab notes (updatedAt) and lists (checked / total)
 //   horizonEvents     — HorizonTab trips (days > 0) + celebrations (next yearly)
 import { safeHarborReadiness } from "./homeData.js";
+import { sysNextDue } from "../lib/vaultDates.js";
 
 function arr(v) { return Array.isArray(v) ? v : []; }
 function obj(v) { return v && typeof v === "object" && !Array.isArray(v) ? v : {}; }
@@ -181,22 +182,12 @@ export function todayZone(cleaning, now) {
   return { name: str(z.name) || "Zone", rooms: str(z.rooms), done: tasks.filter(function (t) { return t.done; }).length, total: tasks.length };
 }
 
-function sysNextDate(lastDone, freq) {
-  if (!lastDone || !freq || freq === "once") return null;
-  var d = new Date(lastDone + "T00:00:00");
-  if (isNaN(d.getTime())) return null;
-  var m = { "1m": 1, "3m": 3, "6m": 6, "1y": 12, "2y": 24, "5y": 60 }[freq];
-  if (!m) return null;
-  d.setMonth(d.getMonth() + m);
-  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-}
-
 // Soonest due (overdue first). { name, due, days }
 export function nextMaintenance(systems, now) {
   var best = null;
   arr(systems).forEach(function (s) {
     if (!s) return;
-    var due = s.nextDue || sysNextDate(s.lastDone, s.freq);
+    var due = sysNextDue(s); // always last completed + frequency (or a manual date)
     var days = ymdDays(due, now);
     if (days === null) return;
     if (!best || days < best.days) best = { name: str(s.name) || "Maintenance", due: due, days: days };

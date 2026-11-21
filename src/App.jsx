@@ -48,6 +48,7 @@ import { LH_AREA_TONE, LH_DASH_TONE, lhAreaTone, lhChipStyle, lhRowStyle, lhText
 import { personColor as rdPersonColor } from "./redesign/flowData.js"
 import { MEALS_TONE, mealTagTone } from "./redesign/mealsColors.js"
 import "./design/redesignType.js"
+import { sysNextDue as vaultSysNextDue } from "./lib/vaultDates.js"
 import { occursOn as calOccursOn, forIdsOf as calForIdsOf, refreshPersonColors as calRefreshPersonColors, editOccurrence as calEditOccurrence, deleteOccurrence as calDeleteOccurrence, allCategories as calAllCategories, newCategory as calNewCategory } from "./lib/calEvents.js"
 import { tone as RD_TONE_BASE, accentTone as RD_ACCENT, calendarTones as RD_CAL_TONES, gradient } from "./design/tokens.js"
 import { rdLegacyKit, RD_T, goAnchor, rdFormKit, RD_OVERLAY, RD_DIALOG, RD_SHEET, RD_SHEET_TITLE, RD_CLOSE, RD_SECTION_LABEL, rdChip, rdPersonChip, RD_SEG_TRACK, rdSeg, rdLink, RD_DANGER, rdYearCatTone } from "./redesign/fullViewKit.js"
@@ -12036,7 +12037,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // ── Maintenance summary — reads af_vaultSystems directly, doesn't own it ──
     var maintenanceSystems = (function(){ try { var v=JSON.parse(localStorage.getItem("af_vaultSystems")||"[]"); return Array.isArray(v)?v:[]; } catch(e){ return []; } })();
     // First item is "Next Due", remaining up to 3 are "Upcoming".
-    var maintenanceDueSoon = maintenanceSystems.filter(function(s){return s&&s.nextDue;}).slice().sort(function(a,b){return (a.nextDue||"").localeCompare(b.nextDue||"");}).slice(0,4);
+    // Next due is always derived (last completed + frequency, or a date set by
+    // hand) — a stored nextDue can be a stale copy (src/lib/vaultDates.js).
+    var maintenanceDueSoon = maintenanceSystems.map(function(s){ return s ? Object.assign({}, s, { nextDue: vaultSysNextDue(s) || "" }) : s; }).filter(function(s){return s&&s.nextDue;}).slice().sort(function(a,b){return (a.nextDue||"").localeCompare(b.nextDue||"");}).slice(0,4);
     // "in N days"/"today"/"tomorrow" under 2 weeks, else a natural date
     // ("August 14") — matches the spec's two examples exactly.
     function formatDueNaturally(dateStr){

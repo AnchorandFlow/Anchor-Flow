@@ -9,6 +9,7 @@ import { REDESIGN } from "../design/redesignFlag.js"
 import { gradient } from "../design/tokens.js"
 import VaultFull from "../redesign/VaultFull.jsx"
 import AppFooter from "../shell/AppFooter.jsx"
+import { fmtVaultDate, localYmd, sysNextDate, sysNextDue, sysStatus, sysStatusLabel, normalizeSystems, subNextRenewal, vaxStatus } from "../lib/vaultDates.js"
 import { useVaultChrome, VAULT_DESCRIPTIONS, formatTripRange, tripTiming } from "../redesign/vaultChrome.js"
 // CareerSection is defined inline below
 
@@ -2047,7 +2048,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 15, fontWeight: 700, color: "#1a2e3d" }}>{h.name}</div>
                       <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>
-                        {h.date ? h.date : "No date set"}{daysAway !== null ? " · " + (daysAway === 0 ? "Today!" : daysAway + " days away") : ""}
+                        {h.date ? vd(h.date) : "No date set"}{daysAway !== null ? " · " + (daysAway === 0 ? "Today!" : daysAway + " days away") : ""}
                       </div>
                     </div>
                     <button onClick={function(ev) { ev.stopPropagation(); removeHoliday(h.id) }} aria-label="Delete holiday" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#4a6275", flexShrink: 0 }}>✕</button>
@@ -2748,7 +2749,7 @@ function PetsSection() {
             <div key={v.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: overdue ? "rgba(160,92,16,0.08)" : cardBg, border: "1px solid " + (overdue ? "rgba(160,92,16,0.25)" : border), borderRadius: 9, marginBottom: 6 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>{v.name}</div>
-                <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{v.date && "Given: " + v.date}{v.vet && " · " + v.vet}</div>
+                <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{v.date && "Given: " + vd(v.date)}{v.vet && " · " + v.vet}</div>
               </div>
               {v.due && (
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
@@ -6630,7 +6631,7 @@ function CJobsTab({ pid, career, setCareer }) {
             return React.createElement("div",{key:job.id,style:{display:"flex",alignItems:"flex-start",gap:10,padding:"0.5rem 0",borderBottom:CAREER_BORD2}},
               React.createElement("div",{style:{flex:1}},
                 React.createElement("div",{style:{fontSize:13,color:CAREER_WHITE,fontWeight:600}},(job.role||"Role")+" · "+job.company),
-                job.date&&React.createElement("div",{style:{fontSize:11,color:"#4a6275",marginTop:2}},"Applied: "+job.date),
+                job.date&&React.createElement("div",{style:{fontSize:11,color:"#4a6275",marginTop:2}},"Applied: "+vd(job.date)),
                 job.notes&&React.createElement("div",{style:{fontSize:12,color:"#4a6275",marginTop:3,lineHeight:1.5}}),job.url&&safeUrl(job.url)&&React.createElement("a",{href:safeUrl(job.url),target:"_blank",rel:"noreferrer",style:{fontSize:11,color:CAREER_GOLD,display:"block",marginTop:2}},"View posting →")),
               React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}},
                 React.createElement("select",{value:job.status,onChange:function(e){updateStatus(job.id,e.target.value);},style:{fontSize:11,WebkitAppearance:"none",appearance:"none",background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.2)",borderRadius:6,padding:"2px 6px",color:STATUS_COLORS[job.status]||CAREER_GOLD,fontFamily:"inherit",cursor:"pointer"}},JOB_STATUSES.map(function(s){return React.createElement("option",{key:s,value:s},s)})),
@@ -6914,7 +6915,7 @@ function CWinsTab({ pid, career, setCareer }) {
               React.createElement("span",{style:{fontSize:16,flexShrink:0}},TYPE_ICON[w.type]||"📝"),
               React.createElement("span",{style:{fontSize:13,fontWeight:600,color:CAREER_WHITE}}),w.title),
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,flexShrink:0}},
-              w.date&&React.createElement("span",{style:{fontSize:11,color:"#4a6275"}}),w.date,
+              w.date&&React.createElement("span",{style:{fontSize:11,color:"#4a6275"}}),vd(w.date),
               React.createElement("button",{onClick:function(){remove(w.id)},style:{background:"none",border:"none",color:"#4a6275",cursor:"pointer",fontSize:13,padding:0}},"✕"))),
           w.body&&React.createElement("p",{style:{fontSize:12,color:"#1a2e3d",lineHeight:1.6,margin:0,paddingLeft:24}}),w.body)})),
     adding&&React.createElement(CModal,{title:"Log a win or note",onClose:function(){setAdding(false);}},
@@ -7329,7 +7330,7 @@ function HItemRow(props) {
 function HModal(props) {
   return React.createElement("div",{style:{position:"fixed",top:0,left:REDESIGN?0:68,right:0,bottom:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:"env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:props.onClose},
     React.createElement("div",{style:{background:"#2E486B",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,calc(100vw - 68px - 2rem))",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:function(e){e.stopPropagation();}},
-      React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}},React.createElement("span",{style:{color:HMODAL_TEXT,fontSize:15,fontWeight:500}},props.title),React.createElement("button",{onClick:props.onClose,style:{background:"none",border:"none",color:"rgba(250,248,244,0.4)",cursor:"pointer",fontSize:18}},"✕")),
+      React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}},React.createElement("span",{style:REDESIGN?{color:HMODAL_TEXT,fontFamily:"'Playfair Display', Georgia, serif",fontSize:22,fontWeight:700,lineHeight:1.2}:{color:HMODAL_TEXT,fontSize:15,fontWeight:500}},props.title),React.createElement("button",{onClick:props.onClose,style:{background:"none",border:"none",color:"rgba(250,248,244,0.4)",cursor:"pointer",fontSize:18}},"✕")),
       props.children
     )
   );
@@ -7337,7 +7338,10 @@ function HModal(props) {
 function HInput(props) {
   return React.createElement("div",{style:{marginBottom:"0.75rem"}},
     props.label&&React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},props.label),
-    React.createElement("input",{type:props.type||"text",value:props.value,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,style:{width:"100%",background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.2)",borderRadius:8,padding:"0.55rem 0.75rem",color:"#1a2e3d",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}})
+    // New look: date fields can't run past the sheet's edge at 390px (iOS gives
+    // them an intrinsic width unless appearance is reset and they may shrink),
+    // and 16px text so iOS doesn't zoom into the field.
+    React.createElement("input",{type:props.type||"text",value:props.value,"data-testid":props.testId,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,style:Object.assign({width:"100%",background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.2)",borderRadius:8,padding:"0.55rem 0.75rem",color:"#1a2e3d",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"},REDESIGN?{display:"block",minWidth:0,maxWidth:"100%",WebkitAppearance:"none",appearance:"none",fontSize:16,minHeight:44}:null)})
   );
 }
 function HTextarea(props) {
@@ -7489,9 +7493,10 @@ function HImmunizeTab(props) {
     React.createElement(HCard,null,React.createElement(HCardHead,{icon:"💉",label:"Immunizations",onAdd:function(){setForm({name:"",date:"",nextDue:"",status:"Up to date",addReminder:false});setEditId(null);setOpen(true);}}),
       items.length===0&&React.createElement("p",{style:{fontSize:12,color:"#4a6275",textAlign:"center",padding:"0.75rem 0"}},"No immunizations added yet"),
       items.map(function(it){
-        var badge=it.status==="Up to date"?"ok":it.status==="Overdue"?"allergy":it.status==="Declined"?"gray":"due";
-        var detail=[it.date,it.nextDue?"Next: "+it.nextDue:""].filter(Boolean).join(" · ");
-        return React.createElement(HItemRow,{key:it.id,name:it.name,detail:detail,badge:badge,badgeLabel:it.status,onEdit:function(){startEdit(it);},onDelete:function(){remove(it.id);}});
+        var st=vaxStatus(it); // follows the next due date (a passed date shows Overdue)
+        var badge=st==="Up to date"?"ok":st==="Overdue"?"allergy":st==="Declined"?"gray":"due";
+        var detail=[vd(it.date),it.nextDue?"Next: "+vd(it.nextDue):""].filter(Boolean).join(" · ");
+        return React.createElement(HItemRow,{key:it.id,name:it.name,detail:detail,badge:badge,badgeLabel:st,onEdit:function(){startEdit(it);},onDelete:function(){remove(it.id);}});
       })),
     open&&React.createElement(HModal,{title:editId?"Edit immunization":"Add immunization",onClose:function(){setOpen(false);setEditId(null);}},
       React.createElement(HInput,{label:"Vaccine name",value:form.name,onChange:function(v){setForm(function(f){return Object.assign({},f,{name:v});});},placeholder:"e.g. Flu shot, Tdap, COVID booster"}),
@@ -7759,7 +7764,7 @@ function HNotesTab(props) {
           React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:"0.35rem"}},
             React.createElement("span",{style:{fontSize:13,fontWeight:500,color:HWHITE}},n.title),
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
-              React.createElement("span",{style:{fontSize:11,color:"#4a6275"}},n.date),
+              React.createElement("span",{style:{fontSize:11,color:"#4a6275"}},vd(n.date)),
               React.createElement("button",{onClick:function(){startEdit(n);},style:{background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.25)",borderRadius:5,color:HGOLD,cursor:"pointer",fontSize:11,padding:"2px 7px",lineHeight:1.4,fontFamily:"inherit"}},"Edit"),
               React.createElement("button",{onClick:function(){injectCalendar(n);},title:"Add to calendar",style:{background:"rgba(106,155,181,0.1)",border:"0.5px solid rgba(106,155,181,0.25)",borderRadius:5,color:"#6A9BB5",cursor:"pointer",fontSize:11,padding:"2px 7px",lineHeight:1.4,fontFamily:"inherit"}},"📅"),
               React.createElement("button",{onClick:function(){removeNote(n.id);},style:{background:"none",border:"none",color:"#4a6275",cursor:"pointer",fontSize:14,padding:"0 2px"}},"✕")
@@ -7796,7 +7801,9 @@ function HPersonCard(props) {
   var meds=(d.meds||[]).length;
   var allergies=(d.allergies||[]).length;
   var immunizations=d.immunizations||[];
-  var dueVax=immunizations.filter(function(v){return v.status==="due"||v.status==="overdue";}).length;
+  // Status from the next due date (vaxStatus); the old check compared lowercase
+  // "due"/"overdue" against stored "Due soon"/"Overdue", so it never counted.
+  var dueVax=immunizations.filter(function(v){var st=vaxStatus(v);return st==="Due soon"||st==="Overdue";}).length;
   var vaxColor=dueVax>0?"#d85a30":"#1d9e75";
   var vaxLabel=dueVax>0?(dueVax+" due"):"All clear";
   var initials=p.name.split(" ").map(function(w){return w[0];}).join("").slice(0,2).toUpperCase();
@@ -7909,7 +7916,7 @@ function HAppointmentsTab(props) {
       React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between"}},
         React.createElement("div",{style:{flex:1}},
           React.createElement("p",{style:{fontSize:13,fontWeight:500,color:HWHITE,margin:"0 0 2px"}},a.title),
-          React.createElement("p",{style:{fontSize:11,color:HGOLD,margin:"0 0 2px"}},[a.date,a.time].filter(Boolean).join(" · ")+(a.provider?" · "+a.provider:"")),
+          React.createElement("p",{style:{fontSize:11,color:HGOLD,margin:"0 0 2px"}},[vd(a.date),a.time].filter(Boolean).join(" · ")+(a.provider?" · "+a.provider:"")),
           a.body&&React.createElement("p",{style:{fontSize:12,color:"#4a6275",margin:0,lineHeight:1.5}},a.body)
         ),
         React.createElement("div",{style:{display:"flex",gap:5,flexShrink:0,marginLeft:6}},
@@ -8069,59 +8076,29 @@ var SYS_FREQ = [
   {id:"once",label:"One-time"},
 ]
 
+// Next due / status come from src/lib/vaultDates.js: always last completed +
+// frequency (or a date the user set by hand). Loading fixes any record still
+// carrying a stale nextDue from before, and saves the fix so it syncs.
 function sysLoadSystems() {
-  try { var s=localStorage.getItem("af_vaultSystems"); return s?JSON.parse(s):[]; } catch(e){return [];}
+  var list;
+  try { var s=localStorage.getItem("af_vaultSystems"); list=s?JSON.parse(s):[]; } catch(e){ list=[]; }
+  if(!Array.isArray(list)) list=[];
+  var fixed=normalizeSystems(list);
+  if(fixed!==list){
+    try { localStorage.setItem("af_vaultSystems",JSON.stringify(fixed)); } catch { /* storage blocked */ }
+    setTimeout(function(){ afVaultChanged("vaultSystems"); },0); // not during render
+  }
+  return fixed;
 }
-function sysSaveSystems(v) { try { localStorage.setItem("af_vaultSystems",JSON.stringify(v)); afVaultChanged("vaultSystems"); } catch(e){} }
+function sysSaveSystems(v) { try { localStorage.setItem("af_vaultSystems",JSON.stringify(normalizeSystems(v))); afVaultChanged("vaultSystems"); } catch(e){} }
 
-function sysDaysUntil(dateStr) {
-  if(!dateStr) return null;
-  var now=new Date(); now.setHours(0,0,0,0);
-  var d=new Date(dateStr+"T00:00:00");
-  return Math.round((d-now)/86400000);
-}
-
-function sysNextDate(lastDone, freqId) {
-  if(!lastDone||!freqId||freqId==="once") return null;
-  var d=new Date(lastDone+"T00:00:00");
-  var map={
-    "1m":function(x){x.setMonth(x.getMonth()+1);},
-    "3m":function(x){x.setMonth(x.getMonth()+3);},
-    "6m":function(x){x.setMonth(x.getMonth()+6);},
-    "1y":function(x){x.setFullYear(x.getFullYear()+1);},
-    "2y":function(x){x.setFullYear(x.getFullYear()+2);},
-    "5y":function(x){x.setFullYear(x.getFullYear()+5);},
-  };
-  if(map[freqId]) map[freqId](d);
-  return d.toISOString().slice(0,10);
-}
-
-function sysStatus(system) {
-  var due = system.nextDue || sysNextDate(system.lastDone, system.freq);
-  if(!due) return "ok";
-  var days=sysDaysUntil(due);
-  if(days===null) return "ok";
-  if(days<0) return "overdue";
-  if(days<=30) return "soon";
-  return "ok";
-}
-
+// New look: every Vault date reads "Nov 19, 2026" (flag off: as stored).
+function vd(x) { return REDESIGN ? fmtVaultDate(x) : x; }
+var SYS_TEAL = "#2F7E76"; // tokens tone.teal.full — new-look "Mark done today"
 function sysStatusColor(status) {
   if(status==="overdue") return "#a05c10";
   if(status==="soon") return "#4a6275";
   return "#2e7a46";
-}
-
-function sysStatusLabel(system) {
-  var due = system.nextDue || sysNextDate(system.lastDone, system.freq);
-  var status=sysStatus(system);
-  if(!due) return system.lastDone ? ("Done "+system.lastDone) : "Not logged";
-  var days=sysDaysUntil(due);
-  if(days===null) return "Scheduled";
-  if(days<0) return Math.abs(days)+"d overdue";
-  if(days===0) return "Due today";
-  if(days===1) return "Due tomorrow";
-  return "Due in "+days+"d";
 }
 
 // ── House File (Records) ──────────────────────────────────────────────────────
@@ -8511,7 +8488,7 @@ function ProductsPanel() {
               React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}},
                 React.createElement("div",{style:{flex:1,minWidth:0}},
                   React.createElement("div",{style:{fontSize:14,fontWeight:600,color:"#1a2e3d",fontFamily:"DM Sans,sans-serif"}},item.name),
-                  item.purchasedAt&&React.createElement("div",{style:{fontSize:11,color:"#4a6275",fontFamily:"DM Sans,sans-serif",marginTop:2}},"Bought: "+item.purchasedAt),
+                  item.purchasedAt&&React.createElement("div",{style:{fontSize:11,color:"#4a6275",fontFamily:"DM Sans,sans-serif",marginTop:2}},"Bought: "+vd(item.purchasedAt)),
                   item.warranty&&React.createElement("div",{style:{fontSize:11,color:"#8bbf9a",fontFamily:"DM Sans,sans-serif",marginTop:2}},"✓ Warranty"+(item.warrantyNote?" — "+item.warrantyNote:"")),
                   item.notes&&React.createElement("div",{style:{fontSize:11,color:"#4a6275",fontFamily:"DM Sans,sans-serif",marginTop:2,fontStyle:"italic"}},item.notes)
                 ),
@@ -8573,15 +8550,29 @@ function MaintenancePanel() {
   var s_adding=useState(false); var adding=s_adding[0]; var setAdding=s_adding[1];
   var s_form=useState({name:"",type:"other",freq:"1y",lastDone:"",nextDue:"",notes:""}); var form=s_form[0]; var setForm=s_form[1];
   var s_editIdx=useState(null); var editIdx=s_editIdx[0]; var setEditIdx=s_editIdx[1];
+  // Another member's edit arriving by sync (or another Vault screen) re-reads.
+  useEffect(function(){
+    function onChanged(e){ if(!e||!e.detail||e.detail.key==="vaultSystems") setSystems(function(prev){ var next=sysLoadSystems(); return JSON.stringify(next)===JSON.stringify(prev)?prev:next; }); }
+    window.addEventListener("af-data-changed",onChanged); window.addEventListener("storage",onChanged);
+    return function(){ window.removeEventListener("af-data-changed",onChanged); window.removeEventListener("storage",onChanged); };
+  },[setSystems]);
 
-  function saveSystems(updated) { setSystems(updated); sysSaveSystems(updated); }
+  function saveSystems(updated) { var n=normalizeSystems(updated); setSystems(n); sysSaveSystems(n); }
 
+  // Next due is never typed in by default: it's last completed + frequency.
+  // The optional "Next due" field is an explicit override (nextDueManual);
+  // left blank, or equal to the calculated date, it's automatic.
   function saveForm() {
     if(!form.name.trim()) return;
-    var entry={id:huid(),name:form.name.trim(),type:form.type,freq:form.freq,lastDone:form.lastDone,nextDue:form.nextDue||sysNextDate(form.lastDone,form.freq)||"",notes:form.notes};
+    var prev=editIdx!==null?systems[editIdx]:null;
+    var auto=sysNextDate(form.lastDone,form.freq)||"";
+    var manual=!!form.nextDue&&form.nextDue!==auto;
+    var entry=Object.assign({},prev||{},{id:(prev&&prev.id)||huid(),name:form.name.trim(),type:form.type,freq:form.freq,lastDone:form.lastDone,nextDue:manual?form.nextDue:auto,nextDueManual:manual,notes:form.notes});
+    if(!manual) delete entry.nextDueManual;
     if(editIdx!==null) {
       var updated=systems.map(function(s,i){return i===editIdx?entry:s;});
       saveSystems(updated); setEditIdx(null);
+      setDetail(editIdx); // reopen the panel on the updated record
     } else {
       saveSystems(systems.concat([entry]));
     }
@@ -8590,11 +8581,12 @@ function MaintenancePanel() {
   }
 
   function markDone(idx) {
-    var today=new Date().toISOString().slice(0,10);
+    var today=localYmd(new Date());
     var updated=systems.map(function(s,i){
       if(i!==idx) return s;
-      var next=sysNextDate(today,s.freq)||"";
-      return Object.assign({},s,{lastDone:today,nextDue:next});
+      var n=Object.assign({},s,{lastDone:today,nextDue:sysNextDate(today,s.freq)||""});
+      delete n.nextDueManual; // a new cycle starts from today
+      return n;
     });
     saveSystems(updated);
   }
@@ -8671,7 +8663,7 @@ function MaintenancePanel() {
         React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}},
           React.createElement("span",{style:{fontSize:14,fontWeight:500,color:HWHITE}},sys.name),
           React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center"}},
-            React.createElement("button",{onClick:function(){setEditIdx(detail);setForm({name:sys.name,type:sys.type||"other",freq:sys.freq||"1y",lastDone:sys.lastDone||"",nextDue:sys.nextDue||"",notes:sys.notes||""});setAdding(true);setDetail(null);},style:{fontSize:11,color:HGOLD,background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.25)",borderRadius:6,padding:"3px 9px",cursor:"pointer"}},"Edit"),
+            React.createElement("button",{onClick:function(){setEditIdx(detail);setForm({name:sys.name,type:sys.type||"other",freq:sys.freq||"1y",lastDone:sys.lastDone||"",nextDue:sys.nextDueManual?(sys.nextDue||""):"",notes:sys.notes||""});setAdding(true);setDetail(null);},"data-testid":"sys-edit",style:REDESIGN?{fontSize:14,fontWeight:700,color:"#1a2e3d",background:"#FFFFFF",border:"1.5px solid rgba(26,46,61,0.35)",borderRadius:8,padding:"0 14px",minHeight:36,cursor:"pointer",fontFamily:"inherit"}:{fontSize:11,color:HGOLD,background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.25)",borderRadius:6,padding:"3px 9px",cursor:"pointer"}},"Edit"),
             React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"none",border:"none",color:"#4a6275",cursor:"pointer",fontSize:16,padding:"0 2px"}},"✕")
           )
         ),
@@ -8686,17 +8678,18 @@ function MaintenancePanel() {
           ),
           sys.lastDone&&React.createElement("div",{style:{background:"rgba(26,46,61,0.05)",borderRadius:8,padding:"8px 10px"}},
             React.createElement("p",{style:{fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Last done"),
-            React.createElement("p",{style:{fontSize:13,color:HWHITE,margin:0}},sys.lastDone)
+            React.createElement("p",{"data-testid":"sys-last-done",style:{fontSize:13,color:HWHITE,margin:0}},fmtVaultDate(sys.lastDone))
           ),
-          (sys.nextDue||sysNextDate(sys.lastDone,sys.freq))&&React.createElement("div",{style:{background:"rgba(26,46,61,0.05)",borderRadius:8,padding:"8px 10px"}},
-            React.createElement("p",{style:{fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Next due"),
-            React.createElement("p",{style:{fontSize:13,color:HWHITE,margin:0}},sys.nextDue||sysNextDate(sys.lastDone,sys.freq))
+          sysNextDue(sys)&&React.createElement("div",{style:{background:"rgba(26,46,61,0.05)",borderRadius:8,padding:"8px 10px"}},
+            React.createElement("p",{style:{fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Next due"+(sys.nextDueManual?" (set by hand)":"")),
+            React.createElement("p",{"data-testid":"sys-next-due",style:{fontSize:13,color:HWHITE,margin:0}},fmtVaultDate(sysNextDue(sys)))
           )
         ),
         sys.notes&&React.createElement("p",{style:{fontSize:12,color:"#4a6275",lineHeight:1.6,margin:"0 0 12px",fontStyle:"italic"}},sys.notes),
         React.createElement("div",{style:{display:"flex",gap:8}},
-          React.createElement("button",{onClick:function(){markDone(detail);},style:{flex:1,background:"rgba(29,158,117,0.12)",border:"0.5px solid rgba(29,158,117,0.25)",borderRadius:8,padding:"8px",color:"#5dcaa5",fontSize:13,cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontWeight:500}},"\u2713 Mark done today"),
-          React.createElement("button",{onClick:function(){if(window.confirm("Delete "+sys.name+"?")){deleteSystem(detail);setDetail(null);}},style:{background:"rgba(226,75,74,0.06)",border:"0.5px solid rgba(226,75,74,0.18)",borderRadius:8,padding:"8px 12px",color:"rgba(240,153,123,0.7)",fontSize:13,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Delete")
+          // New look: clearly tappable — solid teal primary, outlined red Delete.
+          React.createElement("button",{"data-testid":"sys-mark-done",onClick:function(){markDone(detail);},style:REDESIGN?{flex:1,background:SYS_TEAL,border:"none",borderRadius:10,padding:"0 14px",minHeight:44,color:"#FFFFFF",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}:{flex:1,background:"rgba(29,158,117,0.12)",border:"0.5px solid rgba(29,158,117,0.25)",borderRadius:8,padding:"8px",color:"#5dcaa5",fontSize:13,cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontWeight:500}},"\u2713 Mark done today"),
+          React.createElement("button",{"data-testid":"sys-delete",onClick:function(){if(window.confirm("Delete "+sys.name+"?")){deleteSystem(detail);setDetail(null);}},style:REDESIGN?{background:"#FFFFFF",border:"1.5px solid #B4574B",borderRadius:10,padding:"0 16px",minHeight:44,color:"#A2443A",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}:{background:"rgba(226,75,74,0.06)",border:"0.5px solid rgba(226,75,74,0.18)",borderRadius:8,padding:"8px 12px",color:"rgba(240,153,123,0.7)",fontSize:13,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Delete")
         )
       );
     }()),
@@ -8718,7 +8711,10 @@ function MaintenancePanel() {
           SYS_FREQ.map(function(f){return React.createElement("option",{key:f.id,value:f.id},f.label);})
         )
       ),
-      React.createElement(HInput,{label:"Last completed (optional)",value:form.lastDone,onChange:function(v){setForm(function(f){return Object.assign({},f,{lastDone:v});});},placeholder:"YYYY-MM-DD",type:"date"}),
+      React.createElement(HInput,{label:"Last completed (optional)",value:form.lastDone,onChange:function(v){setForm(function(f){return Object.assign({},f,{lastDone:v});});},placeholder:"YYYY-MM-DD",type:"date",testId:"sys-form-last"}),
+      React.createElement("p",{"data-testid":"sys-form-auto",style:{fontSize:13,color:vc?"#1a2e3d":"rgba(250,248,244,0.6)",margin:"-0.35rem 0 0.75rem"}},
+        sysNextDate(form.lastDone,form.freq)?("Next due "+fmtVaultDate(sysNextDate(form.lastDone,form.freq))+", calculated from last completed + frequency"):"Next due is calculated from last completed + frequency"),
+      React.createElement(HInput,{label:"Next due (optional — only to override the calculation)",value:form.nextDue,onChange:function(v){setForm(function(f){return Object.assign({},f,{nextDue:v});});},type:"date",testId:"sys-form-next"}),
       React.createElement(HTextarea,{label:"Notes (optional)",value:form.notes,onChange:function(v){setForm(function(f){return Object.assign({},f,{notes:v});});},placeholder:"Filter size, service provider, warranty info...",rows:2}),
       React.createElement(HSaveBtn,{onClick:saveForm,label:editIdx!==null?"Save changes":"Add system"})
     )
@@ -9510,7 +9506,7 @@ function AnchorDashboard({ onNavigate, onGoToFlowTab, calEvents }) {
       var subs = JSON.parse(localStorage.getItem("af_subs") || "[]")
       if (Array.isArray(subs)) subs.forEach(function(s) {
         if (!s.renewDate) return
-        var d = daysUntilDate(s.renewDate)
+        var d = daysUntilDate(subNextRenewal(s)) // rolls forward by the billing cycle
         if (d !== null && d >= 0 && d <= 7) out.push({ cat: "subs", color: "#7a9e8e", emoji: "🔄", text: s.name + " renews", days: d })
       })
     } catch (e) {}
@@ -9705,7 +9701,7 @@ function AnchorDashboard({ onNavigate, onGoToFlowTab, calEvents }) {
             <div style={{ paddingLeft: 38, marginTop: 4 }}>
               <div style={{ fontSize: 12, color: "#1a2e3d", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nextTrip.name}</div>
               <div style={{ fontSize: 11, fontWeight: 700, color: "#4a6275", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {nextTrip.days === 1 ? "Tomorrow" : nextTrip.days + " days away"}{nextTrip.date && " · " + nextTrip.date}
+                {nextTrip.days === 1 ? "Tomorrow" : nextTrip.days + " days away"}{nextTrip.date && " · " + vd(nextTrip.date)}
               </div>
             </div>
           </div>
@@ -9990,7 +9986,7 @@ function SubscriptionsSection() {
               React.createElement("div", { style: { fontSize: 11, color: "#4a6275", marginTop: 2, fontFamily: "DM Sans,sans-serif", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" } },
                 React.createElement("span", null, s.cycle),
                 s.website && React.createElement("a", { href: s.website.startsWith("http") ? s.website : "https://"+s.website, target: "_blank", rel: "noopener noreferrer", style: { color: BLUE, fontSize: 10 } }, "↗ website"),
-                s.renewDate && React.createElement("span", { style: { fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "rgba(26,46,61,0.12)", color: "#4a6275" } }, "Renews " + s.renewDate)
+                s.renewDate && React.createElement("span", { style: { fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "rgba(26,46,61,0.12)", color: "#4a6275" } }, "Renews " + vd(subNextRenewal(s)))
               )
             ),
             React.createElement("div", { style: { textAlign: "right", flexShrink: 0, marginLeft: 12 } },
@@ -10017,7 +10013,7 @@ function SubscriptionsSection() {
           React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
             React.createElement("div", { style: { flex: 1 } },
               React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", textDecoration: c.used ? "line-through" : "none" } }, c.name),
-              c.expires && React.createElement("div", { style: { fontSize: 11, color: "#4a6275", marginTop: 2, fontFamily: "DM Sans,sans-serif" } }, "Use by " + c.expires),
+              c.expires && React.createElement("div", { style: { fontSize: 11, color: "#4a6275", marginTop: 2, fontFamily: "DM Sans,sans-serif" } }, "Use by " + vd(c.expires)),
               c.notes && React.createElement("div", { style: { fontSize: 11, color: "#4a6275", marginTop: 2, fontFamily: "DM Sans,sans-serif" } }, c.notes)
             ),
             React.createElement("div", { style: { textAlign: "right", flexShrink: 0, marginLeft: 12 } },

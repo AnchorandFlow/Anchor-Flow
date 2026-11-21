@@ -80,7 +80,7 @@ function chromeArgs(extra) {
 
 export async function captureScreen(baseUrl, tab, steps, opts) {
   var o = opts || {};
-  var q = "tab=" + encodeURIComponent(tab) + "&hh=" + (o.redesign ? "beta" : "other") + (o.emojis ? "&emojis=1" : "") + (o.anchor ? "&anchor=1" : "") + (o.plus ? "&plus=1" : "") + (o.me ? "&me=" + o.me : "") + (o.scope ? "&scope=" + o.scope : "") + "&steps=" + encodeURIComponent(JSON.stringify(steps));
+  var q = "tab=" + encodeURIComponent(tab) + "&hh=" + (o.redesign ? "beta" : "other") + (o.emojis ? "&emojis=1" : "") + (o.anchor ? "&anchor=1" : "") + (o.plus ? "&plus=1" : "") + (o.me ? "&me=" + o.me : "") + (o.seed ? "&seed=" + encodeURIComponent(JSON.stringify(o.seed)) : "") + (o.scope ? "&scope=" + o.scope : "") + "&steps=" + encodeURIComponent(JSON.stringify(steps));
   var html = await run(CHROME, chromeArgs(["--window-size=500,900", "--virtual-time-budget=30000", "--dump-dom", baseUrl + "?" + q]), 120000);
   var m = html.match(/<script type="application\/json" id="__capture">([^<]*)<\/script>/);
   if (!m) throw new Error("no capture for " + tab + " (page never finished)");

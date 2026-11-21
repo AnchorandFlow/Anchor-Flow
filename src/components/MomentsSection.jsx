@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react"
+import { REDESIGN } from "../design/redesignFlag.js"
+import { fmtVaultDate } from "../lib/vaultDates.js"
 
 const B = {
   navy: "#faf8f4", coastal: "#6ba3c4", sage: "#7a9e8e", sand: "#c8a97a",
@@ -264,7 +266,7 @@ function NotesTasksCard({ moment, onUpdate }) {
                   <div style={{ fontSize:13, color:B.navy, textDecoration:item.done?"line-through":"none", opacity:item.done?0.5:1, fontFamily:"DM Sans,sans-serif" }}>{item.text}</div>
                   {item.due && (
                     <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3 }}>
-                      <span style={{ fontSize:10, color:"rgba(155,143,212,0.8)", fontFamily:"DM Sans,sans-serif" }}>📅 {item.due}</span>
+                      <span style={{ fontSize:10, color:"rgba(155,143,212,0.8)", fontFamily:"DM Sans,sans-serif" }}>📅 {REDESIGN ? fmtVaultDate(item.due) : item.due}</span>
                       <button onClick={function(){ addToCalendar(item) }} style={{ background:"none", border:"none", fontSize:9, color:"rgba(155,143,212,0.6)", cursor:"pointer", fontFamily:"DM Sans,sans-serif", padding:0, fontWeight:600 }}>+ calendar</button>
                     </div>
                   )}

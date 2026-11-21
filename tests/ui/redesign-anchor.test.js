@@ -153,7 +153,7 @@ describe("RedesignAnchor screen", function () {
     set("health", { p1: { generalNote: "secret note" } });
     set("safe_harbor", { grabItems: [{ id: "g", tier: 1, category: "people", checked: true }], contacts: { meetNearby: "Oak tree" }, members: [] });
     set("home_cleaning", { zones: [{ name: "Kitchen", rooms: "Kitchen", tasks: [{ done: false }] }] });
-    set("vaultSystems", [{ name: "HVAC filter", nextDue: "2026-11-15" }]);
+    set("vaultSystems", [{ name: "HVAC filter", freq: "3m", lastDone: "2026-08-15", nextDue: "2026-11-15" }]); // next due = last completed + frequency
     set("cove_notes_v1", [{ id: "n1", title: "Gift ideas", body: "Books", updatedAt: 5 }]);
     set("cove_lists_v1", [{ id: "L1", title: "Camping" }]);
     set("cove_items_v1", { L1: [{ checked: true }, { checked: false }] });
