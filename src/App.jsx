@@ -48,7 +48,7 @@ import { LH_AREA_TONE, LH_DASH_TONE, lhAreaTone, lhChipStyle, lhRowStyle, lhText
 import { personColor as rdPersonColor } from "./redesign/flowData.js"
 import { MEALS_TONE, mealTagTone } from "./redesign/mealsColors.js"
 import "./design/redesignType.js"
-import { GOOGLE_CLIENT_ID as GCAL_CLIENT_ID, GOOGLE_SCOPES as GCAL_SCOPES, GOOGLE_AUTO_SYNC_MS as GCAL_AUTO_MS, fetchGoogleCalendar, mergeGoogleEvents, syncErrorText as gcalErrorText } from "./lib/googleCal.js"
+import { GOOGLE_CLIENT_ID as GCAL_CLIENT_ID, GOOGLE_SCOPES as GCAL_SCOPES, GOOGLE_AUTO_SYNC_MS as GCAL_AUTO_MS, fetchGoogleCalendar, mergeGoogleEvents, syncErrorText as gcalErrorText, functionErrorCode as gcalFnCode } from "./lib/googleCal.js"
 import GoogleCalendarRow from "./redesign/GoogleCalendarRow.jsx"
 import { SCHOOL_TYPES as RD_SCHOOL_TYPES, SCHOOL_TYPES_SETTINGS as RD_SCHOOL_TYPES_SETTINGS, schoolTypeLabel, cleanSchoolLabel, lhSections, defaultSchoolType } from "./lib/schoolType.js"
 import { sysNextDue as vaultSysNextDue } from "./lib/vaultDates.js"
@@ -4693,10 +4693,7 @@ function createLocalBackup() {
   const gcalTokRef = useRef(null); // { token, expiresAt } — memory only
   function gcalPatch(p){ setGcal(function(prev){ return Object.assign({}, prev||{}, p); }); }
   function gcalFn(action, extra){ return sbFetch("/functions/v1/google-calendar", { method:"POST", body: JSON.stringify(Object.assign({ action: action }, extra||{})) }); }
-  function gcalFnError(e){
-    var code = ""; try { code = JSON.parse(e && e.message || "{}").error || ""; } catch { code = ""; }
-    return code;
-  }
+  function gcalFnError(e){ return gcalFnCode(e); }
   async function gcalAccess(force){
     var c = gcalTokRef.current;
     if (!force && c && Date.now() < c.expiresAt - 60000) return c.token;
@@ -4707,9 +4704,8 @@ function createLocalBackup() {
   }
   function gcalSetError(e){
     var code = gcalFnError(e);
-    if (code === "reconnect") { gcalTokRef.current = null; gcalPatch({ reconnect: true, error: "Google Calendar was disconnected in Google (or the access expired). Tap Reconnect to connect it again." }); return; }
-    if (code === "not_configured") { gcalPatch({ error: "Google Calendar's server connection isn't switched on yet. Try again a little later." }); return; }
-    if (!code && e && (e.status===401 || e.status===403)) { gcalTokRef.current = null; gcalPatch({ reconnect: true, error: gcalErrorText(e) }); return; }
+    console.warn("[gcal] sync error", { code: code, status: e && e.status, name: e && e.name, detail: e && e.message }); // raw detail: console only
+    if (code === "reconnect" || (!code && e && (e.status===401 || e.status===403))) { gcalTokRef.current = null; gcalPatch({ reconnect: true, error: gcalErrorText(e) }); return; }
     gcalPatch({ error: gcalErrorText(e) });
   }
   async function gcalRunSync(){
@@ -4734,7 +4730,7 @@ function createLocalBackup() {
         var client = window.google.accounts.oauth2.initCodeClient({
           client_id: GCAL_CLIENT_ID, scope: GCAL_SCOPES, ux_mode: "popup", login_hint: g.account || undefined,
           callback: function(resp){
-            if (!resp || resp.error || !resp.code) { gcalPatch({ error: "Google sign-in didn't finish" + (resp && resp.error ? " (" + resp.error + ")" : "") + ". Tap " + (g.server ? "Reconnect" : "Connect") + " to try again." }); return; }
+            if (!resp || resp.error || !resp.code) { console.warn("[gcal] sign-in error", resp); gcalPatch({ error: "Google sign-in didn't finish — tap " + (g.server ? "Reconnect" : "Connect") + " to try again." }); return; }
             gcalFn("exchange", { code: resp.code }).then(function(r){
               gcalTokRef.current = { token: r.access_token, expiresAt: Date.now() + (Number(r.expires_in)||3600)*1000 };
               setGcal({ server: true, account: r.account || g.account || "", lastSynced: null, error: "", reconnect: false });
@@ -4742,7 +4738,7 @@ function createLocalBackup() {
               gcalRunSync();
             }).catch(function(e){
               var code = gcalFnError(e);
-              if (code === "no_refresh_token") gcalPatch({ error: "Google didn't grant the lasting permission this time. Tap " + (g.server ? "Reconnect" : "Connect") + " once more to finish." });
+              if (code === "no_refresh_token") { console.warn("[gcal] connect error", e && e.message); gcalPatch({ error: "Google didn't grant the lasting permission this time. Tap " + (g.server ? "Reconnect" : "Connect") + " once more to finish." }); }
               else gcalSetError(e);
             });
           },

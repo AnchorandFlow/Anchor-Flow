@@ -102,8 +102,26 @@ export async function fetchGoogleCalendar(token, opts) {
   return { account: account, calendars: cals.length, events: [].concat.apply([], nested) };
 }
 
+// The google-calendar Edge Function's error code ("reconnect", "refresh_failed",
+// …) — sbFetch puts the JSON body in e.message. "" when there isn't one.
+export function functionErrorCode(e) {
+  try { var b = JSON.parse((e && e.message) || "{}"); return (b && typeof b.error === "string") ? b.error : ""; } catch { return ""; }
+}
+
+// A friendly, user-facing line for a failed sync/connect. Never echoes the raw
+// error (JSON bodies, Google API messages) — callers log that to the console.
 export function syncErrorText(e) {
-  if (e && (e.status === 401 || e.status === 403)) return "Google Calendar stopped accepting this connection. Tap Reconnect to connect it again.";
-  if (e && e.name === "AbortError") return "Google Calendar didn't answer in time. Try Sync now again.";
-  return "Couldn't reach Google Calendar" + (e && e.message && e.message !== "auth" ? ": " + e.message : ".") + " Try Sync now again.";
+  var code = functionErrorCode(e);
+  if (code === "reconnect") return "Google sign-in expired — tap Reconnect.";
+  if (code === "unauthenticated") return "Your Anchor & Flow sign-in expired — sign in again, then tap Sync now.";
+  if (code === "not_configured") return "Google Calendar's server connection isn't switched on yet. Try again a little later.";
+  if (code === "no_refresh_token") return "Google didn't grant the lasting permission this time — tap Reconnect once more to finish.";
+  if (code === "unexpected_scope") return "Google didn't share calendar access — tap Reconnect and tick the calendar permission.";
+  if (code === "exchange_failed" || code === "missing_code") return "Google sign-in didn't finish — tap Reconnect to try again.";
+  if (code) return "Google Calendar is having trouble right now — try Sync now again in a few minutes.";
+  if (e && (e.status === 401 || e.status === 403)) return "Google sign-in expired — tap Reconnect.";
+  if (e && e.name === "AbortError") return "Google Calendar didn't answer in time — try Sync now again.";
+  if (e && e.status >= 500) return "Google Calendar is having trouble right now — try Sync now again in a few minutes.";
+  if (e && e.name === "TypeError") return "Couldn't reach Google Calendar — check your connection and try Sync now again.";
+  return "Something went wrong syncing Google Calendar — try Sync now again.";
 }

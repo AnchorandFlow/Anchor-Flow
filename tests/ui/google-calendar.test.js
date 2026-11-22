@@ -44,7 +44,7 @@ describe.skipIf(!CHROME)("Google Calendar — persistent connection (new look)",
   });
   it("the stored connection was revoked in Google: readable error and Reconnect", function () {
     expect(bad.after).toContain('data-testid="gcal-reconnect"');
-    expect(t(bad.after)).toContain("Google Calendar was disconnected in Google (or the access expired). Tap Reconnect to connect it again.");
+    expect(t(bad.after)).toContain("Google sign-in expired — tap Reconnect.");
   });
   it("no refresh token from Google: asks to tap Connect once more", function () {
     expect(t(norefresh.after)).toContain("Google didn't grant the lasting permission this time. Tap Connect once more to finish.");

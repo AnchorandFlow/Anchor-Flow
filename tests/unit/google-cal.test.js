@@ -3,7 +3,7 @@
 // only its own account's events.
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
-import { tokenValid, mapGoogleEvent, mergeGoogleEvents, fetchGoogleCalendar, syncErrorText, fetchWindow, GOOGLE_CLIENT_ID, GOOGLE_SCOPES } from "../../src/lib/googleCal.js";
+import { functionErrorCode, tokenValid, mapGoogleEvent, mergeGoogleEvents, fetchGoogleCalendar, syncErrorText, fetchWindow, GOOGLE_CLIENT_ID, GOOGLE_SCOPES } from "../../src/lib/googleCal.js";
 import { eventsOn } from "../../src/redesign/flowData.js";
 
 function res(v, status) { return Promise.resolve({ status: status || 200, json: function () { return Promise.resolve(v); } }); }
@@ -78,7 +78,7 @@ describe("fetch", function () {
     var err = null;
     try { await fetchGoogleCalendar("bad", { fetch: function () { return res({ error: { code: 401 } }, 401); } }); } catch (e) { err = e; }
     expect(err && err.status).toBe(401);
-    expect(syncErrorText(err)).toBe("Google Calendar stopped accepting this connection. Tap Reconnect to connect it again.");
+    expect(syncErrorText(err)).toBe("Google sign-in expired — tap Reconnect.");
   });
 });
 
@@ -120,5 +120,25 @@ describe("server side (google-calendar Edge Function + table)", function () {
     expect(sql).toContain("alter table public.google_calendar_tokens enable row level security;");
     expect(sql).toContain("revoke all on table public.google_calendar_tokens from anon, authenticated;");
     expect(sql).not.toMatch(/create policy/i);
+  });
+});
+
+describe("syncErrorText — friendly, never raw", function () {
+  function fnErr(body, status) { var e = new Error(JSON.stringify(body)); e.status = status; return e; }
+  it("maps Edge Function codes to friendly lines", function () {
+    expect(functionErrorCode(fnErr({ error: "reconnect" }, 401))).toBe("reconnect");
+    expect(syncErrorText(fnErr({ error: "reconnect" }, 401))).toBe("Google sign-in expired — tap Reconnect.");
+    expect(syncErrorText(fnErr({ error: "refresh_failed" }, 502))).toMatch(/having trouble/);
+    expect(syncErrorText(fnErr({ error: "exchange_failed", detail: "invalid_grant" }, 400))).toMatch(/tap Reconnect/);
+  });
+  it("never shows JSON or raw messages", function () {
+    var cases = [fnErr({ error: "server_error" }, 500), fnErr({ error: "weird_new_code", detail: { x: 1 } }, 418),
+      Object.assign(new Error("Request had insufficient authentication scopes."), { status: 400 }),
+      new TypeError("Failed to fetch"), new Error("{not json"), null, undefined];
+    cases.forEach(function (e) {
+      var t = syncErrorText(e);
+      expect(t).not.toMatch(/[{}"]|error|Failed to fetch|scopes/);
+      expect(t.length).toBeGreaterThan(10);
+    });
   });
 });
