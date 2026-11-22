@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Anchor & Flow</title>
+    <title>Anchor &amp; Flow — Sign In to Your Family Planner</title>
 
     <!-- iOS home screen icon — must be PNG -->
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -19,8 +19,24 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Anchor & Flow" />
 
-    <!-- SEO -->
-    <meta name="description" content="A steadier home, in every season. Family home management powered by AI." />
+    <!-- SEO — this static page is the public entry / sign-in screen. Signed-in
+         screens switch robots to noindex at runtime (src/lib/seoRobots.js). -->
+    <meta name="description" content="Sign in to Anchor &amp; Flow, the calm family planner for meals, a shared calendar, chores, shopping lists and memories. New here? Start free." />
+    <link rel="canonical" href="https://www.anchorandflowapp.com/" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta property="og:site_name" content="Anchor &amp; Flow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.anchorandflowapp.com/" />
+    <meta property="og:title" content="Anchor &amp; Flow — A steadier home, in every season" />
+    <meta property="og:description" content="Meals, calendar, chores and family memories — one calm place for the whole household. Free to start." />
+    <meta property="og:image" content="https://www.anchorandflowapp.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Anchor &amp; Flow — A steadier home, in every season." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Anchor &amp; Flow — A steadier home, in every season" />
+    <meta name="twitter:description" content="Meals, calendar, chores and family memories — one calm place for the whole household. Free to start." />
+    <meta name="twitter:image" content="https://www.anchorandflowapp.com/og-image.png" />
 
     <!-- Fonts — the stylesheet link itself is added by src/design/redesignType.js
          (new look: Playfair Display + Lato only; flag off: the original set). -->

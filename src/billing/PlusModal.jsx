@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import { startCheckout } from './entitlement.js';
+import { friendlyError } from '../lib/friendlyError.js';
 
 // Placeholder copy — verify against whichever Stripe price IDs are actually configured
 // (api/stripe/_shared.js PRICE_MONTHLY/PRICE_ANNUAL, or their env-var overrides) before
@@ -49,7 +50,7 @@ export default function PlusModal(props) {
     setError(null);
     startCheckout(getToken, plan).catch(function (err) {
       setLoading(false);
-      setError((err && err.message) || 'Something went wrong. Try again.');
+      setError(friendlyError(err, 'checkout'));
     });
   }
 

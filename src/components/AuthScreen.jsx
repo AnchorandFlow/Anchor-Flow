@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { supabase } from "../lib/supabase"
+import { friendlyError } from "../lib/friendlyError.js"
 
 function GoogleIcon() {
   return (
@@ -48,7 +49,7 @@ export default function AuthScreen({ onAuth }) {
         onAuth(data.session, false)
       }
     } catch (err) {
-      setError(err.message || "Something went wrong.")
+      setError(friendlyError(err, mode === "signup" ? "signup" : "signin"))
     } finally {
       setLoading(false)
     }
@@ -56,7 +57,7 @@ export default function AuthScreen({ onAuth }) {
 
   const handleGoogle = async () => {
     const { error: err } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin } })
-    if (err) setError(err.message)
+    if (err) setError(friendlyError(err, "signin"))
   }
 
   return (

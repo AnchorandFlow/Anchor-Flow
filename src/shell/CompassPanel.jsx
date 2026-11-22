@@ -9,6 +9,7 @@
 // existing "Ask Compass" Plus gate allows it (otherwise the Plus modal shows).
 import { useState, useRef, useEffect } from "react";
 import { askFamily } from "../compass/compassEngine";
+import { friendlyError } from "../lib/friendlyError.js";
 import { readHouseholdState } from "./shellKit";
 import { renderCompassText } from "./compassText.jsx";
 import { SectionGlyph } from "./TopNav.jsx";
@@ -66,7 +67,7 @@ export default function CompassPanel(props) {
     setInput("");
     setBusy(true);
     function fail(e) {
-      setThread(function (p) { return p.concat([{ q: q, error: (e && e.message) || "Compass couldn't think just now." }]); });
+      setThread(function (p) { return p.concat([{ q: q, error: friendlyError(e, "compass") }]); });
       setBusy(false);
     }
     try {

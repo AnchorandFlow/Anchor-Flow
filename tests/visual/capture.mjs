@@ -80,7 +80,7 @@ function chromeArgs(extra) {
 
 export async function captureScreen(baseUrl, tab, steps, opts) {
   var o = opts || {};
-  var q = "tab=" + encodeURIComponent(tab) + "&hh=" + (o.redesign ? "beta" : "other") + (o.emojis ? "&emojis=1" : "") + (o.anchor ? "&anchor=1" : "") + (o.plus ? "&plus=1" : "") + (o.me ? "&me=" + o.me : "") + (o.gcal ? "&gcal=" + o.gcal : "") + (o.seed ? "&seed=" + encodeURIComponent(JSON.stringify(o.seed)) : "") + (o.scope ? "&scope=" + o.scope : "") + "&steps=" + encodeURIComponent(JSON.stringify(steps));
+  var q = "tab=" + encodeURIComponent(tab) + "&hh=" + (o.redesign ? "beta" : "other") + (o.emojis ? "&emojis=1" : "") + (o.anchor ? "&anchor=1" : "") + (o.plus ? "&plus=1" : "") + (o.me ? "&me=" + o.me : "") + (o.gcal ? "&gcal=" + o.gcal : "") + (o.apifail ? "&apifail=" + o.apifail : "") + (o.seed ? "&seed=" + encodeURIComponent(JSON.stringify(o.seed)) : "") + (o.scope ? "&scope=" + o.scope : "") + "&steps=" + encodeURIComponent(JSON.stringify(steps));
   var html = await run(CHROME, chromeArgs(["--window-size=500,900", "--virtual-time-budget=30000", "--dump-dom", baseUrl + "?" + q]), 120000);
   var m = html.match(/<script type="application\/json" id="__capture">([^<]*)<\/script>/);
   if (!m) throw new Error("no capture for " + tab + " (page never finished)");
@@ -110,7 +110,7 @@ export async function captureAll(opts) {
 // will not size its window below ~500px).
 export async function screenshot(baseUrl, tab, file, opts) {
   var o = opts || {};
-  var q = "tab=" + encodeURIComponent(tab) + "&hh=" + (o.redesign ? "beta" : "other") + (o.emojis ? "&emojis=1" : "") + (o.anchor ? "&anchor=1" : "") + (o.seed ? "&seed=" + encodeURIComponent(JSON.stringify(o.seed)) : "") + (o.hour != null ? "&hour=" + o.hour : "") + (o.plus ? "&plus=1" : "") + (o.me ? "&me=" + o.me : "") + (o.gcal ? "&gcal=" + o.gcal : "") + "&shot=1&steps=" + encodeURIComponent(JSON.stringify(o.steps || [])) ;
+  var q = "tab=" + encodeURIComponent(tab) + "&hh=" + (o.redesign ? "beta" : "other") + (o.emojis ? "&emojis=1" : "") + (o.anchor ? "&anchor=1" : "") + (o.seed ? "&seed=" + encodeURIComponent(JSON.stringify(o.seed)) : "") + (o.hour != null ? "&hour=" + o.hour : "") + (o.plus ? "&plus=1" : "") + (o.me ? "&me=" + o.me : "") + (o.gcal ? "&gcal=" + o.gcal : "") + (o.apifail ? "&apifail=" + o.apifail : "") + "&shot=1&steps=" + encodeURIComponent(JSON.stringify(o.steps || [])) ;
   var frameUrl = baseUrl + "?" + q;
   var wrapper = baseUrl.replace(/\/$/, "") + "/frame.html?src=" + encodeURIComponent(frameUrl) + "&w=" + (o.width || 390) + "&h=" + (o.height || 1600);
   await run(CHROME, chromeArgs(["--window-size=" + ((o.width || 390) + 40) + "," + (o.height || 1600), "--virtual-time-budget=30000", "--screenshot=" + file, wrapper]), 120000);

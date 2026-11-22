@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { supabase } from "../lib/supabase"
+import { friendlyError } from "../lib/friendlyError.js"
 
 function Modal({ children, onClose }) {
   return (
@@ -78,7 +79,7 @@ function PremiumModal({ onClose, session }) {
       const { data, error: err } = await supabase.functions.invoke("create-checkout-session", { body: { price_id: import.meta.env.VITE_STRIPE_PRICE_ID, user_id: session?.user?.id, email: session?.user?.email, success_url: window.location.origin + "?upgraded=true", cancel_url: window.location.origin } })
       if (err) throw err
       if (data?.url) window.location.href = data.url
-    } catch (err) { setError(err.message); setLoading(false) }
+    } catch (err) { setError(friendlyError(err, "checkout")); setLoading(false) }
   }
   return (
     <Modal onClose={onClose}>

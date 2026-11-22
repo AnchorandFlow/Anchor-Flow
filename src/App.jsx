@@ -50,6 +50,8 @@ import { MEALS_TONE, mealTagTone } from "./redesign/mealsColors.js"
 import "./design/redesignType.js"
 import { GOOGLE_CLIENT_ID as GCAL_CLIENT_ID, GOOGLE_SCOPES as GCAL_SCOPES, GOOGLE_AUTO_SYNC_MS as GCAL_AUTO_MS, fetchGoogleCalendar, mergeGoogleEvents, syncErrorText as gcalErrorText, functionErrorCode as gcalFnCode } from "./lib/googleCal.js"
 import GoogleCalendarRow from "./redesign/GoogleCalendarRow.jsx"
+import { friendlyError } from "./lib/friendlyError.js"
+import { applyRobotsForSession } from "./lib/seoRobots.js"
 import { SCHOOL_TYPES as RD_SCHOOL_TYPES, SCHOOL_TYPES_SETTINGS as RD_SCHOOL_TYPES_SETTINGS, schoolTypeLabel, cleanSchoolLabel, lhSections, defaultSchoolType } from "./lib/schoolType.js"
 import { sysNextDue as vaultSysNextDue } from "./lib/vaultDates.js"
 import { occursOn as calOccursOn, forIdsOf as calForIdsOf, refreshPersonColors as calRefreshPersonColors, editOccurrence as calEditOccurrence, deleteOccurrence as calDeleteOccurrence, allCategories as calAllCategories, newCategory as calNewCategory } from "./lib/calEvents.js"
@@ -218,7 +220,7 @@ function usePushNotifications() {
       AF_DEBUG&&console.log("[AF] Push subscription saved ✓ household:", householdId);
     } catch(e) {
       console.error("[PWA] Push subscribe failed:", e);
-      setSubError(e.message || "Something went wrong — try again.");
+      setSubError(friendlyError(e, "notifications"));
     }
   }, []);
 
@@ -2656,7 +2658,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
                       AF_DEBUG&&console.log("[AF SAFETY] restore available — imported", keys.length, "keys");
                       showInAppBanner("Backup restored", "Reloading to apply your data...");
                       setTimeout(function(){ window.location.reload(); }, 1200);
-                    } catch(err) { showInAppBanner("Could not read backup file", err.message); }
+                    } catch(err) { showInAppBanner("Could not read backup file", friendlyError(err, "restore")); }
                   };
                   reader.readAsText(file);
                 };
@@ -3133,7 +3135,7 @@ function HomeFlow({ recoveryToken }) {
     setAuthUser(null);
     recoverFromAuthFailure();
     setZombieLockout(true);
-    showInAppBanner(bannerMsg || "Session expired — please sign in again.", "error");
+    showInAppBanner(bannerMsg || "Your sign-in expired", "Sign in again to keep your household in sync. Your changes on this device are safe.");
   }
   const [showHouseholdModal,setShowHouseholdModal] = useState(false);
   const [anchorDayOpen,setAnchorDayOpen] = useState(false);
@@ -3299,9 +3301,9 @@ function createLocalBackup() {
           return { ok:false, error: "This email already has an account — use Sign In instead." };
         }
         if (raw.includes("Password") || raw.includes("password") || raw.includes("weak") || raw.includes("characters")) {
-          return { ok:false, error: "Password issue: " + cleanMsg };
+          return { ok:false, error: friendlyError(Object.assign(new Error("weak password: " + cleanMsg), { status: fetchErr.status }), "signup") };
         }
-        return { ok:false, error: cleanMsg, raw: raw.slice(0,300) };
+        return { ok:false, error: friendlyError(fetchErr, "signup") };
       }
 
       // data is the parsed JSON response — show it for debugging
@@ -3311,7 +3313,7 @@ function createLocalBackup() {
       if (data.error || data.error_code) {
         const msg = data.error_description || data.msg || data.error || "Signup failed";
         setSyncStatus("error");
-        return { ok:false, error: msg };
+        return { ok:false, error: friendlyError(new Error(String(msg)), "signup") };
       }
 
       // Case 1: Got a token immediately (email confirmation disabled)
@@ -3342,11 +3344,12 @@ function createLocalBackup() {
 
       // Case 3: Unexpected — show raw response so we can debug
       setSyncStatus("error");
-      return { ok:false, error: "Unexpected response — raw: " + JSON.stringify(data).slice(0, 200) };
+      console.warn("[AF signup] unexpected response", JSON.stringify(data).slice(0, 200));
+      return { ok:false, error: "Couldn't create your account — try again in a minute." };
 
     } catch(e) {
       setSyncStatus("error");
-      return { ok:false, error: "Error: " + (e.message || String(e)) };
+      return { ok:false, error: friendlyError(e, "signup") };
     }
   }
 
@@ -3370,7 +3373,7 @@ function createLocalBackup() {
         if (raw.includes("Email not confirmed")) {
           return { ok:false, error: "Please confirm your email first — check your inbox." };
         }
-        return { ok:false, error: cleanMsg, raw: raw.slice(0,300) };
+        return { ok:false, error: friendlyError(fetchErr, "signin") };
       }
 
       AF_DEBUG && console.log("Supabase signin response keys:", Object.keys(data));
@@ -3378,7 +3381,7 @@ function createLocalBackup() {
       if (!data.access_token) {
         setSyncStatus("error");
         const reason = data.error_description || data.msg || data.error || JSON.stringify(data).slice(0,150);
-        return { ok:false, error: "Sign in failed: " + reason };
+        return { ok:false, error: friendlyError(new Error(String(reason)), "signin") };
       }
 
       const token = data.access_token;
@@ -3481,7 +3484,7 @@ function createLocalBackup() {
       return { ok: true };
     } catch(e) {
       setSyncStatus("error");
-      return { ok:false, error: "Error: " + (e.message || String(e)) };
+      return { ok:false, error: friendlyError(e, "signin") };
     }
   }
 
@@ -3602,7 +3605,7 @@ function createLocalBackup() {
       } else if (e?.message?.toLowerCase().includes("failed to fetch") || e?.message?.toLowerCase().includes("networkerror") || e?.message?.toLowerCase().includes("network request failed")) {
         console.warn("[AF SYNC] stale-check network error — push paused", e.message);
         setSyncStatus("error");
-        showInAppBanner("Sync paused — offline or network error.", "error");
+        showInAppBanner("Sync paused", "You're offline or the connection dropped. It'll retry when you're back online.");
       } else {
         console.warn("[AF SYNC] stale-check unknown error — push blocked (safe default)", e.message);
         setSyncStatus("error");
@@ -3923,7 +3926,7 @@ function createLocalBackup() {
       setLastSyncTime(new Date().toLocaleTimeString());
       window.location.reload();
       return { ok: true };
-    } catch(e) { setSyncStatus("error"); return { ok:false, error: e.message }; }
+    } catch(e) { setSyncStatus("error"); return { ok:false, error: friendlyError(e, "household") }; }
   }
 
   // ── pullLatestHouseholdData — safe pull/apply, callable from anywhere in HomeFlow ──
@@ -11206,7 +11209,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         }
         var data = await r.json().catch(function(){return null;});
         if(!r.ok || !data || !data.ok || !data.recipe){
-          setImportError((data && data.error) || "Couldn't import that URL.");
+          setImportError(friendlyError(Object.assign(new Error((data && data.error) || "import failed"), { status: r.status }), "import"));
           setImportLoading(false);
           return;
         }
@@ -11233,7 +11236,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           ? "Couldn't find a structured recipe on that page — we grabbed the title, but you'll need to add ingredients and steps yourself."
           : "");
       } catch(e){
-        setImportError("Couldn't reach that URL.");
+        setImportError(friendlyError(e, "import"));
       }
       setImportLoading(false);
     }
@@ -11800,7 +11803,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       const recognition=new SR();recognitionRef.current=recognition;recognition.continuous=false;recognition.interimResults=true;recognition.lang="en-US";
       recognition.onstart=()=>{setIsListening(true);setVoiceStatus("Listening… say your item");};
       recognition.onresult=function(e){var transcript=Array.from(e.results).map(function(r){return r[0].transcript;}).join("");setVoiceStatus("Heard: \""+transcript+"\"");if(e.results[0].isFinal){var voiceItems=transcript.split(/\band\b/i).map(function(s){return s.trim();}).filter(Boolean);voiceItems.forEach(function(item){addItem(item,newStore);});setIsListening(false);setVoiceStatus("✓ Added "+voiceItems.length+" item"+(voiceItems.length>1?"s":""));setTimeout(function(){setVoiceStatus("");},2500);}};
-      recognition.onerror=e=>{setIsListening(false);setVoiceStatus(e.error==="not-allowed"?"Microphone access denied.":`Error: ${e.error}`);setTimeout(()=>setVoiceStatus(""),3000);};
+      recognition.onerror=e=>{setIsListening(false);console.warn("[AF voice]", e.error);setVoiceStatus(e.error==="not-allowed"?"Microphone access is off — allow it in your browser settings, then try again.":"Couldn't hear that — tap the mic and try again.");setTimeout(()=>setVoiceStatus(""),3000);};
       recognition.onend=()=>setIsListening(false);recognition.start();
     }
     function stopListening(){recognitionRef.current?.stop();setIsListening(false);}
@@ -18212,7 +18215,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           client_id: GOOGLE_CLIENT_ID,
           scope: "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.calendarlist.readonly",
           callback: (response) => {
-            if (response.error) { setError("Google sign-in failed: " + response.error); return; }
+            if (response.error) { console.warn("[AF gcal] sign-in error", response.error); setError("Google sign-in didn't finish — tap Connect to try again."); return; }
             const token = response.access_token;
             setGoogleCalToken(token);
             setConnectedCals(p => [...p.filter(x=>x!=="google"), "google"]);
@@ -18264,7 +18267,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           setSyncing2(false); return;
         }
         const calListData = await calListRes.json();
-        if (calListData.error) { setError(calListData.error.message||"Google Calendar error"); setSyncing2(false); return; }
+        if (calListData.error) { setError(friendlyError(Object.assign(new Error(calListData.error.message||"Google Calendar error"), { status: calListData.error.code }), "gcal")); setSyncing2(false); return; }
 
         // F-26: cap the number of calendars fetched. A power user with dozens of
         // subscribed calendars would otherwise fire an unbounded fan-out of requests.
@@ -18340,7 +18343,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         setGoogleCalError("");
       } catch(e) {
         // A timeout/abort lands here too — report it instead of hanging.
-        setError("Couldn't fetch events: " + (e.name === "AbortError" ? "request timed out" : (e.message || "Unknown error")));
+        setError(friendlyError(e, "gcal"));
       } finally {
         setSyncing2(false);
       }
@@ -18426,7 +18429,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [confirmed, setConfirmed] = useState(false);
-    const [rawDebug, setRawDebug] = useState(""); // show exact Supabase error
 
     // Clear fields when switching modes to prevent autofill bleed
     function switchMode(newMode) {
@@ -18435,7 +18437,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setPassword("");
       setDisplayName("");
       setError("");
-      setRawDebug("");
       setConfirmed(false);
     }
 
@@ -18465,7 +18466,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       const trimPass = password;
       if (!trimEmail || !trimPass) { setError("Email and password are required."); return; }
       if (mode==="signup" && trimPass.length < 6) { setError("Password must be at least 6 characters."); return; }
-      setLoading(true); setError(""); setRawDebug("");
+      setLoading(true); setError("");
       const result = mode==="signup"
         ? await signUp(trimEmail, trimPass, displayName.trim())
         : await signIn(trimEmail, trimPass);
@@ -18478,7 +18479,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       if (result && !result.ok) {
         setLoading(false);
         setError(result.error || "Something went wrong. Please try again.");
-        if (result.raw) setRawDebug(result.raw);
         return;
       }
     }
@@ -18567,7 +18567,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {error&&(
           <div style={{background:T.rosePale,border:"1.5px solid "+T.rose+"50",borderRadius:"0.65rem",padding:"0.7rem 0.85rem",marginBottom:"0.85rem",fontSize:"0.83rem",color:T.rose,fontWeight:600,lineHeight:1.5}}>
             {error}
-            {rawDebug&&<div style={{marginTop:"0.35rem",fontSize:"0.7rem",color:T.textSoft,fontWeight:400,wordBreak:"break-all",fontFamily:"monospace"}}>{rawDebug}</div>}
             {(error.includes("already has an account")||error.includes("Sign In"))&&(
               <button type="button" onClick={()=>switchMode("signin")} style={{display:"block",marginTop:"0.4rem",background:"none",border:"none",color:T.blue,cursor:"pointer",fontSize:"0.8rem",fontFamily:"inherit",fontWeight:700,padding:0,textDecoration:"underline"}}>
                 Switch to Sign In →
@@ -18700,7 +18699,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setMembersLoading(true); setMembersError("");
       const r = await supabase.rpc("list_household_members", { p_household_id: householdId });
       setMembersLoading(false);
-      if (r.error) { setMembersError("Member list needs a one-time database update — ask your developer to run sql/2026-08_household_membership.sql."); return; }
+      if (r.error) { console.warn("[AF household] member list unavailable", r.error); setMembersError("Couldn't load your household members right now — try again later."); return; }
       setMembers(r.data || []);
     }
     React.useEffect(function(){ fetchMembers(); }, [householdId]);
@@ -18727,7 +18726,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       try {
         await sbFetch("/rest/v1/household_members?household_id=eq."+encodeURIComponent(householdId)+"&user_id=eq."+encodeURIComponent(memberUserId), { method: "DELETE", _token: authToken });
         setMembers(function(prev){ return prev.filter(function(m){ return m.user_id !== memberUserId; }); });
-      } catch(e) { setMembersError("Couldn't remove member: " + e.message); }
+      } catch(e) { setMembersError(friendlyError(e, "household")); }
     }
     async function handleSync() {
       if (!authToken) return;
@@ -18743,7 +18742,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         setLastSynced(new Date().toLocaleTimeString());
         setSyncStatus("synced");
         setLastSyncTime(new Date().toLocaleTimeString());
-      } catch(e) { setError("Sync failed: " + e.message); }
+      } catch(e) { setError(friendlyError(e, "sync")); }
       setSyncing(false);
     }
     async function handleJoin() {
@@ -20241,6 +20240,9 @@ export default function App() {
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  // Search engines: index the sign-in screen, never the signed-in app.
+  React.useEffect(function () { if (session !== undefined) applyRobotsForSession(!!session); }, [session]);
 
   const signOut = () => { _afUserInitiatedSignOut = true; supabase.auth.signOut(); setSession(null); setMode(null) }
 

@@ -11,6 +11,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { askFamily } from "../compass/compassEngine";
+import { friendlyError } from "../lib/friendlyError.js";
 import { readHouseholdState, TK } from "./shellKit";
 import { renderCompassText } from "./compassText.jsx";
 
@@ -39,7 +40,7 @@ export default function CompassFab(props) {
     setInput("");
     setBusy(true);
     function fail(e) {
-      setThread(function (p) { return p.concat([{ q: q, error: (e && e.message) || "Compass couldn't think just now." }]); });
+      setThread(function (p) { return p.concat([{ q: q, error: friendlyError(e, "compass") }]); });
       setBusy(false);
     }
     // Wrapped in try/catch, not just the promise's .catch() below: anything

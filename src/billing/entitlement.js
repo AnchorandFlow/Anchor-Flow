@@ -90,7 +90,7 @@ export function startCheckout(getToken, plan) {
   })
     .then(function (r) {
       return r.json().then(function (data) {
-        if (!r.ok) throw new Error(data && data.error ? data.error : 'checkout failed');
+        if (!r.ok) { var ce = new Error(data && data.error ? data.error : 'checkout failed'); ce.status = r.status; throw ce; }
         return data;
       });
     })
@@ -112,7 +112,7 @@ export function openBillingPortal(getToken) {
   })
     .then(function (r) {
       return r.json().then(function (data) {
-        if (!r.ok) throw new Error(data && data.error ? data.error : 'portal failed');
+        if (!r.ok) { var pe = new Error(data && data.error ? data.error : 'portal failed'); pe.status = r.status; throw pe; }
         return data;
       });
     })

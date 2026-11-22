@@ -16,6 +16,7 @@
 //    once, in the console: console.log(buildCompassContext(state, "today")).
 
 import { COMPASS_PROMPTS } from "./compassPrompts";
+import { userError } from "../lib/friendlyError.js";
 import { resolveResponsibleParent } from "../sync-core.js";
 
 // ── small utils ───────────────────────────────────────────────────────────────
@@ -722,8 +723,8 @@ export function buildCompassContext(state, scope, extra) {
 export async function runCompass(mode, state, opts) {
   opts = opts || {};
   var prompt = COMPASS_PROMPTS[mode];
-  if (!prompt) throw new Error("Unknown Compass mode: " + mode);
-  if (state && state.compassEnabled === false) throw new Error("Compass is turned off in Settings.");
+  if (!prompt) throw userError("Compass couldn't answer just now — try again in a minute.", { detail: "Unknown Compass mode: " + mode });
+  if (state && state.compassEnabled === false) throw userError("Compass is turned off — switch it on in Settings to use it.");
 
   var scope = mode === "briefing" ? "today" : mode === "forecast" ? "today" : mode === "weeklyReview" ? "week" : mode === "prep" ? "prep" : mode === "nudge" ? "today" : "ask";
   var context = buildCompassContext(state, scope, opts);
@@ -765,9 +766,9 @@ export async function runCompass(mode, state, opts) {
   });
   if (!r.ok) {
     var msg = r.status === 401 ? "Please sign in again to use Compass."
-            : r.status === 429 ? "Compass needs a short breather — try again in a few minutes."
-            : "Compass couldn't think just now.";
-    throw new Error(msg);
+            : (r.status === 429 || r.status === 529 || r.status === 503) ? "Compass is busy right now — try again in a minute."
+            : "Compass couldn't answer just now — try again in a minute.";
+    throw userError(msg, { status: r.status });
   }
   var data = await r.json();
   var text = (data.content || []).map(function (b) { return b.text || ""; }).join("");
@@ -793,7 +794,7 @@ function parseCompassResponse(text, mode) {
     if (mode === "ask") {
       return { answer: clean.slice(0, 800), details: [], not_found: false };
     }
-    throw new Error("Compass couldn't format a response just now.");
+    throw userError("Compass couldn't answer just now — try again in a minute.");
   }
 }
 

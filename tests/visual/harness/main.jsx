@@ -48,6 +48,9 @@ window.fetch = function (input, init) {
   var sb = url.indexOf(".supabase.co/rest/v1/");
   if (params.get("hhsync") === "1" && sb !== -1) { var hi = Object.assign({}, init || {}); hi.headers = Object.assign({}, (init && init.headers) || {}, { "x-harness-me": params.get("me") || "" }); return realFetch("/__hh" + url.slice(url.indexOf("/rest/v1/")), hi); }
   if (local && !api) return realFetch(input, init);
+  // apifail=<status>: /api/* answers with that status and a raw, developer-style
+  // JSON error — to check the screen shows a friendly line instead.
+  if (api && params.get("apifail")) return Promise.resolve(new Response(JSON.stringify({ error: "RAW_DETAIL upstream " + params.get("apifail") }), { status: +params.get("apifail"), headers: { "content-type": "application/json" } }));
   return Promise.reject(new TypeError("harness: network disabled"));
 };
 

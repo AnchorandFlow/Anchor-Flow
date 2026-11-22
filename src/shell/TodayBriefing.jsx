@@ -3,6 +3,7 @@
 // Reuses the navy hero + mode chips; body is now the Compass forecast.
 import { useState, useEffect } from "react";
 import { getDailyForecast } from "../compass/compassEngine";
+import { friendlyError } from "../lib/friendlyError.js";
 import { readHouseholdState, TK } from "./shellKit";
 
 var MODES = {
@@ -47,7 +48,7 @@ export default function TodayBriefing(props) {
     var save = props.setCompassCache || cacheWrite;
     getDailyForecast(state, save, force)
       .then(function (data) { setFc(data); setLoading(false); })
-      .catch(function (e) { setError(e.message || "Compass couldn't load today."); setLoading(false); });
+      .catch(function (e) { setError(friendlyError(e, "compass")); setLoading(false); });
   }
   useEffect(function () { load(false); }, []); // eslint-disable-line
   function refresh() { setOverrides({}); ovWrite({}); load(true); }
