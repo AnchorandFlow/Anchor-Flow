@@ -9,6 +9,8 @@ import { useState } from "react";
 import { waveTone } from "../design/tokens.js";
 import { FullViewPage, FullViewHeader, PillTabs, Card, CheckRow, Empty, PillButton, ToneScope } from "./FullView.jsx";
 import { inputStyle, MUTED, HAIRLINE } from "./fullViewKit.js";
+import KidWaveView from "./KidWaveView.jsx";
+import { isKidWave, stepIcon } from "../lib/wavesKid.js";
 
 var TYPES = [
   { id: "daily", label: "Daily", noun: "daily wave" },
@@ -51,8 +53,18 @@ function WaveCard(props) {
   var [unit, setUnit] = useState("days");
   var last = w.history && w.history.length ? w.history[w.history.length - 1] : null;
   var meta = x.scheduleLabel(type, w) + (last ? " · last done " + x.daysAgo(last.date) + " (" + last.checked + "/" + last.total + ")" : "");
+  // Waves kid view (af_waves_kid_v1): props.kidMode is only passed with the
+  // flag on; flag off, kidOn is always false and this card renders as before.
+  var kidOn = !!props.kidMode && isKidWave(type, w);
+  var kids = props.kids || [];
+  var kidName = kidOn && w.kidId ? ((kids.filter(function (k) { return k.id === w.kidId; })[0] || {}).name || "") : "";
+  var [grownUp, setGrownUp] = useState(false);
 
   function addTask() { if (!newTask.trim()) return; x.addTask(type, w.id, newTask); setNewTask(""); }
+
+  if (kidOn && !grownUp && !editing) {
+    return <KidWaveView wave={w} type={type} api={x} kidName={kidName} onGrownUp={function () { setGrownUp(true); }} />;
+  }
 
   return (
     <Card testId={"wave-" + w.id} title={editing ? null : w.name}
@@ -69,10 +81,24 @@ function WaveCard(props) {
             </div>
           )}
           <div style={{ fontSize: 12.5, color: MUTED }}>{x.scheduleLabel(type, w)}</div>
+          {props.kidMode && type === "daily" && (
+            <div data-testid={"wave-kid-settings-" + w.id} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", background: "#F2F6F5", borderRadius: 12, padding: "10px 12px" }}>
+              <PillButton small variant={w.kidView ? "primary" : "secondary"} testId={"wave-kidview-" + w.id} onClick={function () { x.patchWave(type, w.id, { kidView: !w.kidView }); }}>{w.kidView ? "Kid view: on" : "Kid view: off"}</PillButton>
+              {w.kidView && kids.length > 0 && (
+                <select value={w.kidId || ""} aria-label="Whose routine" onChange={function (e) { x.patchWave(type, w.id, { kidId: e.target.value }); }} style={Object.assign({}, inputStyle, { width: "auto" })}>
+                  <option value="">Whose routine?</option>
+                  {kids.map(function (k) { return <option key={k.id} value={k.id}>{k.name}</option>; })}
+                </select>
+              )}
+              <span style={{ fontSize: 12.5, color: MUTED, flexBasis: "100%" }}>{w.kidView ? "Shows as picture cards to tap. Mark the must-do steps Essential for gentle days." : "Turn on to show this routine as big picture cards for a child."}</span>
+            </div>
+          )}
           {tasks.map(function (t) {
             return (
               <div key={t.id} style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <input value={t.text} aria-label="Task" onChange={function (e) { x.updateTask(type, w.id, t.id, { text: e.target.value }); }} style={Object.assign({}, inputStyle, { flex: 1, fontSize: 14, padding: "8px 12px" })} />
+                {props.kidMode && type === "daily" && <input key={t.id + ":" + (t.icon || "")} defaultValue={t.icon || ""} placeholder={stepIcon(t)} maxLength={8} aria-label={"Picture for " + t.text} onBlur={function (e) { var v = e.target.value.trim(); if (v !== (t.icon || "")) x.updateTask(type, w.id, t.id, { icon: v }); }} style={Object.assign({}, inputStyle, { width: 52, textAlign: "center", fontSize: 18, padding: "6px 4px" })} />}
+                {props.kidMode && type === "daily" && <PillButton small variant={t.essential ? "primary" : "secondary"} testId={"wave-essential-" + t.id} onClick={function () { x.updateTask(type, w.id, t.id, { essential: !t.essential }); }}>{t.essential ? "Essential ✓" : "Essential"}</PillButton>}
                 <button type="button" aria-label={"Delete " + t.text} onClick={function () { x.deleteTask(type, w.id, t.id, t.text); }} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 17, padding: 4 }}>×</button>
               </div>
             );
@@ -96,6 +122,7 @@ function WaveCard(props) {
           <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
             {done > 0 && <PillButton small variant="ghost" onClick={function () { x.reset(type, w.id); }}>Reset wave</PillButton>}
             <PillButton small variant="ghost" onClick={function () { setEditing(true); }}>Edit</PillButton>
+            {kidOn && grownUp && <PillButton small variant="ghost" testId={"wave-back-to-kid-" + w.id} onClick={function () { setGrownUp(false); }}>Kid view</PillButton>}
           </div>
         </>
       )}
@@ -153,7 +180,7 @@ export default function WavesFull(props) {
       <ToneScope tone={waveTone[type]}>
         <div data-testid="waves-rhythm" data-rhythm={type} style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
           {!list.length && <Card><Empty>{"No " + TYPES.filter(function (t) { return t.id === type; })[0].noun + "s yet."}</Empty></Card>}
-          {list.map(function (w) { return <WaveCard key={w.id} wave={w} type={type} api={x} />; })}
+          {list.map(function (w) { return <WaveCard key={w.id} wave={w} type={type} api={x} kidMode={props.kidMode} kids={props.kids} />; })}
           <AddWave key={type} type={type} api={x} />
         </div>
       </ToneScope>

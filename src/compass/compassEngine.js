@@ -17,6 +17,7 @@
 
 import { COMPASS_PROMPTS } from "./compassPrompts";
 import { userError } from "../lib/friendlyError.js";
+import { compassFeelingContext } from "../lib/wavesKid.js";
 import { resolveResponsibleParent } from "../sync-core.js";
 
 // ── small utils ───────────────────────────────────────────────────────────────
@@ -611,6 +612,12 @@ export function buildCompassContext(state, scope, extra) {
   // at least one grounded connection was actually found.
   var _connections = computePotentialConnections(state);
   if (_connections.length) ctx.potential_connections = "POTENTIAL CONNECTIONS (reference these specifically if relevant):\n- " + _connections.join("\n- ");
+  // Waves kid view (af_waves_kid_v1): today's feelings check-ins, when any —
+  // optional context only (absent on days without a check-in).
+  if (scope === "today" || scope === "ask") {
+    var _kidFeelings = compassFeelingContext(state);
+    if (_kidFeelings) ctx.kid_checkins_today = _kidFeelings;
+  }
 
   if (scope === "today") {
     ctx.flow_mode = state.flowMode || null;

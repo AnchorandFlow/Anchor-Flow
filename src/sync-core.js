@@ -134,6 +134,13 @@ export const SYNC_KEYS = [
   // the defensive pass-through. Writer: saveWall (src/lib/badges.js) marks
   // dirty and dispatches af-data-changed.
   "kid_badges",
+  // Waves kid view (flag af_waves_kid_v1): daily feelings check-in per kid —
+  // { [kidKey]: { "YYYY-MM-DD": { feeling, gentle, at } } }. Synced so a
+  // check-in on the kid's device reaches Compass on a parent's. Entries older
+  // than 7 days are pruned on write. Receive side: defensive pass-through.
+  // Writer: saveFeeling (src/lib/wavesKid.js) marks dirty + af-data-changed.
+  // (The routine fields kidView/kidId/essential/icon live on exhale_waves.)
+  "kid_feelings",
   // sunset_log: Sunset completion per member per date (af_redesign) —
   // { personId: { "YYYY-MM-DD": { completedAt, updatedAt, mood, released,
   // exhaled } } }. Object map; merge-on-receive in applyHouseholdKey so two
@@ -522,12 +529,19 @@ export function sanitizeHouseholdData(data) {
         typeof data["exhale_waves"] === "object" && !Array.isArray(data["exhale_waves"])) {
       var ew = data["exhale_waves"];
       var sanitizeWaveTasks = function(tasks) {
-        return Array.isArray(tasks) ? tasks.filter(t => t && typeof t === "object" && !Array.isArray(t)).map(t => ({
-          id: typeof t.id === "string" ? t.id : undefined,
-          text: typeof t.text === "string" ? t.text : "",
-          estimatedMinutes: typeof t.estimatedMinutes === "number" ? t.estimatedMinutes : null,
-          done: typeof t.done === "boolean" ? t.done : false,
-        })) : [];
+        return Array.isArray(tasks) ? tasks.filter(t => t && typeof t === "object" && !Array.isArray(t)).map(t => {
+          var t2 = {
+            id: typeof t.id === "string" ? t.id : undefined,
+            text: typeof t.text === "string" ? t.text : "",
+            estimatedMinutes: typeof t.estimatedMinutes === "number" ? t.estimatedMinutes : null,
+            done: typeof t.done === "boolean" ? t.done : false,
+          };
+          // Waves kid view (af_waves_kid_v1): optional step fields, kept only
+          // when present and well-typed so existing data is unchanged.
+          if (typeof t.essential === "boolean") t2.essential = t.essential;
+          if (typeof t.icon === "string" && t.icon.length <= 16) t2.icon = t.icon;
+          return t2;
+        }) : [];
       };
       var sanitizeWaveHistory = function(history) {
         return Array.isArray(history) ? history.filter(h => h && typeof h === "object" && !Array.isArray(h)).map(h => ({
@@ -544,6 +558,9 @@ export function sanitizeHouseholdData(data) {
           if (typeof w.lastReset === "string") out2.lastReset = w.lastReset;
           if (Array.isArray(w.history)) out2.history = sanitizeWaveHistory(w.history);
           (numFields||[]).forEach(f => { if (typeof w[f] === "number") out2[f] = w[f]; });
+          // Waves kid view (af_waves_kid_v1): optional routine fields.
+          if (typeof w.kidView === "boolean") out2.kidView = w.kidView;
+          if (typeof w.kidId === "string" && w.kidId.length <= 64) out2.kidId = w.kidId;
           return out2;
         }) : [];
       };

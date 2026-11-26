@@ -62,6 +62,11 @@ import { badgesEnabled } from "./lib/badges.js"
 // Badges & Stars (per-child achievement wall in Lighthouse) — per-device flag
 // af_badges_v1, default OFF. Off: no Badges tab, no Badges render path.
 const BADGES_V1 = badgesEnabled();
+import { wavesKidEnabled, patchWave as wavesKidPatch } from "./lib/wavesKid.js"
+// Waves kid view (picture cards, feelings check-in, gentle day) on existing
+// daily Waves routines — per-device flag af_waves_kid_v1, default OFF. Off:
+// WavesFull gets no kidMode and renders exactly as before.
+const WAVES_KID_V1 = wavesKidEnabled();
 import { SCHOOL_TYPES as RD_SCHOOL_TYPES, SCHOOL_TYPES_SETTINGS as RD_SCHOOL_TYPES_SETTINGS, schoolTypeLabel, cleanSchoolLabel, lhSections, defaultSchoolType } from "./lib/schoolType.js"
 import { sysNextDue as vaultSysNextDue } from "./lib/vaultDates.js"
 import { occursOn as calOccursOn, forIdsOf as calForIdsOf, refreshPersonColors as calRefreshPersonColors, editOccurrence as calEditOccurrence, deleteOccurrence as calDeleteOccurrence, allCategories as calAllCategories, newCategory as calNewCategory } from "./lib/calEvents.js"
@@ -9924,8 +9929,11 @@ Respond ONLY in valid JSON:
     // never reaches this.
     if (REDESIGN) return (
       <WavesFull waves={wavesList()} showEmojis={showEmojis}
+        kidMode={WAVES_KID_V1}
+        kids={WAVES_KID_V1 ? people.filter(function(p){ return p && p.name && personIsMinor(p); }).map(function(p){ return { id:p.id, name:p.name }; }) : undefined}
         api={{
           add: addWave, rename: renameWave, schedule: updateWaveSchedule, remove: deleteWave,
+          patchWave: function(type, id, patch) { persistWaves(wavesKidPatch(wavesList(), type, id, patch)); },
           addTask: addWaveTask, updateTask: updateWaveTask, deleteTask: deleteWaveTask, reset: resetWave,
           scheduleLabel: waveScheduleLabel, daysAgo: waveDaysAgoLabel, toDays: waveIntervalToDays,
           dayLabels: WAVE_DAY_LABELS, monthLabels: WAVE_MONTH_LABELS,
