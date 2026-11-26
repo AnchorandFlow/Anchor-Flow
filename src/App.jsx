@@ -52,6 +52,11 @@ import { GOOGLE_CLIENT_ID as GCAL_CLIENT_ID, GOOGLE_SCOPES as GCAL_SCOPES, GOOGL
 import GoogleCalendarRow from "./redesign/GoogleCalendarRow.jsx"
 import { friendlyError } from "./lib/friendlyError.js"
 import { applyRobotsForSession } from "./lib/seoRobots.js"
+import RhythmTimer from "./redesign/RhythmTimer.jsx"
+import { rhythmEnabled } from "./lib/rhythm.js"
+// Rhythm (focus-block timer in Lighthouse) — per-device flag af_rhythm_v1,
+// default OFF. Off: no Rhythm tab, no Rhythm render path.
+const RHYTHM_V1 = rhythmEnabled();
 import { SCHOOL_TYPES as RD_SCHOOL_TYPES, SCHOOL_TYPES_SETTINGS as RD_SCHOOL_TYPES_SETTINGS, schoolTypeLabel, cleanSchoolLabel, lhSections, defaultSchoolType } from "./lib/schoolType.js"
 import { sysNextDue as vaultSysNextDue } from "./lib/vaultDates.js"
 import { occursOn as calOccursOn, forIdsOf as calForIdsOf, refreshPersonColors as calRefreshPersonColors, editOccurrence as calEditOccurrence, deleteOccurrence as calDeleteOccurrence, allCategories as calAllCategories, newCategory as calNewCategory } from "./lib/calEvents.js"
@@ -15056,7 +15061,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       { id:"records",  label:"Records",  emoji:"📋" },
       { id:"growth",   label:"Growth",   emoji:"📈" },
       { id:"library",  label:"Library",  emoji:"📚" },
-    ];
+    ].concat(RHYTHM_V1 ? [{ id:"rhythm", label:"Rhythm", emoji:"⏱️", tone: RD_TONE_BASE.blue }] : []);
     // Learning's own fixed palette (Phase 2) — deliberately independent of the
     // household's chosen T theme, same precedent as RootErrorBoundary's fixed navy.
     var LC = { cream:"#F7F3EC", seaglass:"#6ABAAA", navy:"#243A5A" };
@@ -15157,7 +15162,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [lighthouse, setLighthouse] = useSaved("lighthouse", defaultLighthouse());
     var [schoolData, setSchoolData] = useSaved("schoolData", {});
     var [activeChild, _setActiveChild] = React.useState(function(){ try { var s = sessionStorage.getItem("af_learningActiveChild"); if (s) return s; } catch(_e) {} return null; });
-    var [learningSubTab, _setLearningSubTab] = React.useState(function(){ try { var s = sessionStorage.getItem("af_learningSubTab"); if (s) return s; } catch(_e) {} return "overview"; });
+    var [learningSubTab, _setLearningSubTab] = React.useState(function(){ try { var s = sessionStorage.getItem("af_learningSubTab"); if (s && (s !== "rhythm" || RHYTHM_V1)) return s; } catch(_e) {} return "overview"; });
     function setActiveChild(id) { _setActiveChild(id); try { if (id) sessionStorage.setItem("af_learningActiveChild", id); else sessionStorage.removeItem("af_learningActiveChild"); } catch(_e) {} }
     function setLearningSubTab(t) { _setLearningSubTab(t); try { sessionStorage.setItem("af_learningSubTab", t); } catch(_e) {} }
 
@@ -18137,7 +18142,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         schoolType={childPerson ? childPerson.schoolType : null} schoolLabel={childPerson ? (childPerson.schoolLabel || "") : ""}
         schoolTypeLabel={childPerson ? schoolTypeLabel(childPerson) : ""} schoolTypes={RD_SCHOOL_TYPES} onSchoolType={setChildSchoolType}
         sections={LEARNING_TABS} section={learningSubTab} onSection={setLearningSubTab}
-        showEmojis={showEmojis}>
+        showEmojis={showEmojis}
+        rhythm={RHYTHM_V1 && learningSubTab === "rhythm" ? <RhythmTimer key={activeChild} kidId={activeChild} kidName={childPerson ? childPerson.name : ""} showEmojis={showEmojis} /> : null}>
         {learningSubTab === "overview" && <OverviewArea key={activeChild} />}
         {learningSubTab === "plan" && <PlanArea key={activeChild} />}
         {learningSubTab === "records" && <RecordsArea key={activeChild} />}
@@ -18192,6 +18198,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {learningSubTab === "records" && <RecordsArea key={activeChild} />}
         {learningSubTab === "growth" && <GrowthArea key={activeChild} />}
         {learningSubTab === "library" && <LibraryArea key={activeChild} />}
+        {RHYTHM_V1 && learningSubTab === "rhythm" && <RhythmTimer key={activeChild} kidId={activeChild} kidName={childPerson ? childPerson.name : ""} />}
       </div>
     );
   }

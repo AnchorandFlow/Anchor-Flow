@@ -106,7 +106,7 @@ export default function LighthouseFull(props) {
   var childTabs = (props.children_ || []).map(function (p) {
     return { id: p.id, label: p.name, emoji: p.mode === "homeschool" ? "🏡" : p.mode === "school" ? "🏫" : p.mode === "hybrid" ? "🤝" : p.mode === "other" ? "✏️" : null, tone: kidTone(p.color) || undefined };
   });
-  var sectionTabs = (props.sections || []).map(function (t) { return Object.assign({}, t, { tone: LH_AREA_TONE[t.id] }); });
+  var sectionTabs = (props.sections || []).map(function (t) { return Object.assign({}, t, { tone: t.tone || LH_AREA_TONE[t.id] }); });
   var kid = (props.children_ || []).filter(function (p) { return p.id === props.activeChild; })[0];
   var kidColor = kid && kid.color ? kid.color : null;
   return (
@@ -118,6 +118,9 @@ export default function LighthouseFull(props) {
       <PillTabs label="Lighthouse sections" tabs={sectionTabs} value={props.section} onChange={props.onSection} testIdPrefix="lh-tab-" showEmojis={se} />
       <div className={SCOPE} data-testid="lh-body" data-kid-color={kidColor || undefined} style={{ minWidth: 0, fontSize: font.checklistItem.size, borderTop: kidColor ? "3px solid " + kidColor : "none", paddingTop: kidColor ? 10 : 0 }}>
         <EmojiScope showEmojis={se}>{props.children}</EmojiScope>
+        {/* Rhythm (af_rhythm_v1) sits outside EmojiScope: its stickers are the
+            reward and must never be stripped; it handles showEmojis itself. */}
+        {props.rhythm || null}
       </div>
     </FullViewPage>
   );

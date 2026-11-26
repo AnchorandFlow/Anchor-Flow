@@ -120,6 +120,13 @@ export const SYNC_KEYS = [
   "cal_markers","cal_marker_types","workDays",
   // Traditions (RipplesRoom)
   "traditions",
+  // Rhythm routines (Lighthouse › Rhythm, flag af_rhythm_v1): per-kid reusable
+  // focus-block lists — { [kidId]: { blocks:[{id,name,mins,type,note,
+  // breakActivity}], updatedAt } }. Object map; receive side is the defensive
+  // pass-through. Writer: saveRoutine (src/lib/rhythm.js) marks dirty and
+  // dispatches af-data-changed. Daily stickers and the running timer stay
+  // device-local (af_rhythm_stickers / af_rhythm_run) and are NOT listed here.
+  "rhythm_routines",
   // sunset_log: Sunset completion per member per date (af_redesign) —
   // { personId: { "YYYY-MM-DD": { completedAt, updatedAt, mood, released,
   // exhaled } } }. Object map; merge-on-receive in applyHouseholdKey so two
