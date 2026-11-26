@@ -127,6 +127,13 @@ export const SYNC_KEYS = [
   // dispatches af-data-changed. Daily stickers and the running timer stay
   // device-local (af_rhythm_stickers / af_rhythm_run) and are NOT listed here.
   "rhythm_routines",
+  // Badges & Stars (Lighthouse › Badges, flag af_badges_v1): per-child
+  // achievement wall, kept across days (never resets) — { [kidId]: {
+  // curriculum:[{id,subject,icon,level}], milestones:[{id,label,icon,type,
+  // have,goal,earned,earnedAt}], updatedAt } }. Object map; receive side is
+  // the defensive pass-through. Writer: saveWall (src/lib/badges.js) marks
+  // dirty and dispatches af-data-changed.
+  "kid_badges",
   // sunset_log: Sunset completion per member per date (af_redesign) —
   // { personId: { "YYYY-MM-DD": { completedAt, updatedAt, mood, released,
   // exhaled } } }. Object map; merge-on-receive in applyHouseholdKey so two

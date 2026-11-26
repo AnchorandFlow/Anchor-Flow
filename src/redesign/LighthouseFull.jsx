@@ -118,9 +118,10 @@ export default function LighthouseFull(props) {
       <PillTabs label="Lighthouse sections" tabs={sectionTabs} value={props.section} onChange={props.onSection} testIdPrefix="lh-tab-" showEmojis={se} />
       <div className={SCOPE} data-testid="lh-body" data-kid-color={kidColor || undefined} style={{ minWidth: 0, fontSize: font.checklistItem.size, borderTop: kidColor ? "3px solid " + kidColor : "none", paddingTop: kidColor ? 10 : 0 }}>
         <EmojiScope showEmojis={se}>{props.children}</EmojiScope>
-        {/* Rhythm (af_rhythm_v1) sits outside EmojiScope: its stickers are the
-            reward and must never be stripped; it handles showEmojis itself. */}
-        {props.rhythm || null}
+        {/* Areas whose emoji are content, not decoration (Rhythm's stickers,
+            Badges' subject and medal icons) render outside EmojiScope and
+            handle showEmojis themselves. */}
+        {props.unscoped || null}
       </div>
     </FullViewPage>
   );

@@ -122,6 +122,7 @@ const PLAUSIBLE = {
   cal_marker_types:   [{ id:"cm1", emoji:"⭐", label:"Star" }],
   workDays:           ["Monday","Tuesday","Wednesday","Thursday","Friday"],
   traditions:         [{ id:"tr1", title:"Christmas Eve Drive", when:"12-24" }],
+  kid_badges:         { p_jun:{ curriculum:[{ id:"cs1", subject:"Math", icon:"🔢", level:2 }], milestones:[{ id:"ms1", label:"Read 100 books", icon:"📚", type:"count", have:12, goal:100, earned:false, earnedAt:null }], updatedAt:1 } },
   rhythm_routines:    { p_jun:{ blocks:[{ id:"rb1", name:"Spelling", mins:20, type:"work", note:"Words: ocean, anchor", breakActivity:"" }], updatedAt:1 } },
   sunset_log:         { p_lin:{ "2026-11-13":{ completedAt:"2026-11-14T03:10:00.000Z", updatedAt:"2026-11-14T03:10:00.000Z", mood:"calm", released:[{ text:"Fold laundry", choice:"tomorrow" }], exhaled:["Call the dentist"] } } },
   monthMeals:         { "2026-06":{ "2026-06-01":"pasta","2026-06-02":"tacos" } },
@@ -176,7 +177,7 @@ describe("A1 — every SYNC_KEYS key survives sanitize with a plausible value", 
 // ── A2: Keys with no explicit rule use the defensive pass-through ─────────────
 describe("A2 — keys handled only by pass-through survive", () => {
   // These keys have no explicit block in sanitizeHouseholdData beyond SYNC_KEYS pass-through.
-  const PASS_THROUGH_KEYS = ["workDays","traditions","rhythm_routines","cal_markers","cal_marker_types",
+  const PASS_THROUGH_KEYS = ["workDays","traditions","rhythm_routines","kid_badges","cal_markers","cal_marker_types",
     "compassEnabled","exhale_groups","exhale_color_labels","exhale_people",
     "monthMeals","nwMealCount",
     "tidePoolEnabled","lighthouseEnabled","celebrationsEnabled","mealsEnabled","careerEnabled","safeHarborEnabled","ripplesEnabled",
